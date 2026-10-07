@@ -1,0 +1,2 @@
+-- Backend database initialization placeholder.
+

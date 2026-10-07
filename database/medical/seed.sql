@@ -1,0 +1,2 @@
+-- Medical database seed placeholder.
+

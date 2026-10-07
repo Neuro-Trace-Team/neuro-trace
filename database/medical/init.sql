@@ -1,0 +1,2 @@
+-- Medical database initialization placeholder.
+
