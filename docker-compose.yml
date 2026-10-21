@@ -1,2 +1,244 @@
-services: {}
+services:
+
+  frontend:
+    build:
+      context: ./services/frontend
+    container_name: neuro-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - neuro-network
+
+
+  backend:
+    build:
+      context: ./services/backend
+    container_name: neuro-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_AUTH_URL: postgresql://postgres:postgres@auth-db:5432/auth_db
+      DB_MEDICAL_URL: postgresql://postgres:postgres@medical-db:5432/medical_db
+      DB_AUDIT_URL: postgresql://postgres:postgres@audit-db:5432/audit_db
+
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+
+      PREPROCESSING_URL: http://preprocessing:8001
+
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      medical-db:
+        condition: service_healthy
+      audit-db:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+      preprocessing:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+  preprocessing:
+    build:
+      context: ./services/preprocessing
+    container_name: neuro-preprocessing
+
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+  ml:
+    build:
+      context: ./services/ml
+    container_name: neuro-ml
+
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+
+    networks:
+      - neuro-network
+
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: neuro-rabbitmq
+
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+  auth-db:
+    image: postgres:17
+    container_name: neuro-auth-db
+
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+  medical-db:
+    image: postgres:17
+    container_name: neuro-medical-db
+
+    environment:
+      POSTGRES_DB: medical_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    volumes:
+      - medical-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d medical_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+  audit-db:
+    image: postgres:17
+    container_name: neuro-audit-db
+
+    environment:
+      POSTGRES_DB: audit_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    volumes:
+      - audit-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d audit_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+  rustfs:
+    image: rustfs/rustfs:1.0.3
+    container_name: neuro-rustfs
+
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+
+    volumes:
+      - rustfs-data:/data
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+
+volumes:
+  auth-db-data:
+  medical-db-data:
+  audit-db-data:
+  rustfs-data:
+  rabbitmq-data:
+
+
+networks:
+  neuro-network:
+    driver: bridge
 
