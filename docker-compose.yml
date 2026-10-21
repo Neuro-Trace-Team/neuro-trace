@@ -144,6 +144,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
+    ports:
+      - "5432:5432"
+
     volumes:
       - auth-db-data:/var/lib/postgresql/data
 
@@ -166,6 +169,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
+    ports:
+      - "5433:5432"
+
     volumes:
       - medical-db-data:/var/lib/postgresql/data
 
@@ -187,6 +193,9 @@ services:
       POSTGRES_DB: audit_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5434:5432"
 
     volumes:
       - audit-db-data:/var/lib/postgresql/data
