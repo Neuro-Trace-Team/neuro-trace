@@ -14,8 +14,10 @@ Available technical endpoints:
 - `GET /health/ready` — all three PostgreSQL databases accept `SELECT 1`.
 
 Authentication and administrator-only user management are implemented.
-Patients, examination upload, RustFS, preprocessing, and ML functionality
-remain for separate, small milestones.
+Patient management is implemented with the existing pseudonymized schema:
+patients have a generated UUID and timestamps only. Examination upload,
+RustFS, preprocessing, and ML functionality remain for separate, small
+milestones.
 
 The backend uses central RBAC support for `ADMIN` and `DOCTOR`. User
 management is restricted to `ADMIN`; users may only edit their own basic
@@ -27,6 +29,10 @@ the database, and deliberately does not break a completed business operation
 when an audit write fails. Administrators can browse logs at
 `GET /api/v1/admin/audit-logs` and retrieve one at
 `GET /api/v1/admin/audit-logs/{log_id}`.
+
+Authenticated users can create and browse patients at `/api/v1/patients`.
+This API intentionally accepts and returns no name, PESEL, address, or other
+personal data: those columns do not exist in the supplied medical schema.
 
 ## Naming convention
 

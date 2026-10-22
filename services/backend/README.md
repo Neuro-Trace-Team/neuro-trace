@@ -2,9 +2,10 @@
 
 Backend NeuroTrace is a FastAPI application. The current milestone provides
 the application foundation, database readiness checks, and authentication.
-Patients, examinations, RustFS uploads, preprocessing, and ML integrations
-are intentionally not implemented yet. This milestone additionally makes the
-audit trail centrally readable for administrators.
+Examination upload, RustFS uploads, preprocessing, and ML integrations are
+intentionally not implemented yet. This milestone additionally makes the
+audit trail centrally readable for administrators and provides pseudonymized
+patient management.
 
 ## Current functionality
 
@@ -34,9 +35,27 @@ audit trail centrally readable for administrators.
   completed business operation.
 - Administrators can inspect paginated audit logs, filtered by event, actor,
   or time range.
+- Any authenticated `ADMIN` or `DOCTOR` can create and read pseudonymized
+  patients. A patient contains only its generated UUID and timestamps because
+  the medical schema contains no personal details.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
+
+## Patient API
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| POST | `/api/v1/patients` | Logged-in user | Create a pseudonymized patient. |
+| GET | `/api/v1/patients` | Logged-in user | Paginated list; `search` filters a UUID or UUID fragment. |
+| GET | `/api/v1/patients/stats` | Logged-in user | Patient and active-examination counts. |
+| GET | `/api/v1/patients/{patient_id}` | Logged-in user | Pseudonymized patient details. |
+| GET | `/api/v1/patients/{patient_id}/examinations` | Logged-in user | Active examinations for that patient. |
+
+No name, surname, PESEL, address, e-mail, or any other personal identifier is
+accepted, stored, or returned by this API. The patient responses deliberately
+contain only `id`, `created_at`, and `updated_at`. Patient reads and creation
+produce `PATIENT_ACCESSED` and `PATIENT_CREATED` audit events respectively.
 
 ## Authentication API
 
@@ -183,4 +202,9 @@ The **Audit (ADMIN)** folder signs in as the administrator, lists logs,
 checks the `LOGIN` filter, opens one selected record, and checks the `401`
 response for a request without a token. Run its requests in displayed order:
 the list request saves `audit_log_id` for the detail request.
+
+The **Patients** folder signs in as an administrator, creates a pseudonymized
+patient, lists and searches by UUID, reads details and statistics, requests
+the empty examination list, and verifies `404` for an unknown UUID and `401`
+without authentication. It saves the new UUID as `patient_id`.
 
