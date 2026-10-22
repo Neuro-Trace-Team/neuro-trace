@@ -172,6 +172,46 @@
           "event": [{ "listen": "test", "script": { "exec": ["pm.test('Deactivated account receives 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
         }
       ]
+    },
+    {
+      "name": "Audit (ADMIN)",
+      "item": [
+        {
+          "name": "Admin login for audit tests",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator login succeeds', () => pm.response.to.have.status(200));", "pm.environment.set('admin_access_token', pm.response.json().access_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "List audit logs",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/admin/audit-logs?page=1&page_size=50" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator can list audit logs', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.expect(body).to.have.all.keys('items', 'page', 'page_size', 'total');", "pm.expect(body.items).to.be.an('array');", "if (body.items.length) pm.environment.set('audit_log_id', body.items[0].id);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Filter LOGIN audit logs",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/admin/audit-logs?event_code=LOGIN" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('LOGIN filter succeeds', () => pm.response.to.have.status(200));", "pm.response.json().items.forEach(item => pm.expect(item.event_code).to.eql('LOGIN'));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Get selected audit log",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/admin/audit-logs/{{audit_log_id}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Selected audit log is returned', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json()).to.have.property('event_code');"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Invalid audit date range is rejected",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/admin/audit-logs?date_from=2026-12-01T00:00:00Z&date_to=2026-01-01T00:00:00Z" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid range returns 400', () => pm.response.to.have.status(400));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Audit logs without token are rejected",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/admin/audit-logs" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthenticated request receives 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
+        }
+      ]
     }
   ]
 }

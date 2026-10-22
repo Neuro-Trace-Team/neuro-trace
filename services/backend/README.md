@@ -3,7 +3,8 @@
 Backend NeuroTrace is a FastAPI application. The current milestone provides
 the application foundation, database readiness checks, and authentication.
 Patients, examinations, RustFS uploads, preprocessing, and ML integrations
-are intentionally not implemented yet.
+are intentionally not implemented yet. This milestone additionally makes the
+audit trail centrally readable for administrators.
 
 ## Current functionality
 
@@ -25,6 +26,14 @@ are intentionally not implemented yet.
   `ACCESS_DENIED` audit record.
 - Administrators can create, list, inspect, and update users. Any user can
   edit their own basic profile without being able to change their role.
+- `audit_service.log(...)` is the central, best-effort audit writer. It
+  resolves `type_id` from `audit_log_types` before adding a record.
+- Audit metadata is filtered before persistence: passwords, JWTs, refresh and
+  reset tokens, raw EEG data, and direct patient identifiers are omitted.
+  An audit-database failure is logged by the application but never reverses a
+  completed business operation.
+- Administrators can inspect paginated audit logs, filtered by event, actor,
+  or time range.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -57,6 +66,27 @@ Use `Authorization: Bearer <access_token>` for protected endpoints.
 An administrator cannot deactivate their own account or remove their own
 administrator role through the API. Role changes and account deactivation
 are recorded in the audit database.
+
+## Audit API
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/admin/audit-logs` | ADMIN | Paginated audit log list. |
+| GET | `/api/v1/admin/audit-logs/{log_id}` | ADMIN | One audit record. |
+
+Optional list filters are `event_code`, `user_id`, `date_from`, and `date_to`
+(ISO 8601), plus `page` and `page_size` (maximum 100). A range where
+`date_from` is after `date_to` returns `400`; no token returns `401`; a
+non-administrator gets `403` and the denial is itself audited.
+
+The event catalogue in `audit_log_types` includes: `LOGIN`,
+`FAILED_LOGIN_ATTEMPT`, `LOGOUT`, `PASSWORD_CHANGED`, `PASSWORD_RESET`,
+`ACCOUNT_CREATED`, `ACCOUNT_DEACTIVATED`, `ROLE_CHANGED`, `PATIENT_CREATED`,
+`PATIENT_ACCESSED`, `EXAMINATION_UPLOADED`, `EXAMINATION_UPDATED`,
+`EXAMINATION_DELETED`, `ANALYSIS_REQUESTED`, `ANALYSIS_COMPLETED`,
+`ANALYSIS_FAILED`, `DATA_EXPORTED`, and `ACCESS_DENIED`. Events for future
+patient, examination, and analysis operations will be emitted when those
+operations are implemented.
 
 Future protected endpoints use the central dependency, for example:
 
@@ -148,4 +178,9 @@ The **User management (ADMIN)** folder then creates a distinct doctor account,
 checks the administrator-only endpoints, and verifies that the doctor gets
 `403` when attempting to list users. It deactivates the generated doctor at
 the end and verifies that the account can no longer log in.
+
+The **Audit (ADMIN)** folder signs in as the administrator, lists logs,
+checks the `LOGIN` filter, opens one selected record, and checks the `401`
+response for a request without a token. Run its requests in displayed order:
+the list request saves `audit_log_id` for the detail request.
 

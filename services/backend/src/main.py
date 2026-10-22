@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
+from src.api.v1.admin import router as admin_router
 from src.api.v1.auth import router as auth_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="NeuroTrace Backend", version="0.1.0")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 
 @app.get("/health/live", tags=["health"])

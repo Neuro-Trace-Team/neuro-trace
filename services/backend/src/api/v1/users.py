@@ -48,7 +48,7 @@ def create_user(
         user = users_service.create_user(auth_db, payload)
     except users_service.UserConflictError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail address is already in use") from None
-    audit_service.log_event(
+    audit_service.log(
         audit_db,
         event_code="ACCOUNT_CREATED",
         user_id=actor.id,
@@ -106,7 +106,7 @@ def update_user(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from None
 
     if role_changed:
-        audit_service.log_event(
+        audit_service.log(
             audit_db,
             event_code="ROLE_CHANGED",
             user_id=actor.id,
@@ -116,7 +116,7 @@ def update_user(
             ip_address=_client_ip(request),
         )
     if deactivated:
-        audit_service.log_event(
+        audit_service.log(
             audit_db,
             event_code="ACCOUNT_DEACTIVATED",
             user_id=actor.id,

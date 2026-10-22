@@ -52,7 +52,7 @@ def require_roles(*roles: Role):
         audit_db: Annotated[Session, Depends(get_audit_db)],
     ) -> User:
         if current_user.role not in permitted_roles:
-            audit_service.log_event(
+            audit_service.log(
                 audit_db,
                 event_code="ACCESS_DENIED",
                 user_id=current_user.id,

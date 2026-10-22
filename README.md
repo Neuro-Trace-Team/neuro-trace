@@ -3,7 +3,7 @@
 NeuroTrace is a microservice project for storing EEG examinations,
 preprocessing their data, and presenting AI/ML analysis results.
 
-## Implemented milestone: backend foundation and authentication
+## Implemented milestones: foundation, authentication, RBAC, users, and audit
 
 The backend currently starts with FastAPI and connects independently to the
 three PostgreSQL databases: `auth_db`, `medical_db`, and `audit_db`.
@@ -20,6 +20,13 @@ remain for separate, small milestones.
 The backend uses central RBAC support for `ADMIN` and `DOCTOR`. User
 management is restricted to `ADMIN`; users may only edit their own basic
 profile.
+
+Audit logging is centralized in the backend. Each write resolves an event from
+the `audit_log_types` catalogue, filters sensitive metadata before it reaches
+the database, and deliberately does not break a completed business operation
+when an audit write fails. Administrators can browse logs at
+`GET /api/v1/admin/audit-logs` and retrieve one at
+`GET /api/v1/admin/audit-logs/{log_id}`.
 
 ## Naming convention
 

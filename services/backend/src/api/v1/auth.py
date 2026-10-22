@@ -36,14 +36,14 @@ def login(
     try:
         user, tokens = auth_service.authenticate(auth_db, email=payload.email, password=payload.password)
     except auth_service.AuthenticationError:
-        audit_service.log_event(
+        audit_service.log(
             audit_db,
             event_code="FAILED_LOGIN_ATTEMPT",
             metadata={"email": payload.email.lower()},
             ip_address=_client_ip(request),
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials") from None
-    audit_service.log_event(
+    audit_service.log(
         audit_db,
         event_code="LOGIN",
         user_id=user.id,
@@ -78,7 +78,7 @@ def logout(
         auth_service.logout(auth_db, user_id=current_user.id, raw_refresh_token=payload.refresh_token)
     except auth_service.AuthenticationError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token") from None
-    audit_service.log_event(
+    audit_service.log(
         audit_db,
         event_code="LOGOUT",
         user_id=current_user.id,
@@ -115,7 +115,7 @@ def reset_password(
         user = auth_service.reset_password(auth_db, raw_token=payload.token, new_password=payload.new_password)
     except auth_service.PasswordResetError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token") from None
-    audit_service.log_event(
+    audit_service.log(
         audit_db,
         event_code="PASSWORD_RESET",
         user_id=user.id,
@@ -142,7 +142,7 @@ def change_password(
         )
     except auth_service.AuthenticationError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is invalid") from None
-    audit_service.log_event(
+    audit_service.log(
         audit_db,
         event_code="PASSWORD_CHANGED",
         user_id=current_user.id,
