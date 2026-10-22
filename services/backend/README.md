@@ -1,8 +1,8 @@
 # NeuroTrace backend
 
 Backend NeuroTrace is a FastAPI application. The current milestone provides
-the application foundation and database readiness checks; authentication,
-patients, examinations, RustFS uploads, preprocessing, and ML integrations
+the application foundation, database readiness checks, and authentication.
+Patients, examinations, RustFS uploads, preprocessing, and ML integrations
 are intentionally not implemented yet.
 
 ## Current functionality
@@ -15,9 +15,33 @@ are intentionally not implemented yet.
 - `GET /health/live` confirms that the backend process is running.
 - `GET /health/ready` runs `SELECT 1` against each of the three databases;
   it returns `503` when any database is unavailable.
+- Access tokens are signed JWTs. Refresh tokens and password-reset tokens are
+  opaque, cryptographically generated values stored only as SHA-256 hashes.
+- Refreshing rotates the token; logout and a password change revoke sessions.
+- Login, failed login, logout, password change, and password reset are
+  appended to `audit_db` without exposing passwords or tokens.
 
 The future HTTP resource name is **examinations**. New endpoints will use
-`/api/v1/examinations`, never `/api/v1/studies`.
+`/api/v1/examinations`.
+
+## Authentication API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/auth/login` | Sign in and receive access/refresh tokens. |
+| POST | `/api/v1/auth/refresh` | Rotate a valid refresh token. |
+| POST | `/api/v1/auth/logout` | Revoke the submitted refresh token. |
+| GET | `/api/v1/auth/me` | Return the current authenticated user. |
+| POST | `/api/v1/auth/change-password` | Change password and revoke active refresh tokens. |
+| POST | `/api/v1/auth/forgot-password` | Create a reset request without exposing account existence. |
+| POST | `/api/v1/auth/reset-password` | Consume a one-time reset token. |
+
+Use `Authorization: Bearer <access_token>` for protected endpoints.
+
+Password reset cannot yet be completed end-to-end: the project has no mail or
+notification service to deliver the raw reset token. The token is generated
+and stored securely, but a future notification adapter must send it to the
+user; it must never be returned by the public API.
 
 ## Run with Docker Compose
 
@@ -35,6 +59,15 @@ docker compose up --build backend
 
 Compose starts `auth-db`, `medical-db`, `audit-db`, and `backend`. The
 backend waits until all three databases pass their PostgreSQL health checks.
+
+After the databases start, create the first administrator once. The command
+refuses to run if `auth_db` already contains any user and reads the password
+interactively instead of receiving it as a command-line argument:
+
+```powershell
+docker compose run --rm backend python -m src.scripts.bootstrap_admin `
+  --email admin@example.local --first-name Admin --last-name Local
+```
 
 Verify it in a second terminal:
 
@@ -70,4 +103,17 @@ $env:JWT_SECRET = "replace-this-with-a-long-local-development-secret"
 
 RustFS and preprocessing settings are required configuration now, but no
 connection is made to either service during this milestone.
+
+## Manual API checks with Postman
+
+Import both files from the repository's `postman/` directory into Postman:
+
+- `NeuroTrace Auth.postman_collection.json`
+- `NeuroTrace Local.postman_environment.json`
+
+Select **NeuroTrace Local** as the active environment and set
+`admin_password` to the password entered for the bootstrap administrator.
+Run requests in this order: **Live**, **Ready**, **Login**, **Current user**,
+**Refresh token rotation**, **Logout**, then **Refresh after logout is
+rejected**. The collection saves access and refresh tokens automatically.
 

@@ -3,7 +3,7 @@
 NeuroTrace is a microservice project for storing EEG examinations,
 preprocessing their data, and presenting AI/ML analysis results.
 
-## Implemented milestone: backend foundation
+## Implemented milestone: backend foundation and authentication
 
 The backend currently starts with FastAPI and connects independently to the
 three PostgreSQL databases: `auth_db`, `medical_db`, and `audit_db`.
@@ -13,15 +13,15 @@ Available technical endpoints:
 - `GET /health/live` — backend process is alive.
 - `GET /health/ready` — all three PostgreSQL databases accept `SELECT 1`.
 
-The current backend does not yet contain authentication, user management,
-patients, examination upload, RustFS, preprocessing, or ML functionality.
-These will be added as small, separately committed milestones.
+Authentication is implemented; administrative user management, patients,
+examination upload, RustFS, preprocessing, and ML functionality remain for
+separate, small milestones.
 
 ## Naming convention
 
 The project uses **examination/examinations** consistently in backend code
 and all new API routes. The planned resource path is
-`/api/v1/examinations`; do not introduce `study` or `studies` names.
+`/api/v1/examinations`; do not introduce the former naming convention.
 
 ## Run the current milestone
 

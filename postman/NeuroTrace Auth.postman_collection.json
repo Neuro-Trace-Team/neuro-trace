@@ -1,0 +1,84 @@
+{
+  "info": {
+    "_postman_id": "c594c9c4-33f8-4a68-a0b4-d7cc71954e66",
+    "name": "NeuroTrace Auth",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Live",
+          "request": { "method": "GET", "url": "{{base_url}}/health/live" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Process is alive', () => pm.expect(pm.response.json().status).to.eql('ok'));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Ready",
+          "request": { "method": "GET", "url": "{{base_url}}/health/ready" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('All databases are ready', () => { const body = pm.response.json(); pm.expect(body.status).to.eql('ready'); pm.expect(body.dependencies).to.deep.include({ auth_db: 'ok', medical_db: 'ok', audit_db: 'ok' }); });"], "type": "text/javascript" } }]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Login succeeds', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.expect(body.token_type).to.eql('bearer');", "pm.expect(body.access_token).to.be.a('string').and.not.empty;", "pm.expect(body.refresh_token).to.be.a('string').and.not.empty;", "pm.environment.set('access_token', body.access_token);", "pm.environment.set('refresh_token', body.refresh_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Current user",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }], "url": "{{base_url}}/api/v1/auth/me" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Current user is returned', () => pm.response.to.have.status(200));", "pm.test('Expected account is returned', () => pm.expect(pm.response.json().email).to.eql(pm.environment.get('admin_email')));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Refresh token rotation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/refresh"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Refresh succeeds', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.expect(body.refresh_token).to.not.eql(pm.environment.get('refresh_token'));", "pm.environment.set('access_token', body.access_token);", "pm.environment.set('refresh_token', body.refresh_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/logout"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Logout returns 204', () => pm.response.to.have.status(204));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Refresh after logout is rejected",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/refresh"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Revoked refresh token is rejected', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Invalid login is rejected",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"invalid-password\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid credentials return 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
+        }
+      ]
+    }
+  ]
+}
