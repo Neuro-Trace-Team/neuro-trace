@@ -23,6 +23,8 @@ are intentionally not implemented yet.
 - Role-based access control is centralised in `require_roles(...)`. The two
   accepted roles are `ADMIN` and `DOCTOR`; denied role checks create an
   `ACCESS_DENIED` audit record.
+- Administrators can create, list, inspect, and update users. Any user can
+  edit their own basic profile without being able to change their role.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -40,6 +42,21 @@ The future HTTP resource name is **examinations**. New endpoints will use
 | POST | `/api/v1/auth/reset-password` | Consume a one-time reset token. |
 
 Use `Authorization: Bearer <access_token>` for protected endpoints.
+
+## User-management API
+
+| Method | Endpoint | Access |
+| --- | --- | --- |
+| GET | `/api/v1/users` | ADMIN |
+| POST | `/api/v1/users` | ADMIN |
+| GET | `/api/v1/users/{user_id}` | ADMIN |
+| PATCH | `/api/v1/users/{user_id}` | ADMIN |
+| GET | `/api/v1/users/me` | Logged-in user |
+| PATCH | `/api/v1/users/me` | Logged-in user |
+
+An administrator cannot deactivate their own account or remove their own
+administrator role through the API. Role changes and account deactivation
+are recorded in the audit database.
 
 Future protected endpoints use the central dependency, for example:
 
@@ -127,4 +144,8 @@ Select **NeuroTrace Local** as the active environment and set
 Run requests in this order: **Live**, **Ready**, **Login**, **Current user**,
 **Refresh token rotation**, **Logout**, then **Refresh after logout is
 rejected**. The collection saves access and refresh tokens automatically.
+The **User management (ADMIN)** folder then creates a distinct doctor account,
+checks the administrator-only endpoints, and verifies that the doctor gets
+`403` when attempting to list users. It deactivates the generated doctor at
+the end and verifies that the account can no longer log in.
 

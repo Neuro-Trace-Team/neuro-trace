@@ -15,6 +15,21 @@ def get_user_by_id(session: Session, user_id: UUID) -> User | None:
     return session.get(User, user_id)
 
 
+def list_users(session: Session, *, page: int, page_size: int) -> tuple[list[User], int]:
+    total = session.scalar(select(func.count()).select_from(User)) or 0
+    users = list(
+        session.scalars(
+            select(User).order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        )
+    )
+    return users, total
+
+
+def create_user(session: Session, user: User) -> User:
+    session.add(user)
+    return user
+
+
 def get_refresh_token(session: Session, token_hash: str, *, lock: bool = False) -> RefreshToken | None:
     statement = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
     if lock:

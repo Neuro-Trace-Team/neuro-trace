@@ -79,6 +79,99 @@
           "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid credentials return 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
         }
       ]
+    },
+    {
+      "name": "User management (ADMIN)",
+      "item": [
+        {
+          "name": "Admin login for user tests",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator login succeeds', () => pm.response.to.have.status(200));", "pm.environment.set('admin_access_token', pm.response.json().access_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "List users",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/users?page=1&page_size=20" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator can list users', () => pm.response.to.have.status(200));", "pm.test('Paginated response is returned', () => pm.expect(pm.response.json()).to.have.all.keys('items', 'page', 'page_size', 'total'));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Create doctor",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": ["pm.environment.set('doctor_email', `doctor+${Date.now()}@example.local`);"], "type": "text/javascript" } },
+            { "listen": "test", "script": { "exec": ["pm.test('Doctor is created', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.expect(body.role).to.eql('DOCTOR');", "pm.environment.set('doctor_id', body.id);"], "type": "text/javascript" } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{doctor_email}}\",\n  \"password\": \"{{doctor_password}}\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"Doctor\",\n  \"role\": \"DOCTOR\"\n}" },
+            "url": "{{base_url}}/api/v1/users"
+          }
+        },
+        {
+          "name": "Get created doctor",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/users/{{doctor_id}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Created doctor is returned', () => pm.response.to.have.status(200));", "pm.test('Expected doctor is returned', () => pm.expect(pm.response.json().email).to.eql(pm.environment.get('doctor_email')));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Update created doctor",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"Updated\"\n}" },
+            "url": "{{base_url}}/api/v1/users/{{doctor_id}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator can update a doctor', () => pm.response.to.have.status(200));", "pm.test('Name was updated', () => pm.expect(pm.response.json().first_name).to.eql('Updated'));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Doctor login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{doctor_email}}\",\n  \"password\": \"{{doctor_password}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Doctor login succeeds', () => pm.response.to.have.status(200));", "pm.environment.set('doctor_access_token', pm.response.json().access_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Doctor cannot list users",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{doctor_access_token}}" }], "url": "{{base_url}}/api/v1/users" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Doctor receives 403', () => pm.response.to.have.status(403));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Doctor updates own profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctor_access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"last_name\": \"ProfileUpdated\"\n}" },
+            "url": "{{base_url}}/api/v1/users/me"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Doctor updates own profile', () => pm.response.to.have.status(200));", "pm.test('Profile change is returned', () => pm.expect(pm.response.json().last_name).to.eql('ProfileUpdated'));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Deactivate created doctor",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"is_active\": false\n}" },
+            "url": "{{base_url}}/api/v1/users/{{doctor_id}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator can deactivate doctor', () => pm.response.to.have.status(200));", "pm.test('Account is inactive', () => pm.expect(pm.response.json().is_active).to.eql(false));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Deactivated doctor cannot log in",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{doctor_email}}\",\n  \"password\": \"{{doctor_password}}\"\n}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Deactivated account receives 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
+        }
+      ]
     }
   ]
 }

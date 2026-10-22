@@ -13,13 +13,13 @@ Available technical endpoints:
 - `GET /health/live` — backend process is alive.
 - `GET /health/ready` — all three PostgreSQL databases accept `SELECT 1`.
 
-Authentication is implemented; administrative user management, patients,
-examination upload, RustFS, preprocessing, and ML functionality remain for
-separate, small milestones.
+Authentication and administrator-only user management are implemented.
+Patients, examination upload, RustFS, preprocessing, and ML functionality
+remain for separate, small milestones.
 
-The backend also has central RBAC support for `ADMIN` and `DOCTOR`. The next
-functional milestone will use it to expose administrator-only user-management
-endpoints.
+The backend uses central RBAC support for `ADMIN` and `DOCTOR`. User
+management is restricted to `ADMIN`; users may only edit their own basic
+profile.
 
 ## Naming convention
 
