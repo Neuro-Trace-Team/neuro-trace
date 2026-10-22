@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS patients (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS studies (
+CREATE TABLE IF NOT EXISTS examinations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL,
     uploaded_by UUID NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS studies (
     storage_key VARCHAR(1024) NOT NULL,
     file_checksum VARCHAR(64) NULL,
 
-    study_date TIMESTAMPTZ NULL,
+    examination_date TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL,
@@ -32,26 +32,26 @@ CREATE TABLE IF NOT EXISTS studies (
     duration_seconds NUMERIC(12,6) NULL,
     processing_status VARCHAR(30) NOT NULL DEFAULT 'UPLOADED',
 
-    CONSTRAINT fk_studies_patient
+    CONSTRAINT fk_examinations_patient
         FOREIGN KEY (patient_id)
         REFERENCES patients(id),
-    CONSTRAINT uq_studies_storage_object
+    CONSTRAINT uq_examinations_storage_object
         UNIQUE (storage_bucket, storage_key),
-    CONSTRAINT chk_studies_filename_not_blank
+    CONSTRAINT chk_examinations_filename_not_blank
         CHECK (btrim(original_filename) <> ''),
-    CONSTRAINT chk_studies_file_format_not_blank
+    CONSTRAINT chk_examinations_file_format_not_blank
         CHECK (btrim(file_format) <> ''),
-    CONSTRAINT chk_studies_file_size_positive
+    CONSTRAINT chk_examinations_file_size_positive
         CHECK (file_size_bytes > 0),
-    CONSTRAINT chk_studies_sampling_frequency_positive
+    CONSTRAINT chk_examinations_sampling_frequency_positive
         CHECK (sampling_frequency > 0),
-    CONSTRAINT chk_studies_power_line_frequency
+    CONSTRAINT chk_examinations_power_line_frequency
         CHECK (power_line_frequency IS NULL OR power_line_frequency IN (50, 60)),
-    CONSTRAINT chk_studies_duration_positive
+    CONSTRAINT chk_examinations_duration_positive
         CHECK (duration_seconds IS NULL OR duration_seconds > 0),
-    CONSTRAINT chk_studies_file_checksum_sha256
+    CONSTRAINT chk_examinations_file_checksum_sha256
         CHECK (file_checksum IS NULL OR file_checksum ~ '^[0-9A-Fa-f]{64}$'),
-    CONSTRAINT chk_studies_processing_status
+    CONSTRAINT chk_examinations_processing_status
         CHECK (processing_status IN (
             'UPLOADING',
             'UPLOADED',
@@ -61,27 +61,27 @@ CREATE TABLE IF NOT EXISTS studies (
             'READY',
             'FAILED'
         )),
-    CONSTRAINT chk_studies_deleted_after_create
+    CONSTRAINT chk_examinations_deleted_after_create
         CHECK (deleted_at IS NULL OR deleted_at >= created_at)
 );
 
-CREATE INDEX IF NOT EXISTS ix_studies_patient_id
-    ON studies (patient_id);
+CREATE INDEX IF NOT EXISTS ix_examinations_patient_id
+    ON examinations (patient_id);
 
-CREATE INDEX IF NOT EXISTS ix_studies_uploaded_by
-    ON studies (uploaded_by);
+CREATE INDEX IF NOT EXISTS ix_examinations_uploaded_by
+    ON examinations (uploaded_by);
 
-CREATE INDEX IF NOT EXISTS ix_studies_created_at
-    ON studies (created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_examinations_created_at
+    ON examinations (created_at DESC);
 
-CREATE INDEX IF NOT EXISTS ix_studies_study_date
-    ON studies (study_date DESC);
+CREATE INDEX IF NOT EXISTS ix_examinations_examination_date
+    ON examinations (examination_date DESC);
 
-CREATE INDEX IF NOT EXISTS ix_studies_processing_status
-    ON studies (processing_status);
+CREATE INDEX IF NOT EXISTS ix_examinations_processing_status
+    ON examinations (processing_status);
 
-CREATE INDEX IF NOT EXISTS ix_studies_active
-    ON studies (patient_id, created_at DESC)
+CREATE INDEX IF NOT EXISTS ix_examinations_active
+    ON examinations (patient_id, created_at DESC)
     WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS eeg_channels (
@@ -93,31 +93,31 @@ CREATE TABLE IF NOT EXISTS eeg_channels (
     CONSTRAINT chk_eeg_channels_code_not_blank CHECK (btrim(code) <> '')
 );
 
-CREATE TABLE IF NOT EXISTS study_channels (
-    study_id UUID NOT NULL,
+CREATE TABLE IF NOT EXISTS examination_channels (
+    examination_id UUID NOT NULL,
     channel_id INTEGER NOT NULL,
     position INTEGER NOT NULL,
 
-    CONSTRAINT pk_study_channels PRIMARY KEY (study_id, channel_id),
-    CONSTRAINT fk_study_channels_study
-        FOREIGN KEY (study_id)
-        REFERENCES studies(id)
+    CONSTRAINT pk_examination_channels PRIMARY KEY (examination_id, channel_id),
+    CONSTRAINT fk_examination_channels_examination
+        FOREIGN KEY (examination_id)
+        REFERENCES examinations(id)
         ON DELETE CASCADE,
-    CONSTRAINT fk_study_channels_channel
+    CONSTRAINT fk_examination_channels_channel
         FOREIGN KEY (channel_id)
         REFERENCES eeg_channels(id),
-    CONSTRAINT uq_study_channels_position
-        UNIQUE (study_id, position),
-    CONSTRAINT chk_study_channels_position_nonnegative
+    CONSTRAINT uq_examination_channels_position
+        UNIQUE (examination_id, position),
+    CONSTRAINT chk_examination_channels_position_nonnegative
         CHECK (position >= 0)
 );
 
-CREATE INDEX IF NOT EXISTS ix_study_channels_channel_id
-    ON study_channels (channel_id);
+CREATE INDEX IF NOT EXISTS ix_examination_channels_channel_id
+    ON examination_channels (channel_id);
 
-CREATE TABLE IF NOT EXISTS study_events (
+CREATE TABLE IF NOT EXISTS examination_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    study_id UUID NOT NULL,
+    examination_id UUID NOT NULL,
     timestamp NUMERIC(12,6) NOT NULL,
     type VARCHAR(50) NOT NULL,
     description TEXT NULL,
@@ -125,25 +125,25 @@ CREATE TABLE IF NOT EXISTS study_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_study_events_study
-        FOREIGN KEY (study_id)
-        REFERENCES studies(id)
+    CONSTRAINT fk_examination_events_examination
+        FOREIGN KEY (examination_id)
+        REFERENCES examinations(id)
         ON DELETE CASCADE,
-    CONSTRAINT chk_study_events_timestamp_nonnegative
+    CONSTRAINT chk_examination_events_timestamp_nonnegative
         CHECK (timestamp >= 0),
-    CONSTRAINT chk_study_events_type_not_blank
+    CONSTRAINT chk_examination_events_type_not_blank
         CHECK (btrim(type) <> '')
 );
 
-CREATE INDEX IF NOT EXISTS ix_study_events_study_timestamp
-    ON study_events (study_id, timestamp);
+CREATE INDEX IF NOT EXISTS ix_examination_events_examination_timestamp
+    ON examination_events (examination_id, timestamp);
 
-CREATE INDEX IF NOT EXISTS ix_study_events_type
-    ON study_events (type);
+CREATE INDEX IF NOT EXISTS ix_examination_events_type
+    ON examination_events (type);
 
 CREATE TABLE IF NOT EXISTS preprocessing_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    study_id UUID NOT NULL,
+    examination_id UUID NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'QUEUED',
     pipeline_version VARCHAR(100) NOT NULL,
     parameters_json JSONB NULL,
@@ -154,11 +154,11 @@ CREATE TABLE IF NOT EXISTS preprocessing_jobs (
     started_at TIMESTAMPTZ NULL,
     completed_at TIMESTAMPTZ NULL,
 
-    CONSTRAINT fk_preprocessing_jobs_study
-        FOREIGN KEY (study_id)
-        REFERENCES studies(id),
-    CONSTRAINT uq_preprocessing_jobs_id_study
-        UNIQUE (id, study_id),
+    CONSTRAINT fk_preprocessing_jobs_examination
+        FOREIGN KEY (examination_id)
+        REFERENCES examinations(id),
+    CONSTRAINT uq_preprocessing_jobs_id_examination
+        UNIQUE (id, examination_id),
     CONSTRAINT uq_preprocessing_output_object
         UNIQUE (output_bucket, output_storage_key),
     CONSTRAINT chk_preprocessing_jobs_status
@@ -179,8 +179,8 @@ CREATE TABLE IF NOT EXISTS preprocessing_jobs (
         )
 );
 
-CREATE INDEX IF NOT EXISTS ix_preprocessing_jobs_study_id
-    ON preprocessing_jobs (study_id);
+CREATE INDEX IF NOT EXISTS ix_preprocessing_jobs_examination_id
+    ON preprocessing_jobs (examination_id);
 
 CREATE INDEX IF NOT EXISTS ix_preprocessing_jobs_status
     ON preprocessing_jobs (status);
@@ -190,7 +190,7 @@ CREATE INDEX IF NOT EXISTS ix_preprocessing_jobs_created_at
 
 CREATE TABLE IF NOT EXISTS analyses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    study_id UUID NOT NULL,
+    examination_id UUID NOT NULL,
     preprocessing_job_id UUID NOT NULL,
     requested_by UUID NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'QUEUED',
@@ -201,12 +201,12 @@ CREATE TABLE IF NOT EXISTS analyses (
     completed_at TIMESTAMPTZ NULL,
     error_message TEXT NULL,
 
-    CONSTRAINT fk_analyses_study
-        FOREIGN KEY (study_id)
-        REFERENCES studies(id),
-    CONSTRAINT fk_analyses_preprocessing_job_same_study
-        FOREIGN KEY (preprocessing_job_id, study_id)
-        REFERENCES preprocessing_jobs(id, study_id),
+    CONSTRAINT fk_analyses_examination
+        FOREIGN KEY (examination_id)
+        REFERENCES examinations(id),
+    CONSTRAINT fk_analyses_preprocessing_job_same_examination
+        FOREIGN KEY (preprocessing_job_id, examination_id)
+        REFERENCES preprocessing_jobs(id, examination_id),
     CONSTRAINT chk_analyses_status
         CHECK (status IN ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED')),
     CONSTRAINT chk_analyses_model_name_not_blank
@@ -221,8 +221,8 @@ CREATE TABLE IF NOT EXISTS analyses (
         CHECK (completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at)
 );
 
-CREATE INDEX IF NOT EXISTS ix_analyses_study_id
-    ON analyses (study_id);
+CREATE INDEX IF NOT EXISTS ix_analyses_examination_id
+    ON analyses (examination_id);
 
 CREATE INDEX IF NOT EXISTS ix_analyses_preprocessing_job_id
     ON analyses (preprocessing_job_id);
@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS analysis_results (
 
 CREATE TABLE IF NOT EXISTS pain_assessments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    study_id UUID NOT NULL,
+    examination_id UUID NOT NULL,
     assessed_by UUID NOT NULL,
     pain_level NUMERIC(5,2) NOT NULL,
     scale VARCHAR(50) NOT NULL,
@@ -265,17 +265,17 @@ CREATE TABLE IF NOT EXISTS pain_assessments (
     assessed_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT fk_pain_assessments_study
-        FOREIGN KEY (study_id)
-        REFERENCES studies(id),
+    CONSTRAINT fk_pain_assessments_examination
+        FOREIGN KEY (examination_id)
+        REFERENCES examinations(id),
     CONSTRAINT chk_pain_assessments_level_nonnegative
         CHECK (pain_level >= 0),
     CONSTRAINT chk_pain_assessments_scale_not_blank
         CHECK (btrim(scale) <> '')
 );
 
-CREATE INDEX IF NOT EXISTS ix_pain_assessments_study_id
-    ON pain_assessments (study_id);
+CREATE INDEX IF NOT EXISTS ix_pain_assessments_examination_id
+    ON pain_assessments (examination_id);
 
 CREATE INDEX IF NOT EXISTS ix_pain_assessments_assessed_by
     ON pain_assessments (assessed_by);
