@@ -17,6 +17,10 @@ Authentication is implemented; administrative user management, patients,
 examination upload, RustFS, preprocessing, and ML functionality remain for
 separate, small milestones.
 
+The backend also has central RBAC support for `ADMIN` and `DOCTOR`. The next
+functional milestone will use it to expose administrator-only user-management
+endpoints.
+
 ## Naming convention
 
 The project uses **examination/examinations** consistently in backend code

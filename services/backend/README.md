@@ -20,6 +20,9 @@ are intentionally not implemented yet.
 - Refreshing rotates the token; logout and a password change revoke sessions.
 - Login, failed login, logout, password change, and password reset are
   appended to `audit_db` without exposing passwords or tokens.
+- Role-based access control is centralised in `require_roles(...)`. The two
+  accepted roles are `ADMIN` and `DOCTOR`; denied role checks create an
+  `ACCESS_DENIED` audit record.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -37,6 +40,14 @@ The future HTTP resource name is **examinations**. New endpoints will use
 | POST | `/api/v1/auth/reset-password` | Consume a one-time reset token. |
 
 Use `Authorization: Bearer <access_token>` for protected endpoints.
+
+Future protected endpoints use the central dependency, for example:
+
+```python
+@router.get("/admin-only")
+def endpoint(user: Annotated[User, Depends(require_roles(Role.ADMIN))]):
+    return {"user_id": user.id}
+```
 
 Password reset cannot yet be completed end-to-end: the project has no mail or
 notification service to deliver the raw reset token. The token is generated
