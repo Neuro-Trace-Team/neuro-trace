@@ -1,27 +1,41 @@
-# Neurotrace
+# NeuroTrace
 
-Simple overview of use/purpose.
+NeuroTrace is a microservice project for storing EEG examinations,
+preprocessing their data, and presenting AI/ML analysis results.
 
-## Description
+## Implemented milestone: backend foundation
 
-An in-depth paragraph about your project and overview of use.
+The backend currently starts with FastAPI and connects independently to the
+three PostgreSQL databases: `auth_db`, `medical_db`, and `audit_db`.
 
-## Getting Started
+Available technical endpoints:
 
-### Dependencies
+- `GET /health/live` — backend process is alive.
+- `GET /health/ready` — all three PostgreSQL databases accept `SELECT 1`.
 
-### Installing
+The current backend does not yet contain authentication, user management,
+patients, examination upload, RustFS, preprocessing, or ML functionality.
+These will be added as small, separately committed milestones.
 
-### Executing program
+## Naming convention
 
-## Help
+The project uses **examination/examinations** consistently in backend code
+and all new API routes. The planned resource path is
+`/api/v1/examinations`; do not introduce `study` or `studies` names.
 
-## Authors
+## Run the current milestone
 
-Contributors names and contact info
+```powershell
+Copy-Item .env.example .env
+docker compose up --build backend
+```
 
-## Version History
+Set a strong local `JWT_SECRET` in `.env` before starting. Then verify:
 
-## License
+```powershell
+Invoke-RestMethod http://localhost:8080/health/live
+Invoke-RestMethod http://localhost:8080/health/ready
+```
 
-## Acknowledgments
+For detailed backend configuration and a local (non-Docker) start, see
+[`services/backend/README.md`](services/backend/README.md).
