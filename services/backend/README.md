@@ -145,6 +145,19 @@ callback has saved them.
 | GET | `/api/v1/analyses` | Paginated analyses; filters: `examination_id`, `requested_by`, `analysis_status`. |
 | GET | `/api/v1/analyses/{analysis_id}` | Analysis status and declared model/version. |
 
+## Pain assessments API
+
+Pain assessments are entered by a logged-in user and stored separately from
+AI/ML `analysis_results`. The database permits any non-negative `pain_level`;
+the API deliberately adds no arbitrary upper bound because the project has not
+defined a universal pain scale. When `assessed_at` is omitted, the backend
+uses the current UTC time.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/examinations/{examination_id}/pain-assessments` | Record a clinician pain assessment. |
+| GET | `/api/v1/examinations/{examination_id}/pain-assessments` | Paginated assessment history, newest first. |
+
 ## Internal ML contracts
 
 The existing preprocessing internal contract remains unchanged. The following

@@ -14,6 +14,7 @@ from src.api.v1.examinations import router as examinations_router
 from src.api.v1.internal import analysis_router as internal_analysis_router
 from src.api.v1.internal import router as internal_router
 from src.api.v1.patients import router as patients_router
+from src.api.v1.pain_assessments import router as pain_assessments_router
 from src.api.v1.preprocessing_jobs import router as preprocessing_jobs_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
@@ -29,6 +30,7 @@ app.include_router(patients_router, prefix="/api/v1")
 app.include_router(examinations_router, prefix="/api/v1")
 app.include_router(preprocessing_jobs_router, prefix="/api/v1")
 app.include_router(analyses_router, prefix="/api/v1")
+app.include_router(pain_assessments_router, prefix="/api/v1")
 app.include_router(internal_router, prefix="/api/v1")
 app.include_router(internal_analysis_router, prefix="/api/v1")
 

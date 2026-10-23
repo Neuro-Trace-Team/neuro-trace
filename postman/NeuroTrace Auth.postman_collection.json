@@ -462,6 +462,46 @@
           "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthenticated request returns 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
         }
       ]
+    },
+    {
+      "name": "Pain assessments",
+      "item": [
+        {
+          "name": "Admin login for pain assessment tests",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{admin_email}}\", \"password\": \"{{admin_password}}\" }" }, "url": "{{base_url}}/api/v1/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator login succeeds', () => pm.response.to.have.status(200));", "pm.environment.set('admin_access_token', pm.response.json().access_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Create patient for pain assessment",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/patients" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Patient is created', () => pm.response.to.have.status(201));", "pm.environment.set('patient_id', pm.response.json().id);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Upload EEG for pain assessment",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "body": { "mode": "formdata", "formdata": [{ "key": "patient_id", "value": "{{patient_id}}", "type": "text" }, { "key": "sampling_frequency", "value": "256", "type": "text" }, { "key": "file", "type": "file", "src": "postman/fixtures/sample.eeg" }] }, "url": "{{base_url}}/api/v1/examinations" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('EEG upload succeeds', () => pm.response.to.have.status(201));", "pm.environment.set('examination_id', pm.response.json().id);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Create pain assessment",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"pain_level\": 6.5, \"scale\": \"NRS\", \"notes\": \"Assessment entered during visit\" }" }, "url": "{{base_url}}/api/v1/examinations/{{examination_id}}/pain-assessments" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Pain assessment is created', () => pm.response.to.have.status(201));", "const body = pm.response.json(); pm.expect(body.scale).to.eql('NRS'); pm.expect(body.pain_level).to.eql(6.5);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "List pain assessments",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/examinations/{{examination_id}}/pain-assessments" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Assessment history is returned', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().items.length).to.be.above(0);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Negative pain level is rejected",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"pain_level\": -1, \"scale\": \"NRS\" }" }, "url": "{{base_url}}/api/v1/examinations/{{examination_id}}/pain-assessments" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Negative value returns 422', () => pm.response.to.have.status(422));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Pain assessments without token are rejected",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/examinations/{{examination_id}}/pain-assessments" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthenticated request returns 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
+        }
+      ]
     }
   ]
 }

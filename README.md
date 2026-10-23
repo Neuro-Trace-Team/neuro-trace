@@ -60,6 +60,10 @@ Authenticated users can now request an analysis at
 then browse analyses and completed results. The request creates only a
 `QUEUED` database record; no ML service is contacted.
 
+Doctors' pain assessments are stored separately from AI predictions. They are
+available per examination with an explicit scale, non-negative value, author,
+timestamp, and optional notes.
+
 ## Naming convention
 
 The project uses **examination/examinations** consistently in backend code
