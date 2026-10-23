@@ -54,6 +54,13 @@ class ExaminationEventCreate(BaseModel):
     metadata: dict[str, Any] | None = None
 
 
+class ExaminationEventUpdate(BaseModel):
+    timestamp: Decimal | None = Field(default=None, ge=0)
+    type: str | None = Field(default=None, min_length=1, max_length=50)
+    description: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
 class ExaminationEventResponse(BaseModel):
     id: UUID
     examination_id: UUID

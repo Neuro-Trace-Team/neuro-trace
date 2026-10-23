@@ -1,4 +1,5 @@
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -11,6 +12,7 @@ from src.models.medical import Examination, Patient
 from src.schemas.patients import (
     PatientExaminationListResponse,
     PatientExaminationResponse,
+    PatientExaminationStatisticsResponse,
     PatientListResponse,
     PatientResponse,
     PatientStatisticsResponse,
@@ -72,8 +74,17 @@ def list_patients(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None, min_length=1, max_length=36),
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    sort_by: Literal["created_at", "updated_at"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> PatientListResponse:
-    patients, total = patients_service.list_patients(medical_db, page=page, page_size=page_size, search=search)
+    if created_from is not None and created_to is not None and created_from > created_to:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="created_from must not be after created_to")
+    patients, total = patients_service.list_patients(
+        medical_db, page=page, page_size=page_size, search=search, created_from=created_from,
+        created_to=created_to, sort_by=sort_by, sort_order=sort_order,
+    )
     audit_service.log(
         audit_db,
         event_code="PATIENT_ACCESSED",
@@ -120,6 +131,30 @@ def get_patient(
         ip_address=_client_ip(request),
     )
     return _patient_response(patient)
+
+
+@router.get("/{patient_id}/stats", response_model=PatientExaminationStatisticsResponse)
+def get_patient_examination_statistics(
+    patient_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+) -> PatientExaminationStatisticsResponse:
+    try:
+        examination_count, first_examination_at, last_examination_at = patients_service.patient_examination_statistics(
+            medical_db, patient_id
+        )
+    except patients_service.PatientNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found") from None
+    audit_service.log(
+        audit_db, event_code="PATIENT_ACCESSED", user_id=current_user.id, resource_type="PATIENT",
+        resource_id=patient_id, metadata={"action": "STATISTICS"}, ip_address=_client_ip(request),
+    )
+    return PatientExaminationStatisticsResponse(
+        patient_id=patient_id, examination_count=examination_count,
+        first_examination_at=first_examination_at, last_examination_at=last_examination_at,
+    )
 
 
 @router.get("/{patient_id}/examinations", response_model=PatientExaminationListResponse)

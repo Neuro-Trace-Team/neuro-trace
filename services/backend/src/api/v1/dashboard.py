@@ -39,6 +39,14 @@ def _audit_count(session: Session, code: str, since: datetime) -> int:
     ) or 0
 
 
+def _active_login_users(session: Session, since: datetime) -> int:
+    return session.scalar(
+        select(func.count(func.distinct(AuditLog.user_id)))
+        .join(AuditLogType)
+        .where(AuditLogType.code == "LOGIN", AuditLog.created_at >= since, AuditLog.user_id.is_not(None))
+    ) or 0
+
+
 @router.get("/dashboard/stats", response_model=DoctorDashboardResponse)
 def doctor_dashboard(
     medical_db: Annotated[Session, Depends(get_medical_db)],
@@ -46,8 +54,22 @@ def doctor_dashboard(
 ) -> DoctorDashboardResponse:
     total_patients = medical_db.scalar(select(func.count()).select_from(Patient)) or 0
     total_examinations = medical_db.scalar(select(func.count()).select_from(Examination).where(Examination.deleted_at.is_(None))) or 0
+    statuses = dict(
+        medical_db.execute(
+            select(Examination.processing_status, func.count())
+            .where(Examination.deleted_at.is_(None))
+            .group_by(Examination.processing_status)
+        ).all()
+    )
     recent = list(medical_db.scalars(select(Examination).where(Examination.deleted_at.is_(None)).order_by(Examination.created_at.desc()).limit(10)))
-    return DoctorDashboardResponse(total_patients=total_patients, total_examinations=total_examinations, recent_examinations=[RecentExaminationResponse(id=item.id, patient_id=item.patient_id, created_at=item.created_at, processing_status=item.processing_status) for item in recent])
+    return DoctorDashboardResponse(
+        total_patients=total_patients, total_examinations=total_examinations,
+        examinations_by_status=statuses,
+        total_analyses=medical_db.scalar(select(func.count()).select_from(Analysis)) or 0,
+        completed_analyses=medical_db.scalar(select(func.count()).select_from(Analysis).where(Analysis.status == "COMPLETED")) or 0,
+        failed_analyses=medical_db.scalar(select(func.count()).select_from(Analysis).where(Analysis.status == "FAILED")) or 0,
+        recent_examinations=[RecentExaminationResponse(id=item.id, patient_id=item.patient_id, created_at=item.created_at, processing_status=item.processing_status) for item in recent],
+    )
 
 
 def _admin_dashboard(period: str, auth_db: Session, medical_db: Session, audit_db: Session) -> AdminDashboardResponse:
@@ -55,7 +77,7 @@ def _admin_dashboard(period: str, auth_db: Session, medical_db: Session, audit_d
     return AdminDashboardResponse(
         period=period,
         total_users=auth_db.scalar(select(func.count()).select_from(User)) or 0,
-        active_users=auth_db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0,
+        active_users=_active_login_users(audit_db, since),
         successful_logins=_audit_count(audit_db, "LOGIN", since),
         failed_logins=_audit_count(audit_db, "FAILED_LOGIN_ATTEMPT", since),
         examinations_created=medical_db.scalar(select(func.count()).select_from(Examination).where(Examination.created_at >= since, Examination.deleted_at.is_(None))) or 0,
@@ -67,28 +89,40 @@ def _admin_dashboard(period: str, auth_db: Session, medical_db: Session, audit_d
 
 
 @admin_router.get("/dashboard", response_model=AdminDashboardResponse, dependencies=[admin_only])
-def admin_dashboard(period: str = Query(default="7d"), auth_db: Annotated[Session, Depends(get_auth_db)] = None, medical_db: Annotated[Session, Depends(get_medical_db)] = None, audit_db: Annotated[Session, Depends(get_audit_db)] = None) -> AdminDashboardResponse:
+def admin_dashboard(
+    auth_db: Annotated[Session, Depends(get_auth_db)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+    period: str = Query(default="7d"),
+) -> AdminDashboardResponse:
     return _admin_dashboard(period, auth_db, medical_db, audit_db)
 
 
 @admin_router.get("/stats/active-users", response_model=ActiveUsersStatisticsResponse, dependencies=[admin_only])
-def active_users_statistics(period: str = Query(default="7d"), auth_db: Annotated[Session, Depends(get_auth_db)] = None) -> ActiveUsersStatisticsResponse:
-    _period_start(period)
-    return ActiveUsersStatisticsResponse(period=period, active_users=auth_db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0)
+def active_users_statistics(
+    audit_db: Annotated[Session, Depends(get_audit_db)], period: str = Query(default="7d")
+) -> ActiveUsersStatisticsResponse:
+    return ActiveUsersStatisticsResponse(period=period, active_users=_active_login_users(audit_db, _period_start(period)))
 
 
 @admin_router.get("/stats/login-attempts", response_model=LoginAttemptsStatisticsResponse, dependencies=[admin_only])
-def login_attempts_statistics(period: str = Query(default="7d"), audit_db: Annotated[Session, Depends(get_audit_db)] = None) -> LoginAttemptsStatisticsResponse:
+def login_attempts_statistics(
+    audit_db: Annotated[Session, Depends(get_audit_db)], period: str = Query(default="7d")
+) -> LoginAttemptsStatisticsResponse:
     since = _period_start(period)
     return LoginAttemptsStatisticsResponse(period=period, successful_logins=_audit_count(audit_db, "LOGIN", since), failed_logins=_audit_count(audit_db, "FAILED_LOGIN_ATTEMPT", since))
 
 
 @admin_router.get("/stats/examinations", response_model=ExaminationsStatisticsResponse, dependencies=[admin_only])
-def examinations_statistics(period: str = Query(default="30d"), medical_db: Annotated[Session, Depends(get_medical_db)] = None) -> ExaminationsStatisticsResponse:
+def examinations_statistics(
+    medical_db: Annotated[Session, Depends(get_medical_db)], period: str = Query(default="30d")
+) -> ExaminationsStatisticsResponse:
     since = _period_start(period)
     return ExaminationsStatisticsResponse(period=period, examinations_created=medical_db.scalar(select(func.count()).select_from(Examination).where(Examination.created_at >= since, Examination.deleted_at.is_(None))) or 0)
 
 
 @admin_router.get("/stats/exports", response_model=ExportsStatisticsResponse, dependencies=[admin_only])
-def exports_statistics(period: str = Query(default="30d"), audit_db: Annotated[Session, Depends(get_audit_db)] = None) -> ExportsStatisticsResponse:
+def exports_statistics(
+    audit_db: Annotated[Session, Depends(get_audit_db)], period: str = Query(default="30d")
+) -> ExportsStatisticsResponse:
     return ExportsStatisticsResponse(period=period, exports=_audit_count(audit_db, "DATA_EXPORTED", _period_start(period)))

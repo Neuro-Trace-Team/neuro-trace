@@ -14,6 +14,10 @@ class RecentExaminationResponse(BaseModel):
 class DoctorDashboardResponse(BaseModel):
     total_patients: int
     total_examinations: int
+    examinations_by_status: dict[str, int]
+    total_analyses: int
+    completed_analyses: int
+    failed_analyses: int
     recent_examinations: list[RecentExaminationResponse]
 
 

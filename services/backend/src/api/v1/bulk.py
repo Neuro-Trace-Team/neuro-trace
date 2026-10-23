@@ -19,6 +19,7 @@ from src.services.storage import ObjectStorageError, RustFSStorage
 
 router = APIRouter(prefix="/examinations", tags=["bulk operations"])
 admin_only = Depends(require_roles(Role.ADMIN))
+export_allowed = Depends(require_roles(Role.DOCTOR, Role.ADMIN))
 
 
 def _client_ip(request: Request) -> str | None:
@@ -42,7 +43,7 @@ def bulk_delete(
     return BulkDeleteResponse(deleted_count=len(deleted), examination_ids=[item.id for item in deleted])
 
 
-@router.post("/bulk-export", dependencies=[admin_only])
+@router.post("/bulk-export", dependencies=[export_allowed])
 def bulk_export(
     payload: BulkExaminationRequest,
     request: Request,

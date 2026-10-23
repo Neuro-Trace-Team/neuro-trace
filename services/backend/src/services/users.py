@@ -30,8 +30,12 @@ def _normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
-def list_users(session: Session, *, page: int, page_size: int) -> tuple[list[User], int]:
-    return auth_repository.list_users(session, page=page, page_size=page_size)
+def list_users(
+    session: Session, *, page: int, page_size: int, sort_by: str = "created_at", sort_order: str = "desc"
+) -> tuple[list[User], int]:
+    return auth_repository.list_users(
+        session, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order
+    )
 
 
 def get_user(session: Session, user_id: UUID) -> User:

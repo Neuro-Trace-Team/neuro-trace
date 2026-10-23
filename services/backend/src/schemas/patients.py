@@ -24,6 +24,13 @@ class PatientStatisticsResponse(BaseModel):
     active_examinations: int
 
 
+class PatientExaminationStatisticsResponse(BaseModel):
+    patient_id: UUID
+    examination_count: int
+    first_examination_at: datetime | None
+    last_examination_at: datetime | None
+
+
 class PatientExaminationResponse(BaseModel):
     id: UUID
     patient_id: UUID

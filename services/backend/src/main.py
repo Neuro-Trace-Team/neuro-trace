@@ -21,6 +21,7 @@ from src.api.v1.pain_assessments import router as pain_assessments_router
 from src.api.v1.preprocessing_jobs import router as preprocessing_jobs_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
+from src.services.storage import ObjectStorageError, RustFSStorage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -65,9 +66,20 @@ def _check_databases() -> dict[str, str]:
     return dependencies
 
 
+def _check_dependencies() -> dict[str, str]:
+    dependencies = _check_databases()
+    try:
+        RustFSStorage().check_available()
+        dependencies["rustfs"] = "ok"
+    except ObjectStorageError:
+        logger.warning("Readiness check failed for RustFS", exc_info=True)
+        dependencies["rustfs"] = "unavailable"
+    return dependencies
+
+
 @app.get("/health/ready", tags=["health"], response_model=None)
 def ready() -> JSONResponse | dict[str, object]:
-    dependencies = _check_databases()
+    dependencies = _check_dependencies()
     if all(result == "ok" for result in dependencies.values()):
         return {"status": "ready", "dependencies": dependencies}
     return JSONResponse(

@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -26,13 +27,23 @@ def get_patient(session: Session, patient_id: UUID) -> Patient:
 
 
 def list_patients(
-    session: Session, *, page: int, page_size: int, search: str | None = None
+    session: Session, *, page: int, page_size: int, search: str | None = None,
+    created_from: datetime | None = None, created_to: datetime | None = None,
+    sort_by: str = "created_at", sort_order: str = "desc",
 ) -> tuple[list[Patient], int]:
-    return patients_repository.list_patients(session, page=page, page_size=page_size, search=search)
+    return patients_repository.list_patients(
+        session, page=page, page_size=page_size, search=search, created_from=created_from,
+        created_to=created_to, sort_by=sort_by, sort_order=sort_order,
+    )
 
 
 def patient_statistics(session: Session) -> tuple[int, int, int]:
     return patients_repository.patient_statistics(session)
+
+
+def patient_examination_statistics(session: Session, patient_id: UUID) -> tuple[int, datetime | None, datetime | None]:
+    get_patient(session, patient_id)
+    return patients_repository.patient_examination_statistics(session, patient_id)
 
 
 def list_patient_examinations(

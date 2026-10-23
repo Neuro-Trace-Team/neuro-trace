@@ -15,11 +15,16 @@ def get_user_by_id(session: Session, user_id: UUID) -> User | None:
     return session.get(User, user_id)
 
 
-def list_users(session: Session, *, page: int, page_size: int) -> tuple[list[User], int]:
+def list_users(
+    session: Session, *, page: int, page_size: int, sort_by: str = "created_at", sort_order: str = "desc"
+) -> tuple[list[User], int]:
     total = session.scalar(select(func.count()).select_from(User)) or 0
+    sort_columns = {"created_at": User.created_at, "updated_at": User.updated_at, "email": User.email}
+    order_column = sort_columns[sort_by]
+    ordering = order_column.asc() if sort_order == "asc" else order_column.desc()
     users = list(
         session.scalars(
-            select(User).order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+            select(User).order_by(ordering, User.id.asc()).offset((page - 1) * page_size).limit(page_size)
         )
     )
     return users, total

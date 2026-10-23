@@ -33,6 +33,10 @@ class ExaminationValidationError(Exception):
     pass
 
 
+class ExaminationEventNotFoundError(Exception):
+    pass
+
+
 def _now() -> datetime:
     return datetime.now(UTC)
 
@@ -138,6 +142,13 @@ def list_examinations(
     processing_status: str | None,
     date_from: datetime | None,
     date_to: datetime | None,
+    channel: str | None = None,
+    pain_level: Decimal | None = None,
+    pain_level_min: Decimal | None = None,
+    pain_level_max: Decimal | None = None,
+    pain_source: str = "doctor",
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ) -> tuple[list[Examination], int]:
     return examinations_repository.list_examinations(
         session,
@@ -148,6 +159,13 @@ def list_examinations(
         processing_status=processing_status,
         date_from=date_from,
         date_to=date_to,
+        channel=channel,
+        pain_level=pain_level,
+        pain_level_min=pain_level_min,
+        pain_level_max=pain_level_max,
+        pain_source=pain_source,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 
@@ -230,3 +248,30 @@ def create_event(session: Session, *, examination_id: UUID, event: dict[str, Any
 def list_events(session: Session, examination_id: UUID) -> list[ExaminationEvent]:
     get_examination(session, examination_id)
     return examinations_repository.list_events(session, examination_id)
+
+
+def update_event(
+    session: Session, *, examination_id: UUID, event_id: UUID, updates: dict[str, Any]
+) -> ExaminationEvent:
+    get_examination(session, examination_id)
+    event = examinations_repository.get_event(session, examination_id=examination_id, event_id=event_id)
+    if event is None:
+        raise ExaminationEventNotFoundError
+    for field, value in updates.items():
+        if field == "metadata":
+            event.metadata_json = value
+        else:
+            setattr(event, field, value.strip() if field == "type" and value else value)
+    event.updated_at = _now()
+    session.commit()
+    session.refresh(event)
+    return event
+
+
+def delete_event(session: Session, *, examination_id: UUID, event_id: UUID) -> None:
+    get_examination(session, examination_id)
+    event = examinations_repository.get_event(session, examination_id=examination_id, event_id=event_id)
+    if event is None:
+        raise ExaminationEventNotFoundError
+    session.delete(event)
+    session.commit()

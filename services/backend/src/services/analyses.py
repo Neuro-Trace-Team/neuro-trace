@@ -95,6 +95,8 @@ def list_analyses(
     examination_id: UUID | None = None,
     requested_by: UUID | None = None,
     status: str | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ) -> tuple[list[Analysis], int]:
     if examination_id is not None:
         examinations_service.get_examination(session, examination_id)
@@ -105,6 +107,8 @@ def list_analyses(
         examination_id=examination_id,
         requested_by=requested_by,
         status=status,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 

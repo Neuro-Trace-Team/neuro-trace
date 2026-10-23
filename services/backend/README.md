@@ -14,8 +14,8 @@ intentionally not implemented yet.
 - ORM models mirror the existing SQL schema. They do not create or migrate
   database tables.
 - `GET /health/live` confirms that the backend process is running.
-- `GET /health/ready` runs `SELECT 1` against each of the three databases;
-  it returns `503` when any database is unavailable.
+- `GET /health/ready` checks all three databases and the configured RustFS
+  bucket; it returns `503` when any dependency is unavailable.
 - Access tokens are signed JWTs. Refresh tokens and password-reset tokens are
   opaque, cryptographically generated values stored only as SHA-256 hashes.
 - Refreshing rotates the token; logout and a password change revoke sessions.
@@ -74,13 +74,14 @@ to a temporary file before RustFS upload.
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | POST | `/api/v1/examinations` | Upload EEG to RustFS and persist metadata. |
-| GET | `/api/v1/examinations` | Paginated list; filters: `patient_id`, `uploaded_by`, `processing_status`, `date_from`, `date_to`. |
+| GET | `/api/v1/examinations` | Paginated list; filters: patient, uploader, status, creation date, EEG `channel`, and latest pain value from `doctor` or `ai`; safe sorting is available. |
 | GET | `/api/v1/examinations/eeg-channels` | EEG channel catalogue. |
 | GET | `/api/v1/examinations/{examination_id}` | Examination details. |
 | PATCH | `/api/v1/examinations/{examination_id}` | Edit allowed metadata only. |
 | DELETE | `/api/v1/examinations/{examination_id}` | Soft delete; the RustFS object is retained. |
 | GET/PUT | `/api/v1/examinations/{examination_id}/channels` | Read or replace channel assignments. |
 | GET/POST | `/api/v1/examinations/{examination_id}/events` | Read or add examination events. |
+| PATCH/DELETE | `/api/v1/examinations/{examination_id}/events/{event_id}` | Edit or remove one event. |
 
 The response deliberately does not expose `storage_bucket` or `storage_key`.
 When RustFS cannot accept an upload, the API returns `503` and creates no
@@ -180,10 +181,11 @@ storage credentials.
 ## Dashboards and administrator statistics
 
 `GET /api/v1/dashboard/stats` is available to every logged-in `ADMIN` or
-`DOCTOR`. It returns the current total of pseudonymized patients, active
-examinations, and up to 10 most recently created active examinations. The
-current schema has no facility/assignment boundary, so these values are global
-within the local backend.
+`DOCTOR`. It returns global patient and active-examination totals, examination
+counts by processing status, total/completed/failed analyses, and up to 10
+most recently created active examinations. The current schema has no
+facility/assignment boundary, so these values are global within the local
+backend.
 
 All administrator endpoints below accept `period=7d`, `30d`, or `90d` where
 applicable. They combine `auth_db`, `medical_db`, and `audit_db` only in the
@@ -193,21 +195,21 @@ application layer; database sessions remain separate.
 | --- | --- | --- | --- |
 | GET | `/api/v1/dashboard/stats` | Logged-in user | Doctor-facing summary and recent examinations. |
 | GET | `/api/v1/admin/dashboard?period=7d` | ADMIN | Users, logins, examinations, analyses, failures, and exports. |
-| GET | `/api/v1/admin/stats/active-users?period=7d` | ADMIN | Current active-account count. |
+| GET | `/api/v1/admin/stats/active-users?period=7d` | ADMIN | Unique users with a `LOGIN` audit event in the period. |
 | GET | `/api/v1/admin/stats/login-attempts?period=7d` | ADMIN | Successful and failed login events in the period. |
 | GET | `/api/v1/admin/stats/examinations?period=30d` | ADMIN | Active examinations created in the period. |
 | GET | `/api/v1/admin/stats/exports?period=30d` | ADMIN | `DATA_EXPORTED` audit-event count in the period. |
 
 ## Bulk examination operations
 
-Both operations require `ADMIN` and accept JSON in the form
+Both operations accept JSON in the form
 `{"examination_ids": ["uuid", "..."]}`. The list must contain 1–100 unique
 UUIDs. The backend validates every requested examination before changing data.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| POST | `/api/v1/examinations/bulk-delete` | Soft-delete all selected active examinations; source files remain in RustFS. |
-| POST | `/api/v1/examinations/bulk-export` | Download a ZIP containing each source EEG file and its `metadata.json`. |
+| POST | `/api/v1/examinations/bulk-delete` | ADMIN: soft-delete all selected active examinations; source files remain in RustFS. |
+| POST | `/api/v1/examinations/bulk-export` | ADMIN or DOCTOR: download a ZIP containing each source EEG file and its `metadata.json`. |
 
 The ZIP is generated in memory for the current MVP. An unavailable RustFS
 object produces `503`; successful export writes one `DATA_EXPORTED` audit
@@ -219,9 +221,10 @@ credentials.
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | POST | `/api/v1/patients` | Logged-in user | Create a pseudonymized patient. |
-| GET | `/api/v1/patients` | Logged-in user | Paginated list; `search` filters a UUID or UUID fragment. |
+| GET | `/api/v1/patients` | Logged-in user | Paginated list; UUID search, creation date range, and safe sorting. |
 | GET | `/api/v1/patients/stats` | Logged-in user | Patient and active-examination counts. |
 | GET | `/api/v1/patients/{patient_id}` | Logged-in user | Pseudonymized patient details. |
+| GET | `/api/v1/patients/{patient_id}/stats` | Logged-in user | Active examination count and first/last examination timestamps. |
 | GET | `/api/v1/patients/{patient_id}/examinations` | Logged-in user | Active examinations for that patient. |
 
 No name, surname, PESEL, address, e-mail, or any other personal identifier is
@@ -266,7 +269,8 @@ are recorded in the audit database.
 | GET | `/api/v1/admin/audit-logs/{log_id}` | ADMIN | One audit record. |
 
 Optional list filters are `event_code`, `user_id`, `date_from`, and `date_to`
-(ISO 8601), plus `page` and `page_size` (maximum 100). A range where
+(ISO 8601), plus `page`, `page_size` (maximum 100), `sort_by`, and
+`sort_order`. A range where
 `date_from` is after `date_to` returns `400`; no token returns `401`; a
 non-administrator gets `403` and the denial is itself audited.
 
@@ -362,9 +366,12 @@ Import both files from the repository's `postman/` directory into Postman:
 
 Select **NeuroTrace Local** as the active environment and set
 `admin_password` to the password entered for the bootstrap administrator.
-Run requests in this order: **Live**, **Ready**, **Login**, **Current user**,
-**Refresh token rotation**, **Logout**, then **Refresh after logout is
-rejected**. The collection saves access and refresh tokens automatically.
+Set `admin_password` to the bootstrap administrator password, then run the
+**whole collection** with Collection Runner in its displayed order. Do not run
+folders in parallel. Each business folder signs in again before it needs an
+administrator token and creates its own patient/examination data, so a logout,
+soft delete, or deactivated test doctor from an earlier folder cannot break a
+later folder. Generated UUIDs and tokens are saved automatically.
 The **User management (ADMIN)** folder then creates a distinct doctor account,
 checks the administrator-only endpoints, and verifies that the doctor gets
 `403` when attempting to list users. It deactivates the generated doctor at
@@ -397,6 +404,17 @@ queues an analysis, simulates its internal result callback, and reads the
 stored result. The **Pain assessments** folder creates an independent
 clinician assessment, reads its history, and checks validation of a negative
 value. The internal ML folder contains contract-level authentication and
-unknown-analysis checks. Dashboard and bulk-operation endpoints are available
-in Swagger; their full Postman workflow is not yet included in the collection.
+unknown-analysis checks.
+
+The final **Full API coverage additions** folder tests password-recovery/error
+contracts, dashboards, statistics, newly added list filters and sorting, and
+bulk export/delete. It intentionally runs last because bulk delete removes
+the examination created by the pain-assessment scenario.
+
+`forgot-password` has a successful automated check. A successful password
+reset cannot be automated from Postman yet: the raw token is deliberately not
+returned by the API and no mail adapter exists. The collection therefore tests
+the invalid-token response for `reset-password` and the invalid-current-
+password response for `change-password`, without changing the administrator
+password.
 

@@ -22,6 +22,8 @@ def list_analyses(
     examination_id: UUID | None = None,
     requested_by: UUID | None = None,
     status: str | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ) -> tuple[list[Analysis], int]:
     filters = []
     if examination_id is not None:
@@ -31,11 +33,19 @@ def list_analyses(
     if status is not None:
         filters.append(Analysis.status == status)
     total = session.scalar(select(func.count()).select_from(Analysis).where(*filters)) or 0
+    sort_columns = {
+        "created_at": Analysis.created_at,
+        "started_at": Analysis.started_at,
+        "completed_at": Analysis.completed_at,
+        "status": Analysis.status,
+    }
+    order_column = sort_columns[sort_by]
+    ordering = order_column.asc() if sort_order == "asc" else order_column.desc()
     analyses = list(
         session.scalars(
             select(Analysis)
             .where(*filters)
-            .order_by(Analysis.created_at.desc())
+            .order_by(ordering, Analysis.id.asc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )

@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import String, cast, distinct, func, select
@@ -16,17 +17,26 @@ def get_patient(session: Session, patient_id: UUID) -> Patient | None:
 
 
 def list_patients(
-    session: Session, *, page: int, page_size: int, search: str | None = None
+    session: Session, *, page: int, page_size: int, search: str | None = None,
+    created_from: datetime | None = None, created_to: datetime | None = None,
+    sort_by: str = "created_at", sort_order: str = "desc",
 ) -> tuple[list[Patient], int]:
     filters = []
     if search:
         filters.append(cast(Patient.id, String).ilike(f"%{search.strip()}%"))
+    if created_from is not None:
+        filters.append(Patient.created_at >= created_from)
+    if created_to is not None:
+        filters.append(Patient.created_at <= created_to)
+    sort_columns = {"created_at": Patient.created_at, "updated_at": Patient.updated_at}
+    order_column = sort_columns[sort_by]
+    ordering = order_column.asc() if sort_order == "asc" else order_column.desc()
     total = session.scalar(select(func.count()).select_from(Patient).where(*filters)) or 0
     patients = list(
         session.scalars(
             select(Patient)
             .where(*filters)
-            .order_by(Patient.created_at.desc())
+            .order_by(ordering, Patient.id.asc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
@@ -43,6 +53,18 @@ def patient_statistics(session: Session) -> tuple[int, int, int]:
         select(func.count()).select_from(Examination).where(Examination.deleted_at.is_(None))
     ) or 0
     return total_patients, patients_with_examinations, active_examinations
+
+
+def patient_examination_statistics(session: Session, patient_id: UUID) -> tuple[int, datetime | None, datetime | None]:
+    filters = (Examination.patient_id == patient_id, Examination.deleted_at.is_(None))
+    row = session.execute(
+        select(
+            func.count(Examination.id),
+            func.min(Examination.created_at),
+            func.max(Examination.created_at),
+        ).where(*filters)
+    ).one()
+    return row[0], row[1], row[2]
 
 
 def list_patient_examinations(

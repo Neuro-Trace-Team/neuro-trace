@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -39,6 +39,8 @@ def list_audit_logs(
     user_id: UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
+    sort_by: Literal["created_at", "event_code"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> AuditLogListResponse:
     if date_from is not None and date_to is not None and date_from > date_to:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="date_from must not be after date_to")
@@ -50,6 +52,8 @@ def list_audit_logs(
         user_id=user_id,
         date_from=date_from,
         date_to=date_to,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     return AuditLogListResponse(
         items=[_to_response(log, code) for log, code in rows], page=page, page_size=page_size, total=total

@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -32,6 +32,7 @@ from src.schemas.examinations import (
     ExaminationChannelResponse,
     ExaminationEventCreate,
     ExaminationEventResponse,
+    ExaminationEventUpdate,
     ExaminationListResponse,
     ExaminationResponse,
     ExaminationUpdate,
@@ -158,9 +159,18 @@ def list_examinations(
     processing_status: str | None = Query(default=None, max_length=30),
     date_from: datetime | None = None,
     date_to: datetime | None = None,
+    channel: str | None = Query(default=None, min_length=1, max_length=50),
+    pain_level: Decimal | None = Query(default=None, ge=0),
+    pain_level_min: Decimal | None = Query(default=None, ge=0),
+    pain_level_max: Decimal | None = Query(default=None, ge=0),
+    pain_source: Literal["doctor", "ai"] = "doctor",
+    sort_by: Literal["created_at", "examination_date", "processing_status"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> ExaminationListResponse:
     if date_from is not None and date_to is not None and date_from > date_to:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="date_from must not be after date_to")
+    if pain_level_min is not None and pain_level_max is not None and pain_level_min > pain_level_max:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="pain_level_min must not exceed pain_level_max")
     examinations, total = examinations_service.list_examinations(
         medical_db,
         page=page,
@@ -170,6 +180,13 @@ def list_examinations(
         processing_status=processing_status,
         date_from=date_from,
         date_to=date_to,
+        channel=channel,
+        pain_level=pain_level,
+        pain_level_min=pain_level_min,
+        pain_level_max=pain_level_max,
+        pain_source=pain_source,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     return ExaminationListResponse(
         items=[_examination_response(examination) for examination in examinations],
@@ -325,3 +342,53 @@ def create_examination_event(
         ip_address=_client_ip(request),
     )
     return _event_response(event)
+
+
+@router.patch("/{examination_id}/events/{event_id}", response_model=ExaminationEventResponse)
+def update_examination_event(
+    examination_id: UUID,
+    event_id: UUID,
+    payload: ExaminationEventUpdate,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+) -> ExaminationEventResponse:
+    try:
+        event = examinations_service.update_event(
+            medical_db, examination_id=examination_id, event_id=event_id,
+            updates=payload.model_dump(exclude_unset=True),
+        )
+    except examinations_service.ExaminationNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examination not found") from None
+    except examinations_service.ExaminationEventNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examination event not found") from None
+    audit_service.log(
+        audit_db, event_code="EXAMINATION_UPDATED", user_id=current_user.id,
+        resource_type="EXAMINATION", resource_id=examination_id,
+        metadata={"action": "EVENT_UPDATED", "event_id": str(event_id), "fields": sorted(payload.model_fields_set)},
+        ip_address=_client_ip(request),
+    )
+    return _event_response(event)
+
+
+@router.delete("/{examination_id}/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_examination_event(
+    examination_id: UUID,
+    event_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+) -> None:
+    try:
+        examinations_service.delete_event(medical_db, examination_id=examination_id, event_id=event_id)
+    except examinations_service.ExaminationNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examination not found") from None
+    except examinations_service.ExaminationEventNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examination event not found") from None
+    audit_service.log(
+        audit_db, event_code="EXAMINATION_UPDATED", user_id=current_user.id,
+        resource_type="EXAMINATION", resource_id=examination_id,
+        metadata={"action": "EVENT_DELETED", "event_id": str(event_id)}, ip_address=_client_ip(request),
+    )

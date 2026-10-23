@@ -16,6 +16,8 @@ def list_audit_logs(
     user_id: UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
 ) -> tuple[list[tuple[AuditLog, str]], int]:
     filters = []
     if event_code is not None:
@@ -30,12 +32,15 @@ def list_audit_logs(
     total = session.scalar(
         select(func.count()).select_from(AuditLog).join(AuditLogType).where(*filters)
     ) or 0
+    sort_columns = {"created_at": AuditLog.created_at, "event_code": AuditLogType.code}
+    order_column = sort_columns[sort_by]
+    ordering = order_column.asc() if sort_order == "asc" else order_column.desc()
     rows = list(
         session.execute(
             select(AuditLog, AuditLogType.code)
             .join(AuditLogType)
             .where(*filters)
-            .order_by(AuditLog.created_at.desc())
+            .order_by(ordering, AuditLog.id.asc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )

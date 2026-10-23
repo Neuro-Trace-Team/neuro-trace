@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -134,6 +134,8 @@ def list_analyses(
     examination_id: UUID | None = None,
     requested_by: UUID | None = None,
     analysis_status: str | None = Query(default=None, max_length=30),
+    sort_by: Literal["created_at", "started_at", "completed_at", "status"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> AnalysisListResponse:
     try:
         analyses, total = analyses_service.list_analyses(
@@ -143,6 +145,8 @@ def list_analyses(
             examination_id=examination_id,
             requested_by=requested_by,
             status=analysis_status,
+            sort_by=sort_by,
+            sort_order=sort_order,
         )
     except examinations_service.ExaminationNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examination not found") from None

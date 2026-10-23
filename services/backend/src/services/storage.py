@@ -43,6 +43,13 @@ class RustFSStorage:
         except BotoCoreError as error:
             raise ObjectStorageError("RustFS is unavailable") from error
 
+    def check_available(self) -> None:
+        """Check RustFS connectivity without requiring a bucket created by the first upload."""
+        try:
+            self.client.list_buckets()
+        except (BotoCoreError, ClientError) as error:
+            raise ObjectStorageError("RustFS is unavailable") from error
+
     def upload(self, source: BinaryIO, *, key: str, content_type: str | None) -> None:
         self._ensure_bucket()
         try:

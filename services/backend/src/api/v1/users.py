@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -31,8 +31,12 @@ def list_users(
     auth_db: Annotated[Session, Depends(get_auth_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    sort_by: Literal["created_at", "updated_at", "email"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
 ) -> UserListResponse:
-    users, total = users_service.list_users(auth_db, page=page, page_size=page_size)
+    users, total = users_service.list_users(
+        auth_db, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order
+    )
     return UserListResponse(items=users, page=page, page_size=page_size, total=total)
 
 
