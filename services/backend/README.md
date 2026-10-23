@@ -49,6 +49,11 @@ examinations in RustFS.
   failure to `FAILED`, and cancellation back to `UPLOADED`. This is backend
   state management only: no preprocessing HTTP request, queue, or worker is
   started in this milestone.
+- The analysis domain is now prepared in `medical_db`: an analysis belongs to
+  one completed preprocessing job, examination, requesting user, and declared
+  model/version. It supports queued, running, completed, failed, and cancelled
+  states plus one optional `analysis_result`. No ML call or public result API
+  exists yet; those integration and API boundaries are later milestones.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -110,6 +115,53 @@ failure requires an `error_message`.
 | POST | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Queue a preprocessing job. |
 | GET | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Paginated job history for an examination. |
 | GET | `/api/v1/preprocessing-jobs/{job_id}` | Read one preprocessing job. |
+
+## Analysis domain preparation
+
+The backend service layer now persists and reads `analyses` and
+`analysis_results`. An analysis can only be created for an active examination
+and a `COMPLETED` preprocessing job belonging to that examination. It starts
+as `QUEUED`; the service layer also protects the later `RUNNING`, `COMPLETED`,
+`FAILED`, and `CANCELLED` transitions. Completion atomically stores one
+optional result record with flexible JSON result and explanation fields.
+
+No endpoint is exposed in this stage: the public result API belongs to the
+next dedicated API milestone, while future ML callback contracts are added
+separately. `DeferredMLClient` is an explicit non-network integration
+placeholder.
+
+## Analysis and result API
+
+All endpoints require a logged-in user. Requesting an analysis validates that
+the examination exists and that the selected preprocessing job belongs to it
+and is `COMPLETED`. The request only persists a `QUEUED` analysis; it does not
+call ML. Completed results are returned only after the internal ML result
+callback has saved them.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/examinations/{examination_id}/results` | Queue analysis for a completed preprocessing job. |
+| GET | `/api/v1/examinations/{examination_id}/results` | Paginated completed analysis results for an examination. |
+| GET | `/api/v1/analyses` | Paginated analyses; filters: `examination_id`, `requested_by`, `analysis_status`. |
+| GET | `/api/v1/analyses/{analysis_id}` | Analysis status and declared model/version. |
+
+## Internal ML contracts
+
+The existing preprocessing internal contract remains unchanged. The following
+temporary `ADMIN`-protected contracts are prepared for a future ML service;
+they persist data in the backend but do not contact ML or a queue themselves.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| PATCH | `/api/v1/internal/analyses/{analysis_id}/status` | Mark a queued analysis `RUNNING` or cancel an active analysis. |
+| POST | `/api/v1/internal/analyses/{analysis_id}/result` | Atomically store a completed analysis and its optional result fields. |
+| POST | `/api/v1/internal/analyses/{analysis_id}/error` | Store a bounded failure message and set the analysis to `FAILED`. |
+
+The result contract keeps `pain_level`, `confidence`, `result`, and
+`explanation` optional and structurally flexible. No final ML output, feature,
+tensor, or XAI schema is imposed. Completion and failure create the matching
+central audit event; callback payloads never include source EEG data or
+storage credentials.
 
 ## Patient API
 

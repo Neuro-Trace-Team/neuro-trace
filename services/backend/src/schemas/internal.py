@@ -3,7 +3,9 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from src.schemas.analyses import AnalysisResponse, AnalysisResultResponse
 
 
 class PreprocessingSourceFile(BaseModel):
@@ -45,3 +47,12 @@ class PreprocessingExaminationResponse(BaseModel):
     metadata: PreprocessingExaminationMetadata
     channels: list[PreprocessingChannel]
     events: list[PreprocessingEvent]
+
+
+class InternalAnalysisFailureReport(BaseModel):
+    error_message: str = Field(min_length=1, max_length=2000)
+
+
+class InternalAnalysisCompletionResponse(BaseModel):
+    analysis: AnalysisResponse
+    result: AnalysisResultResponse
