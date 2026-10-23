@@ -41,6 +41,9 @@ examinations in RustFS.
 - EEG upload writes the object to RustFS and its metadata to `medical_db`.
   Upload does not call or wait for preprocessing. A dedicated storage boundary
   keeps a future `PreprocessingService` separate from this transaction.
+- The internal preprocessing contract exposes an active examination's RustFS
+  object coordinates, metadata, channels, and events. It contains neither EEG
+  bytes nor RustFS credentials, and does not perform an outbound request.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -72,6 +75,20 @@ examination metadata. If metadata persistence fails after a RustFS upload,
 the backend attempts to delete the uploaded object. Upload, metadata updates,
 channel/event modifications, and soft delete create the matching examination
 audit event without recording the file content.
+
+## Internal preprocessing contract
+
+| Method | Endpoint | Current access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/internal/preprocessing/examinations/{examination_id}` | ADMIN | Source-object coordinates and examination context for future preprocessing. |
+
+The internal response includes `bucket`, `storage_key`, file information,
+examination metadata, channels, and events. It intentionally excludes
+`RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, and file bytes. During this stage,
+the endpoint is protected by existing administrator RBAC; a future
+service-to-service authentication mechanism can replace this boundary without
+changing the response contract. `DeferredPreprocessingClient` is only a
+non-network integration placeholder and is not called by uploads.
 
 ## Patient API
 

@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.api.v1.admin import router as admin_router
 from src.api.v1.auth import router as auth_router
 from src.api.v1.examinations import router as examinations_router
+from src.api.v1.internal import router as internal_router
 from src.api.v1.patients import router as patients_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
@@ -23,6 +24,7 @@ app.include_router(users_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(patients_router, prefix="/api/v1")
 app.include_router(examinations_router, prefix="/api/v1")
+app.include_router(internal_router, prefix="/api/v1")
 
 
 @app.get("/health/live", tags=["health"])

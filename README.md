@@ -38,6 +38,11 @@ Examinations are available at `/api/v1/examinations`. Upload is independent
 of preprocessing: it validates the request, generates UUID and storage key,
 uploads to RustFS, stores metadata, then emits `EXAMINATION_UPLOADED`.
 
+The backend is prepared for future preprocessing through the protected
+internal contract `GET /api/v1/internal/preprocessing/examinations/{id}`. It
+returns storage coordinates and examination context but never file bytes or
+RustFS credentials; it makes no preprocessing request.
+
 ## Naming convention
 
 The project uses **examination/examinations** consistently in backend code
