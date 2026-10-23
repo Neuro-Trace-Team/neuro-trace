@@ -2,10 +2,10 @@
 
 Backend NeuroTrace is a FastAPI application. The current milestone provides
 the application foundation, database readiness checks, and authentication.
-Examination upload, RustFS uploads, preprocessing, and ML integrations are
-intentionally not implemented yet. This milestone additionally makes the
-audit trail centrally readable for administrators and provides pseudonymized
-patient management.
+Preprocessing and ML integrations are intentionally not implemented yet. This
+milestone additionally makes the audit trail centrally readable for
+administrators, provides pseudonymized patient management, and stores EEG
+examinations in RustFS.
 
 ## Current functionality
 
@@ -38,9 +38,40 @@ patient management.
 - Any authenticated `ADMIN` or `DOCTOR` can create and read pseudonymized
   patients. A patient contains only its generated UUID and timestamps because
   the medical schema contains no personal details.
+- EEG upload writes the object to RustFS and its metadata to `medical_db`.
+  Upload does not call or wait for preprocessing. A dedicated storage boundary
+  keeps a future `PreprocessingService` separate from this transaction.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
+
+## Examination API
+
+All endpoints require a logged-in `ADMIN` or `DOCTOR`. `POST` accepts
+`multipart/form-data` with `patient_id`, `sampling_frequency`, and `file`.
+Optional metadata fields are `examination_date`, `electrode_positions` (JSON
+object encoded as text), `reference`, `power_line_frequency` (50 or 60), and
+`duration_seconds`. The MVP accepts `.edf`, `.bdf`, `.set`, `.fif`, `.vhdr`,
+and `.eeg` files and calculates their SHA-256 checksum while streaming them
+to a temporary file before RustFS upload.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/examinations` | Upload EEG to RustFS and persist metadata. |
+| GET | `/api/v1/examinations` | Paginated list; filters: `patient_id`, `uploaded_by`, `processing_status`, `date_from`, `date_to`. |
+| GET | `/api/v1/examinations/eeg-channels` | EEG channel catalogue. |
+| GET | `/api/v1/examinations/{examination_id}` | Examination details. |
+| PATCH | `/api/v1/examinations/{examination_id}` | Edit allowed metadata only. |
+| DELETE | `/api/v1/examinations/{examination_id}` | Soft delete; the RustFS object is retained. |
+| GET/PUT | `/api/v1/examinations/{examination_id}/channels` | Read or replace channel assignments. |
+| GET/POST | `/api/v1/examinations/{examination_id}/events` | Read or add examination events. |
+
+The response deliberately does not expose `storage_bucket` or `storage_key`.
+When RustFS cannot accept an upload, the API returns `503` and creates no
+examination metadata. If metadata persistence fails after a RustFS upload,
+the backend attempts to delete the uploaded object. Upload, metadata updates,
+channel/event modifications, and soft delete create the matching examination
+audit event without recording the file content.
 
 ## Patient API
 
@@ -207,4 +238,10 @@ The **Patients** folder signs in as an administrator, creates a pseudonymized
 patient, lists and searches by UUID, reads details and statistics, requests
 the empty examination list, and verifies `404` for an unknown UUID and `401`
 without authentication. It saves the new UUID as `patient_id`.
+
+The **Examinations** folder signs in, creates its own pseudonymized patient,
+uploads `postman/fixtures/sample.eeg`, checks filtering and details, updates
+metadata, reads the channel catalogue, assigns channels, adds an event, and
+finishes with a soft delete. In Postman, select that local fixture for the
+`file` form field if the imported collection cannot resolve its relative path.
 

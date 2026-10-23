@@ -29,6 +29,7 @@ services:
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_BUCKET: examinations
 
       PREPROCESSING_URL: http://preprocessing:8001
       JWT_SECRET: ${JWT_SECRET}

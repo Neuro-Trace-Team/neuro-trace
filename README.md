@@ -15,9 +15,9 @@ Available technical endpoints:
 
 Authentication and administrator-only user management are implemented.
 Patient management is implemented with the existing pseudonymized schema:
-patients have a generated UUID and timestamps only. Examination upload,
-RustFS, preprocessing, and ML functionality remain for separate, small
-milestones.
+patients have a generated UUID and timestamps only. EEG examination upload
+stores a file in RustFS and metadata in `medical_db`; preprocessing and ML
+remain for separate, small milestones.
 
 The backend uses central RBAC support for `ADMIN` and `DOCTOR`. User
 management is restricted to `ADMIN`; users may only edit their own basic
@@ -33,6 +33,10 @@ when an audit write fails. Administrators can browse logs at
 Authenticated users can create and browse patients at `/api/v1/patients`.
 This API intentionally accepts and returns no name, PESEL, address, or other
 personal data: those columns do not exist in the supplied medical schema.
+
+Examinations are available at `/api/v1/examinations`. Upload is independent
+of preprocessing: it validates the request, generates UUID and storage key,
+uploads to RustFS, stores metadata, then emits `EXAMINATION_UPLOADED`.
 
 ## Naming convention
 

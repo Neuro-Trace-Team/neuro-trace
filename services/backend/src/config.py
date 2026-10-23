@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     rustfs_endpoint: str
     rustfs_access_key: str
     rustfs_secret_key: str
+    rustfs_bucket: str = "examinations"
+    max_upload_size_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
     preprocessing_url: str
     jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
