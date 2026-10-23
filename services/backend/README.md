@@ -44,6 +44,11 @@ examinations in RustFS.
 - The internal preprocessing contract exposes an active examination's RustFS
   object coordinates, metadata, channels, and events. It contains neither EEG
   bytes nor RustFS credentials, and does not perform an outbound request.
+- Preprocessing jobs are persisted in `medical_db`. Creating a job changes an
+  examination to `PREPROCESSING`; a completed result changes it to `READY`, a
+  failure to `FAILED`, and cancellation back to `UPLOADED`. This is backend
+  state management only: no preprocessing HTTP request, queue, or worker is
+  started in this milestone.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -81,6 +86,8 @@ audit event without recording the file content.
 | Method | Endpoint | Current access | Purpose |
 | --- | --- | --- | --- |
 | GET | `/api/v1/internal/preprocessing/examinations/{examination_id}` | ADMIN | Source-object coordinates and examination context for future preprocessing. |
+| PATCH | `/api/v1/internal/preprocessing/jobs/{job_id}/status` | ADMIN | Mark a queued job as `RUNNING` or cancel an active job. |
+| POST | `/api/v1/internal/preprocessing/jobs/{job_id}/result` | ADMIN | Save a `COMPLETED` output location or a `FAILED` error. |
 
 The internal response includes `bucket`, `storage_key`, file information,
 examination metadata, channels, and events. It intentionally excludes
@@ -89,6 +96,20 @@ the endpoint is protected by existing administrator RBAC; a future
 service-to-service authentication mechanism can replace this boundary without
 changing the response contract. `DeferredPreprocessingClient` is only a
 non-network integration placeholder and is not called by uploads.
+
+## Preprocessing jobs API
+
+All endpoints require a logged-in user. Creating a job stores a declared,
+non-empty `pipeline_version` and optional JSON `parameters`; it does not send
+anything to a preprocessing service. A terminal job cannot be transitioned
+again. Completion requires both `output_bucket` and `output_storage_key`;
+failure requires an `error_message`.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Queue a preprocessing job. |
+| GET | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Paginated job history for an examination. |
+| GET | `/api/v1/preprocessing-jobs/{job_id}` | Read one preprocessing job. |
 
 ## Patient API
 
@@ -261,4 +282,10 @@ uploads `postman/fixtures/sample.eeg`, checks filtering and details, updates
 metadata, reads the channel catalogue, assigns channels, adds an event, and
 finishes with a soft delete. In Postman, select that local fixture for the
 `file` form field if the imported collection cannot resolve its relative path.
+
+The **Preprocessing jobs** folder creates a separate patient and examination,
+queues a job, verifies its history and detail endpoint, marks it `RUNNING`,
+checks invalid completion input, then saves a `COMPLETED` result and verifies
+that the examination becomes `READY`. It does not contact a preprocessing
+service; internal job endpoints use the current temporary `ADMIN` boundary.
 

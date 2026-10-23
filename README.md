@@ -3,7 +3,7 @@
 NeuroTrace is a microservice project for storing EEG examinations,
 preprocessing their data, and presenting AI/ML analysis results.
 
-## Implemented milestones: foundation, authentication, RBAC, users, and audit
+## Implemented milestones: foundation, authentication, RBAC, users, audit, examinations, and preprocessing jobs
 
 The backend currently starts with FastAPI and connects independently to the
 three PostgreSQL databases: `auth_db`, `medical_db`, and `audit_db`.
@@ -41,7 +41,10 @@ uploads to RustFS, stores metadata, then emits `EXAMINATION_UPLOADED`.
 The backend is prepared for future preprocessing through the protected
 internal contract `GET /api/v1/internal/preprocessing/examinations/{id}`. It
 returns storage coordinates and examination context but never file bytes or
-RustFS credentials; it makes no preprocessing request.
+RustFS credentials; it makes no preprocessing request. It also persists the
+complete preprocessing-job history. Jobs can be queued, marked running,
+completed with output coordinates, failed with a bounded diagnostic message,
+or cancelled. No preprocessing service is called at this stage.
 
 ## Naming convention
 

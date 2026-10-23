@@ -4,9 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.api.deps import require_roles
+from src.api.deps import get_current_user, require_roles
 from src.core.roles import Role
-from src.db.sessions import get_medical_db
+from src.db.sessions import get_audit_db, get_medical_db
+from src.models.auth import User
+from src.models.medical import PreprocessingJob
 from src.schemas.internal import (
     PreprocessingChannel,
     PreprocessingEvent,
@@ -14,10 +16,33 @@ from src.schemas.internal import (
     PreprocessingExaminationResponse,
     PreprocessingSourceFile,
 )
+from src.schemas.preprocessing_jobs import (
+    PreprocessingJobResponse,
+    PreprocessingJobResult,
+    PreprocessingJobStatusUpdate,
+)
+from src.services import audit as audit_service
 from src.services import examinations as examinations_service
+from src.services import preprocessing_jobs as preprocessing_jobs_service
 
 router = APIRouter(prefix="/internal/preprocessing", tags=["internal preprocessing"])
 admin_only = Depends(require_roles(Role.ADMIN))
+
+
+def _preprocessing_job_response(job: PreprocessingJob) -> PreprocessingJobResponse:
+    return PreprocessingJobResponse(
+        id=job.id,
+        examination_id=job.examination_id,
+        status=job.status,
+        pipeline_version=job.pipeline_version,
+        parameters=job.parameters_json,
+        output_bucket=job.output_bucket,
+        output_storage_key=job.output_storage_key,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+    )
 
 
 @router.get(
@@ -75,3 +100,74 @@ def get_preprocessing_examination(
             for event in events
         ],
     )
+
+
+@router.patch(
+    "/jobs/{job_id}/status",
+    response_model=PreprocessingJobResponse,
+    dependencies=[admin_only],
+)
+def update_preprocessing_job_status(
+    job_id: UUID,
+    payload: PreprocessingJobStatusUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+) -> PreprocessingJobResponse:
+    try:
+        if payload.status == "RUNNING":
+            job = preprocessing_jobs_service.mark_running(medical_db, job_id)
+        else:
+            job = preprocessing_jobs_service.mark_cancelled(medical_db, job_id)
+    except preprocessing_jobs_service.PreprocessingJobNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preprocessing job not found") from None
+    except preprocessing_jobs_service.PreprocessingJobTransitionError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from None
+    audit_service.log(
+        audit_db,
+        event_code="EXAMINATION_UPDATED",
+        user_id=current_user.id,
+        resource_type="EXAMINATION",
+        resource_id=job.examination_id,
+        metadata={"action": "PREPROCESSING_JOB_STATUS_UPDATED", "job_id": str(job.id), "status": job.status},
+    )
+    return _preprocessing_job_response(job)
+
+
+@router.post(
+    "/jobs/{job_id}/result",
+    response_model=PreprocessingJobResponse,
+    dependencies=[admin_only],
+)
+def save_preprocessing_job_result(
+    job_id: UUID,
+    payload: PreprocessingJobResult,
+    current_user: Annotated[User, Depends(get_current_user)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+) -> PreprocessingJobResponse:
+    try:
+        if payload.status == "COMPLETED":
+            job = preprocessing_jobs_service.mark_completed(
+                medical_db,
+                job_id=job_id,
+                output_bucket=payload.output_bucket,
+                output_storage_key=payload.output_storage_key,
+            )
+        else:
+            job = preprocessing_jobs_service.mark_failed(
+                medical_db, job_id=job_id, error_message=payload.error_message
+            )
+    except preprocessing_jobs_service.PreprocessingJobNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preprocessing job not found") from None
+    except preprocessing_jobs_service.PreprocessingJobTransitionError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from None
+    audit_service.log(
+        audit_db,
+        event_code="EXAMINATION_UPDATED",
+        user_id=current_user.id,
+        resource_type="EXAMINATION",
+        resource_id=job.examination_id,
+        metadata={"action": "PREPROCESSING_JOB_RESULT_SAVED", "job_id": str(job.id), "status": job.status},
+    )
+    return _preprocessing_job_response(job)

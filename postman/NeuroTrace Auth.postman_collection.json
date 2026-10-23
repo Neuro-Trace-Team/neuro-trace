@@ -327,6 +327,66 @@
           "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthenticated request returns 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
         }
       ]
+    },
+    {
+      "name": "Preprocessing jobs",
+      "item": [
+        {
+          "name": "Admin login for preprocessing tests",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}" }, "url": "{{base_url}}/api/v1/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Administrator login succeeds', () => pm.response.to.have.status(200));", "pm.environment.set('admin_access_token', pm.response.json().access_token);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Create patient for preprocessing",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/patients" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Patient is created', () => pm.response.to.have.status(201));", "pm.environment.set('patient_id', pm.response.json().id);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Upload EEG for preprocessing",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "body": { "mode": "formdata", "formdata": [{ "key": "patient_id", "value": "{{patient_id}}", "type": "text" }, { "key": "sampling_frequency", "value": "256", "type": "text" }, { "key": "file", "type": "file", "src": "postman/fixtures/sample.eeg" }] }, "url": "{{base_url}}/api/v1/examinations" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('EEG upload succeeds', () => pm.response.to.have.status(201));", "pm.environment.set('examination_id', pm.response.json().id);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Queue preprocessing job",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"pipeline_version\": \"mvp-v1\",\n  \"parameters\": { \"normalize\": true }\n}" }, "url": "{{base_url}}/api/v1/examinations/{{examination_id}}/preprocessing-jobs" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Job is queued', () => pm.response.to.have.status(201));", "const body = pm.response.json(); pm.expect(body.status).to.eql('QUEUED'); pm.environment.set('preprocessing_job_id', body.id);"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "List preprocessing job history",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/examinations/{{examination_id}}/preprocessing-jobs" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('History is returned', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().items.map(item => item.id)).to.include(pm.environment.get('preprocessing_job_id'));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Get preprocessing job",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/preprocessing-jobs/{{preprocessing_job_id}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Job details are returned', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().status).to.eql('QUEUED');"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Mark preprocessing job running",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"RUNNING\" }" }, "url": "{{base_url}}/api/v1/internal/preprocessing/jobs/{{preprocessing_job_id}}/status" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Job is running', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().status).to.eql('RUNNING');"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Reject completed result without output",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"COMPLETED\" }" }, "url": "{{base_url}}/api/v1/internal/preprocessing/jobs/{{preprocessing_job_id}}/result" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Invalid result returns 422', () => pm.response.to.have.status(422));"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Save completed preprocessing result",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"COMPLETED\",\n  \"output_bucket\": \"processed-examinations\",\n  \"output_storage_key\": \"results/{{preprocessing_job_id}}/mvp-v1.json\"\n}" }, "url": "{{base_url}}/api/v1/internal/preprocessing/jobs/{{preprocessing_job_id}}/result" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Completed result is saved', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().status).to.eql('COMPLETED');"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Examination becomes ready",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }], "url": "{{base_url}}/api/v1/examinations/{{examination_id}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Examination is ready', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().processing_status).to.eql('READY');"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Preprocessing jobs without token are rejected",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/preprocessing-jobs/{{preprocessing_job_id}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthenticated request returns 401', () => pm.response.to.have.status(401));"], "type": "text/javascript" } }]
+        }
+      ]
     }
   ]
 }
