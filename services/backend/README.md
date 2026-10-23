@@ -1,11 +1,10 @@
 # NeuroTrace backend
 
 Backend NeuroTrace is a FastAPI application. The current milestone provides
-the application foundation, database readiness checks, and authentication.
-Preprocessing and ML integrations are intentionally not implemented yet. This
-milestone additionally makes the audit trail centrally readable for
-administrators, provides pseudonymized patient management, and stores EEG
-examinations in RustFS.
+authentication, pseudonymized patient and EEG-examination management, audit,
+preprocessing and analysis state management, pain assessments, dashboards,
+and bulk operations. Preprocessing and ML integrations themselves are
+intentionally not implemented yet.
 
 ## Current functionality
 
@@ -49,11 +48,15 @@ examinations in RustFS.
   failure to `FAILED`, and cancellation back to `UPLOADED`. This is backend
   state management only: no preprocessing HTTP request, queue, or worker is
   started in this milestone.
-- The analysis domain is now prepared in `medical_db`: an analysis belongs to
+- The analysis domain is persisted in `medical_db`: an analysis belongs to
   one completed preprocessing job, examination, requesting user, and declared
   model/version. It supports queued, running, completed, failed, and cancelled
-  states plus one optional `analysis_result`. No ML call or public result API
-  exists yet; those integration and API boundaries are later milestones.
+  states plus one optional `analysis_result`. Public analysis/result endpoints
+  and protected internal callback contracts are available; no ML call is made.
+- Doctor and administrator dashboards aggregate existing data across the three
+  databases. They do not require preprocessing or ML services to be running.
+- Administrators can soft-delete up to 100 examinations in one operation or
+  export their source EEG files and metadata as a generated ZIP archive.
 
 The future HTTP resource name is **examinations**. New endpoints will use
 `/api/v1/examinations`.
@@ -125,10 +128,8 @@ as `QUEUED`; the service layer also protects the later `RUNNING`, `COMPLETED`,
 `FAILED`, and `CANCELLED` transitions. Completion atomically stores one
 optional result record with flexible JSON result and explanation fields.
 
-No endpoint is exposed in this stage: the public result API belongs to the
-next dedicated API milestone, while future ML callback contracts are added
-separately. `DeferredMLClient` is an explicit non-network integration
-placeholder.
+`DeferredMLClient` is an explicit non-network integration placeholder; the
+public result API and future ML callback contracts are documented below.
 
 ## Analysis and result API
 
@@ -175,6 +176,43 @@ The result contract keeps `pain_level`, `confidence`, `result`, and
 tensor, or XAI schema is imposed. Completion and failure create the matching
 central audit event; callback payloads never include source EEG data or
 storage credentials.
+
+## Dashboards and administrator statistics
+
+`GET /api/v1/dashboard/stats` is available to every logged-in `ADMIN` or
+`DOCTOR`. It returns the current total of pseudonymized patients, active
+examinations, and up to 10 most recently created active examinations. The
+current schema has no facility/assignment boundary, so these values are global
+within the local backend.
+
+All administrator endpoints below accept `period=7d`, `30d`, or `90d` where
+applicable. They combine `auth_db`, `medical_db`, and `audit_db` only in the
+application layer; database sessions remain separate.
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/dashboard/stats` | Logged-in user | Doctor-facing summary and recent examinations. |
+| GET | `/api/v1/admin/dashboard?period=7d` | ADMIN | Users, logins, examinations, analyses, failures, and exports. |
+| GET | `/api/v1/admin/stats/active-users?period=7d` | ADMIN | Current active-account count. |
+| GET | `/api/v1/admin/stats/login-attempts?period=7d` | ADMIN | Successful and failed login events in the period. |
+| GET | `/api/v1/admin/stats/examinations?period=30d` | ADMIN | Active examinations created in the period. |
+| GET | `/api/v1/admin/stats/exports?period=30d` | ADMIN | `DATA_EXPORTED` audit-event count in the period. |
+
+## Bulk examination operations
+
+Both operations require `ADMIN` and accept JSON in the form
+`{"examination_ids": ["uuid", "..."]}`. The list must contain 1–100 unique
+UUIDs. The backend validates every requested examination before changing data.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/examinations/bulk-delete` | Soft-delete all selected active examinations; source files remain in RustFS. |
+| POST | `/api/v1/examinations/bulk-export` | Download a ZIP containing each source EEG file and its `metadata.json`. |
+
+The ZIP is generated in memory for the current MVP. An unavailable RustFS
+object produces `503`; successful export writes one `DATA_EXPORTED` audit
+event with only the exported examination count, never file bytes or storage
+credentials.
 
 ## Patient API
 
@@ -353,4 +391,12 @@ queues a job, verifies its history and detail endpoint, marks it `RUNNING`,
 checks invalid completion input, then saves a `COMPLETED` result and verifies
 that the examination becomes `READY`. It does not contact a preprocessing
 service; internal job endpoints use the current temporary `ADMIN` boundary.
+
+The **Analyses and results** folder creates a completed preprocessing job,
+queues an analysis, simulates its internal result callback, and reads the
+stored result. The **Pain assessments** folder creates an independent
+clinician assessment, reads its history, and checks validation of a negative
+value. The internal ML folder contains contract-level authentication and
+unknown-analysis checks. Dashboard and bulk-operation endpoints are available
+in Swagger; their full Postman workflow is not yet included in the collection.
 

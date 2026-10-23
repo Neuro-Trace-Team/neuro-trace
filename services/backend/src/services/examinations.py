@@ -171,6 +171,18 @@ def soft_delete_examination(session: Session, examination_id: UUID) -> Examinati
     return examination
 
 
+def soft_delete_examinations(session: Session, examination_ids: list[UUID]) -> list[Examination]:
+    examinations = [get_examination(session, examination_id) for examination_id in examination_ids]
+    now = _now()
+    for examination in examinations:
+        examination.deleted_at = now
+        examination.updated_at = now
+    session.commit()
+    for examination in examinations:
+        session.refresh(examination)
+    return examinations
+
+
 def list_eeg_channels(session: Session) -> list[EEGChannel]:
     return examinations_repository.list_eeg_channels(session)
 

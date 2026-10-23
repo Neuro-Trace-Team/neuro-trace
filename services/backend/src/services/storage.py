@@ -56,3 +56,10 @@ class RustFSStorage:
             self.client.delete_object(Bucket=self.bucket, Key=key)
         except (BotoCoreError, ClientError):
             logger.exception("Could not compensate RustFS object upload for key %s", key)
+
+    def download(self, *, bucket: str, key: str) -> bytes:
+        try:
+            response = self.client.get_object(Bucket=bucket, Key=key)
+            return response["Body"].read()
+        except (BotoCoreError, ClientError) as error:
+            raise ObjectStorageError("File download from RustFS failed") from error
