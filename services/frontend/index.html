@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pl" class="">
 
 <head>
   <meta charset="UTF-8" />
@@ -7,6 +7,17 @@
   <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NeuroTrace</title>
+  <script>
+  // Sprawdzamy zapisany wybór użytkownika LUB preferencje systemowe
+  const savedTheme = localStorage.getItem('theme');
+  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+</script>
 </head>
 
 <body>

@@ -4,7 +4,7 @@ import AuthLayout from "./layouts/AuthLayout"
 import ProtectedRoute from './components/ProtectedRoute';
 import RootRedirect from './components/RootRedirect';
 
-import Login from './pages/LoginPage';
+import Login from './pages/auth/LoginPage';
 import Settings from './pages/SettingsPage';
 
 import DoctorDashboard from './pages/doctor/DoctorDashboardPage';
@@ -16,6 +16,7 @@ import AdminDashboard from './pages/admin/AdminDashboardPage';
 import AdminDatabase from './pages/admin/AdminDatabasePage';
 import AdminUsers from './pages/admin/AdminUsersPage';
 import AdminActivityLog from './pages/admin/AdminActivityLogPage';
+import { AuthProvider } from "./context/AuthContext";
 
 const router = createBrowserRouter([
   {
@@ -26,7 +27,7 @@ const router = createBrowserRouter([
     element: <AuthLayout />,
     children: [
       {
-        path: '/login',
+        path: '/auth/login',
         element: <Login />
       }
     ]
@@ -78,7 +79,9 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   )
 }
 
