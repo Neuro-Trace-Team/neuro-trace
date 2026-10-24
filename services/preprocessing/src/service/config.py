@@ -8,6 +8,9 @@ from urllib.parse import quote
 
 @dataclass(frozen=True)
 class Settings:
+    backend_url: str
+    backend_token: str
+    backend_timeout_seconds: float
     rustfs_endpoint_url: str
     rustfs_access_key_id: str
     rustfs_secret_access_key: str
@@ -24,6 +27,9 @@ class Settings:
         rabbitmq_host = os.getenv("RABBITMQ_HOST", "rabbitmq")
         rabbitmq_port = os.getenv("RABBITMQ_PORT", "5672")
         return cls(
+            backend_url=os.getenv("BACKEND_URL", "http://backend:8080").rstrip("/"),
+            backend_token=os.getenv("BACKEND_TOKEN", ""),
+            backend_timeout_seconds=float(os.getenv("BACKEND_TIMEOUT_SECONDS", "10")),
             rustfs_endpoint_url=os.getenv("RUSTFS_ENDPOINT", "http://rustfs:9000"),
             rustfs_access_key_id=os.getenv("RUSTFS_ACCESS_KEY", ""),
             rustfs_secret_access_key=os.getenv("RUSTFS_SECRET_KEY", ""),

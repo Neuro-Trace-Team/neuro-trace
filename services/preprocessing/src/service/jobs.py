@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 import threading
@@ -9,29 +8,40 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from service.config import Settings
+from service.backend import NeuroTraceClient
 from service.rabbitmq import publish_combined_features
 from service.storage import RustFSStorage
 
 
-_STUDY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-
-
 class JobManager:
-    def __init__(self, settings: Settings, storage: RustFSStorage):
+    def __init__(
+        self,
+        settings: Settings,
+        storage: RustFSStorage,
+        backend: NeuroTraceClient | None = None,
+    ):
         self.settings = settings
         self.storage = storage
+        self.backend = backend
         self._jobs: dict[str, dict] = {}
         self._lock = threading.Lock()
 
-    def create(self, study_id: str) -> str:
-        if not _STUDY_ID.fullmatch(study_id):
-            raise ValueError("study_id contains unsupported characters")
-        job_id = str(uuid.uuid4())
+    def create(self, examination_id: str, job_id: str | None = None) -> str:
+        try:
+            examination_uuid = uuid.UUID(examination_id)
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ValueError("examination_id must be a UUID") from exc
+        requested_job_id = job_id or str(uuid.uuid4())
+        try:
+            uuid.UUID(requested_job_id)
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ValueError("job_id must be a UUID") from exc
+        job_id = str(requested_job_id)
         with self._lock:
             self._jobs[job_id] = {
                 "job_id": job_id,
-                "study_id": study_id,
-                "status": "queued",
+                "examination_id": str(examination_uuid),
+                "status": "QUEUED",
                 "created_at": self._now(),
             }
         return job_id
@@ -49,13 +59,22 @@ class JobManager:
     def _now() -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    def run(self, job_id: str, study_id: str) -> None:
+    def run(self, job_id: str, examination_id: str) -> None:
         job_root = self.settings.work_root / job_id
         input_recording = job_root / "input" / "study" / "subject" / "run"
         output_root = job_root / "output"
-        self._update(job_id, status="running", started_at=self._now())
+        self._update(job_id, status="RUNNING", started_at=self._now())
         try:
-            self.storage.download_study(study_id, input_recording)
+            if self.backend is None:
+                raise RuntimeError("NeuroTrace backend client is not configured")
+            backend_job = self.backend.get_job(job_id)
+            if backend_job.get("status") == "CANCELLED":
+                self._update(job_id, status="CANCELLED", finished_at=self._now())
+                self.backend.update_status(job_id, "CANCELLED")
+                return
+            self.backend.update_status(job_id, "RUNNING")
+            examination = self.backend.get_examination(examination_id)
+            self.storage.download_examination(examination, input_recording)
             command = [
                 sys.executable,
                 "-m",
@@ -88,12 +107,21 @@ class JobManager:
             )
             self._update(
                 job_id,
-                status="completed",
+                status="COMPLETED",
                 finished_at=self._now(),
                 output_path=str(output_root),
                 pipeline_stdout=completed.stdout[-4000:],
                 published_rows=published_rows,
                 rabbitmq_queue=self.settings.rabbitmq_queue,
             )
+            self.backend.submit_result(
+                job_id, "COMPLETED", result_file_location=str(output_root)
+            )
         except Exception as exc:
-            self._update(job_id, status="failed", finished_at=self._now(), error=str(exc))
+            message = str(exc)
+            self._update(job_id, status="FAILED", finished_at=self._now(), error=message)
+            try:
+                if self.backend is not None:
+                    self.backend.submit_result(job_id, "FAILED", error_message=message)
+            except Exception as callback_error:
+                self._update(job_id, backend_error=str(callback_error))

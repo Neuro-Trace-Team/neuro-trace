@@ -36,3 +36,28 @@ class RustFSStorage:
                 f"{study_id}/{filename}",
                 str(destination / filename),
             )
+
+    def download_examination(self, examination: dict, destination: Path) -> None:
+        """Download the recording described by the backend examination DTO.
+
+        The backend DTO currently carries the RustFS prefix as ``study_id``.
+        The additional aliases keep this adapter tolerant of the equivalent
+        names used by older backend deployments; the EEG pipeline sees exactly
+        the same local files as before.
+        """
+        study_id = next(
+            (
+                examination.get(key)
+                for key in (
+                    "study_id",
+                    "storage_prefix",
+                    "data_prefix",
+                    "recording_prefix",
+                    "storage_path",
+                )
+            ),
+            None,
+        )
+        if not isinstance(study_id, str) or not study_id:
+            raise ValueError("Examination response does not contain a storage prefix")
+        self.download_study(study_id, destination)

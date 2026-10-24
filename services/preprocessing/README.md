@@ -39,6 +39,9 @@ Configuration is read at startup from the following environment variables
 | `PIPELINE_LOG_LEVEL` | `INFO` | Pipeline log level |
 | `RABBITMQ_URL` | `amqp://guest:guest@rabbitmq:5672/` | RabbitMQ connection URL |
 | `RABBITMQ_QUEUE` | `preprocessing.combined_features` | Durable queue for combined feature rows |
+| `BACKEND_URL` | `http://backend:8080` | NeuroTrace backend base URL |
+| `BACKEND_TOKEN` | empty | Bearer token used for backend API calls |
+| `BACKEND_TIMEOUT_SECONDS` | `10` | Backend request timeout |
 
 The `RUSTFS_*` values must match the RustFS user configuration. When running
 through `docker compose`, make sure that the variable names passed to the
@@ -53,14 +56,14 @@ application does not require a RustFS-specific library.
 | Method | Endpoint | Action |
 |---|---|---|
 | `GET` | `/health` | Returns `{"status": "ok"}`; used by the container healthcheck |
-| `POST` | `/api/v1/internal/preprocessing/studies/{study_id}` | Creates a job and starts preprocessing in the background |
-| `GET` | `/api/v1/internal/preprocessing/jobs/{job_id}` | Returns the current job status |
+| `POST` | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Creates a job and starts preprocessing in the background |
+| `GET` | `/api/v1/preprocessing-jobs/{job_id}` | Returns the current job status |
 
 Example job submission:
 
 ```bash
 curl -X POST \
-  http://localhost:8001/api/v1/internal/preprocessing/studies/study-001
+  http://localhost:8001/api/v1/examinations/00000000-0000-0000-0000-000000000001/preprocessing-jobs
 ```
 
 The response is returned immediately with status `202 Accepted`:
@@ -68,32 +71,32 @@ The response is returned immediately with status `202 Accepted`:
 ```json
 {
   "job_id": "<uuid>",
-  "study_id": "study-001",
-  "status": "queued"
+  "examination_id": "00000000-0000-0000-0000-000000000001",
+  "status": "QUEUED"
 }
 ```
 
 The job status can be checked with:
 
 ```bash
-curl http://localhost:8001/api/v1/internal/preprocessing/jobs/<job_id>
+curl http://localhost:8001/api/v1/preprocessing-jobs/<job_id>
 ```
 
-`study_id` may contain letters, digits, dots, underscores, and hyphens. An
-invalid identifier returns `400`; an unknown `job_id` returns `404`.
+Both identifiers must be UUIDs. Invalid identifiers are rejected with `422`;
+an unknown `job_id` returns `404`.
 
 ### Job flow
 
 The job execution process is as follows:
 
-1. FastAPI receives a `POST` request containing `study_id`.
+1. FastAPI receives a `POST` request containing an `examination_id` UUID.
 2. `JobManager.create()` validates the identifier, generates a job UUID, and
-   stores the `queued` state in process memory.
+   stores the `QUEUED` state in process memory.
 3. FastAPI adds `JobManager.run()` to `BackgroundTasks` and returns the job
    identifier to the client.
-4. The job changes to `running`. `RustFSStorage.download_study()` downloads
-   two objects from the selected bucket:
-   `{bucket}/{study_id}/events.csv` and `{bucket}/{study_id}/eeg_data.bdf`.
+4. The job reports `RUNNING` to NeuroTrace and fetches examination data from
+   the internal backend endpoint. `RustFSStorage.download_examination()` then
+   downloads the same two objects as before using the returned storage prefix.
 5. The files are stored locally in the job directory:
 
    ```text
@@ -107,8 +110,8 @@ The job execution process is as follows:
 7. When processing finishes successfully, every row of `combined_features.csv`
    is published as one JSON message to the durable RabbitMQ queue configured by
    `RABBITMQ_QUEUE`. Only after publishing succeeds does the state change to
-   `completed`; a download, pipeline, or RabbitMQ error changes the state to
-   `failed` and stores the error message.
+   `COMPLETED` with the output location; failures report `FAILED` with an
+   error message. A backend-cancelled job reports `CANCELLED`.
 
 Job state is stored only in process memory. Restarting the container removes
 the job history, and background jobs do not constitute a durable queue.
