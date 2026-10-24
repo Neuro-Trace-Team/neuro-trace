@@ -1,3 +1,3 @@
-class IPredictor:
+class IPredictionService:
     # TODO: define methods
     pass
