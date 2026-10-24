@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 
 from services.ml.src.core.config import settings
+from services.ml.src.core.logger import setup_logging
 
+setup_logging()
 
 app = FastAPI(title=settings.app_name)
 
