@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import aio_pika
-from aio_pika import DeliveryMode, Message
+from aio_pika import DeliveryMode, ExchangeType, Message
 
 from service.config import Settings
 
@@ -41,15 +41,31 @@ async def _publish_rows(settings: Settings, rows: list[dict[str, Any]]) -> int:
     try:
         channel = await connection.channel()
         queue = await channel.declare_queue(settings.rabbitmq_queue, durable=True)
+        if settings.rabbitmq_exchange:
+            exchange = await channel.declare_exchange(
+                settings.rabbitmq_exchange,
+                ExchangeType.TOPIC,
+                durable=True,
+            )
+            await queue.bind(exchange, routing_key=settings.rabbitmq_routing_key)
+        else:
+            # Empty exchange preserves the current RabbitMQ default-exchange
+            # behavior while allowing the routing key to be configured.
+            if settings.rabbitmq_routing_key != queue.name:
+                raise ValueError(
+                    "RABBITMQ_ROUTING_KEY must equal RABBITMQ_QUEUE when "
+                    "RABBITMQ_EXCHANGE is empty"
+                )
+            exchange = channel.default_exchange
         for row in rows:
             body = json.dumps(row, ensure_ascii=False, allow_nan=False).encode("utf-8")
-            await channel.default_exchange.publish(
+            await exchange.publish(
                 Message(
                     body=body,
                     content_type="application/json",
                     delivery_mode=DeliveryMode.PERSISTENT,
                 ),
-                routing_key=queue.name,
+                routing_key=settings.rabbitmq_routing_key,
             )
         return len(rows)
     finally:

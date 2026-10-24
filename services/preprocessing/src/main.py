@@ -8,8 +8,8 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from service.config import Settings
-from service.backend import BackendAPIError, NeuroTraceClient
 from service.jobs import JobManager
+from service.jobs import BackendAPIError, NeuroTraceClient
 from service.storage import RustFSStorage
 
 

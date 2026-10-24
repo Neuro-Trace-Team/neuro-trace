@@ -18,6 +18,8 @@ class Settings:
     work_root: Path
     pipeline_log_level: str = "INFO"
     rabbitmq_url: str = "amqp://guest:guest@rabbitmq:5672/"
+    rabbitmq_exchange: str = ""
+    rabbitmq_routing_key: str = "preprocessing.combined_features"
     rabbitmq_queue: str = "preprocessing.combined_features"
 
     @classmethod
@@ -26,6 +28,12 @@ class Settings:
         rabbitmq_password = os.getenv("RABBITMQ_PASSWORD", "guest")
         rabbitmq_host = os.getenv("RABBITMQ_HOST", "rabbitmq")
         rabbitmq_port = os.getenv("RABBITMQ_PORT", "5672")
+        configured_rabbitmq_url = os.getenv("RABBITMQ_URL")
+        rabbitmq_url = configured_rabbitmq_url or (
+            "amqp://"
+            f"{quote(rabbitmq_user, safe='')}:{quote(rabbitmq_password, safe='')}"
+            f"@{rabbitmq_host}:{rabbitmq_port}/"
+        )
         return cls(
             backend_url=os.getenv("BACKEND_URL", "http://backend:8080").rstrip("/"),
             backend_token=os.getenv("BACKEND_TOKEN", ""),
@@ -36,10 +44,10 @@ class Settings:
             rustfs_bucket=os.getenv("RUSTFS_BUCKET", "eeg-data"),
             work_root=Path(os.getenv("PREPROCESSING_WORK_ROOT", "/tmp/preprocessing")),
             pipeline_log_level=os.getenv("PIPELINE_LOG_LEVEL", "INFO"),
-            rabbitmq_url=(
-                "amqp://"
-                f"{quote(rabbitmq_user, safe='')}:{quote(rabbitmq_password, safe='')}"
-                f"@{rabbitmq_host}:{rabbitmq_port}/"
+            rabbitmq_url=rabbitmq_url,
+            rabbitmq_exchange=os.getenv("RABBITMQ_EXCHANGE", ""),
+            rabbitmq_routing_key=os.getenv(
+                "RABBITMQ_ROUTING_KEY", "preprocessing.combined_features"
             ),
             rabbitmq_queue=os.getenv(
                 "RABBITMQ_QUEUE", "preprocessing.combined_features"
