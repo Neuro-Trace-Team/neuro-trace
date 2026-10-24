@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from service.config import Settings
+from service.rabbitmq import publish_combined_features
 from service.storage import RustFSStorage
 
 
@@ -79,12 +80,20 @@ class JobManager:
                     f"Pipeline exited with code {completed.returncode}: "
                     f"{completed.stderr[-4000:]}"
                 )
+            combined_features_path = (
+                output_root / "study" / "subject" / "run" / "combined_features.csv"
+            )
+            published_rows = publish_combined_features(
+                self.settings, combined_features_path
+            )
             self._update(
                 job_id,
                 status="completed",
                 finished_at=self._now(),
                 output_path=str(output_root),
                 pipeline_stdout=completed.stdout[-4000:],
+                published_rows=published_rows,
+                rabbitmq_queue=self.settings.rabbitmq_queue,
             )
         except Exception as exc:
             self._update(job_id, status="failed", finished_at=self._now(), error=str(exc))

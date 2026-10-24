@@ -37,6 +37,8 @@ Configuration is read at startup from the following environment variables
 | `RUSTFS_BUCKET` | `eeg-data` | Bucket containing study data |
 | `PREPROCESSING_WORK_ROOT` | `/tmp/preprocessing` | Working directory for individual jobs |
 | `PIPELINE_LOG_LEVEL` | `INFO` | Pipeline log level |
+| `RABBITMQ_URL` | `amqp://guest:guest@rabbitmq:5672/` | RabbitMQ connection URL |
+| `RABBITMQ_QUEUE` | `preprocessing.combined_features` | Durable queue for combined feature rows |
 
 The `RUSTFS_*` values must match the RustFS user configuration. When running
 through `docker compose`, make sure that the variable names passed to the
@@ -102,9 +104,11 @@ The job execution process is as follows:
 
 6. `JobManager` runs `python -m eeg_pipeline.cli` with the `--input`,
    `--output`, and `--all` parameters and the configured log level.
-7. When processing finishes successfully, the state changes to `completed`
-   and the output is stored in `/tmp/preprocessing/<job_id>/output`. A download
-   or pipeline error changes the state to `failed` and stores the error message.
+7. When processing finishes successfully, every row of `combined_features.csv`
+   is published as one JSON message to the durable RabbitMQ queue configured by
+   `RABBITMQ_QUEUE`. Only after publishing succeeds does the state change to
+   `completed`; a download, pipeline, or RabbitMQ error changes the state to
+   `failed` and stores the error message.
 
 Job state is stored only in process memory. Restarting the container removes
 the job history, and background jobs do not constitute a durable queue.
