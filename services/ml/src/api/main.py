@@ -1,6 +1,13 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="ML Microservice API", version="0.0.1")
+from services.ml.src.core.config import settings
+
+
+app = FastAPI(title=settings.app_name)
+
+@app.get("/info")
+async def info():
+    return {"app_name": settings.app_name, "model_path": settings.model_path}
 
 @app.get("/healthz")
 async def healthz():

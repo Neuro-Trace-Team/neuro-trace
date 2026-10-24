@@ -1,5 +1,6 @@
 import asyncio
 
+from services.ml.src.core.config import settings
 from services.ml.src.infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 
 
@@ -12,11 +13,8 @@ async def main():
     # TODO: Declare routing dictionary
     handlers_registry = {}
 
-
-    # TODO: Setup infrastructure (consumer)
-    # TODO: get parameters
-    queue_url = "placeholder"
-    queue_name = "placeholder"
+    queue_url = settings.queue_url
+    queue_name = settings.queue_name
 
     consumer = RabbitMQConsumer(
         queue_url=queue_url,
