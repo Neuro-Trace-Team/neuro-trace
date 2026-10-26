@@ -1,11 +1,11 @@
 from typing import Any, Dict
 
 from services.ml.src.event_handlers.ievent_handler import IEventHandler
-from services.ml.src.services.iprediction_service import IPredictionService
+from services.ml.src.models.ipredictor import IPredictor
 
 
 class PredictionEventHandler(IEventHandler):
-    def __init__(self, predictor: IPredictionService) -> None:
+    def __init__(self, predictor: IPredictor) -> None:
         self.predictor = predictor
 
     async def handle(self, payload: Dict[str, Any]) -> None:
