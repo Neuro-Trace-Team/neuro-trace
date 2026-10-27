@@ -3,7 +3,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from models.sklearn_predictor import SklearnPredictor
+from services.sklearn_predictor import SklearnPredictor
 
 
 class DummyModelWithProba:

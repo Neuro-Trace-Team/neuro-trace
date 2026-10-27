@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict
 
 from event_handlers.ievent_handler import IEventHandler
-from models.ipredictor import IPredictor
+from services.ipredictor import IPredictor
 
 logger = logging.getLogger(__name__)
 
