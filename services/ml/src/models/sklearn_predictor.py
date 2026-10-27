@@ -28,7 +28,7 @@ class SklearnPredictor(IPredictor):
         self.model = joblib.load(self.model_path)
         logger.info("Scikit-learn model successfully loaded into memory.")
 
-    def predict(self, features: List[float] | Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, features: List[float] | Dict[str, Any] | List[List[float]]) -> Dict[str, Any]:
         if self.model is None:
             raise RuntimeError("Model has not been loaded. Call load_model() first.")
 
