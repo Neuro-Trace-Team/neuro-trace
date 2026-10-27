@@ -9,6 +9,7 @@ from core.logger import setup_logging
 from event_handlers.ievent_handler import IEventHandler
 from event_handlers.prediction_event_handler import PredictionEventHandler
 from fastapi.responses import JSONResponse
+from infrastructure.backend_auth_client import BackendAuthClient
 from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 from services.ipredictor import IPredictor
 from infrastructure.rest_result_publisher import RestResultPublisher
@@ -18,8 +19,19 @@ from services.sklearn_predictor import SklearnPredictor
 setup_logging()
 logger = logging.getLogger(__name__)
 
+
+auth_client = BackendAuthClient(
+    base_url=settings.backend_base_url,
+    email=settings.backend_email,
+    password=settings.backend_password
+)
+result_publisher = RestResultPublisher(
+    base_url=settings.backend_base_url, 
+    auth_client=auth_client
+)
+
 predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
-result_publisher = RestResultPublisher(target_url=settings.results_webhook_url)
+
 consumer_task = None
 rabbit_consumer = None
 
