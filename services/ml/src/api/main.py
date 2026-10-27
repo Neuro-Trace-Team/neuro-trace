@@ -10,6 +10,7 @@ from event_handlers.ievent_handler import IEventHandler
 from event_handlers.prediction_event_handler import PredictionEventHandler
 from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 from services.ipredictor import IPredictor
+from infrastructure.rest_result_publisher import RestResultPublisher
 from services.sklearn_predictor import SklearnPredictor
 
 # Logger setup
@@ -17,6 +18,7 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
+result_publisher = RestResultPublisher(target_url=settings.results_webhook_url)
 consumer_task = None
 rabbit_consumer = None
 
@@ -34,7 +36,10 @@ async def lifespan(app: FastAPI):
         raise e
 
     # 2. Handlers definition
-    prediction_handler = PredictionEventHandler(predictor=predictor)
+    prediction_handler = PredictionEventHandler(
+        predictor=predictor,
+        result_publisher=result_publisher
+    )
     handlers_registry: dict[str, IEventHandler] = {
         "predict_event": prediction_handler
     }

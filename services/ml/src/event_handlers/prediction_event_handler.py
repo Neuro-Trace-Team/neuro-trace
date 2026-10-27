@@ -3,12 +3,14 @@ from typing import Any, Dict
 
 from event_handlers.ievent_handler import IEventHandler
 from services.ipredictor import IPredictor
+from services.iresultpublisher import IResultPublisher
 
 logger = logging.getLogger(__name__)
 
 class PredictionEventHandler(IEventHandler):
-    def __init__(self, predictor: IPredictor) -> None:
+    def __init__(self, predictor: IPredictor, result_publisher: IResultPublisher) -> None:
         self.predictor = predictor
+        self.result_publisher = result_publisher
 
     async def handle(self, payload: Dict[str, Any]) -> None:
         """Handles the incoming combined EEG features message."""
@@ -36,7 +38,16 @@ class PredictionEventHandler(IEventHandler):
 
             logger.info(f"Inference successful for Recording {recording_id}: {result}")
 
-            # TODO: Publish result or send it directly to the backend
+            # TODO: change the json to match the backend
+            output_payload = {
+                "experiment_id": experiment_id,
+                "subject_id": subject_id,
+                "recording_id": recording_id,
+                "window_id": window_id,
+                "prediction_result": result
+            }
+
+            await self.result_publisher.publish_result(output_payload)
         except Exception as e:
             logger.error(f"Failed to process prediction for Recording {recording_id}: {e}")
             raise e
