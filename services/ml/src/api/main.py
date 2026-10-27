@@ -8,6 +8,7 @@ from core.config import settings
 from core.logger import setup_logging
 from event_handlers.ievent_handler import IEventHandler
 from event_handlers.prediction_event_handler import PredictionEventHandler
+from fastapi.responses import JSONResponse
 from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 from services.ipredictor import IPredictor
 from infrastructure.rest_result_publisher import RestResultPublisher
@@ -94,10 +95,13 @@ async def readyz():
     """Readiness probe."""
     # TODO: Add additional checks
     if not predictor.has_model():
-        return {
-            "status": "not_ready", 
-            "reason": "model_not_loaded"
-        }, 503
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready", 
+                "reason": "model_not_loaded"
+            }
+        )
     return {
         "status": "ready"
     }
