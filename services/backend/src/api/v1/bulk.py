@@ -15,6 +15,7 @@ from src.models.auth import User
 from src.schemas.bulk import BulkDeleteResponse, BulkExaminationRequest
 from src.services import audit as audit_service
 from src.services import examinations as examinations_service
+from src.services.reports import create_bulk_examination_report
 from src.services.storage import ObjectStorageError, RustFSStorage
 
 router = APIRouter(prefix="/examinations", tags=["bulk operations"])
@@ -69,3 +70,34 @@ def bulk_export(
     archive.seek(0)
     audit_service.log(audit_db, event_code="DATA_EXPORTED", user_id=current_user.id, resource_type="EXAMINATION", metadata={"action": "BULK_EXPORT", "examination_count": len(examinations)}, ip_address=_client_ip(request))
     return StreamingResponse(archive, media_type="application/zip", headers={"Content-Disposition": "attachment; filename=neurotrace-examinations.zip"})
+
+
+@router.post("/bulk-report", dependencies=[export_allowed])
+def bulk_report(
+    payload: BulkExaminationRequest,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    medical_db: Annotated[Session, Depends(get_medical_db)],
+    audit_db: Annotated[Session, Depends(get_audit_db)],
+) -> StreamingResponse:
+    try:
+        examinations = [
+            examinations_service.get_examination(medical_db, examination_id)
+            for examination_id in payload.examination_ids
+        ]
+    except examinations_service.ExaminationNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more examinations were not found") from None
+    report = create_bulk_examination_report(medical_db, examinations)
+    audit_service.log(
+        audit_db,
+        event_code="DATA_EXPORTED",
+        user_id=current_user.id,
+        resource_type="EXAMINATION",
+        metadata={"action": "BULK_REPORT", "report_format": "PDF", "examination_count": len(examinations)},
+        ip_address=_client_ip(request),
+    )
+    return StreamingResponse(
+        BytesIO(report),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=neurotrace-medical-report.pdf"},
+    )

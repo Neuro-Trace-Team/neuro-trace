@@ -210,11 +210,18 @@ UUIDs. The backend validates every requested examination before changing data.
 | --- | --- | --- |
 | POST | `/api/v1/examinations/bulk-delete` | ADMIN: soft-delete all selected active examinations; source files remain in RustFS. |
 | POST | `/api/v1/examinations/bulk-export` | ADMIN or DOCTOR: download a ZIP containing each source EEG file and its `metadata.json`. |
+| POST | `/api/v1/examinations/bulk-report` | ADMIN or DOCTOR: download a pseudonymized PDF report for the selected examinations. |
 
 The ZIP is generated in memory for the current MVP. An unavailable RustFS
 object produces `503`; successful export writes one `DATA_EXPORTED` audit
 event with only the exported examination count, never file bytes or storage
 credentials.
+
+`bulk-report` is also generated in memory and does not include source EEG
+bytes or RustFS coordinates. Each report contains the patient and examination
+UUIDs, available examination metadata, channels, events, most recent clinician
+pain assessment, and most recent completed AI analysis. It is intended as a
+pseudonymized documentation draft, not a final legally approved medical form.
 
 ## Patient API
 
