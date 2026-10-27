@@ -10,11 +10,13 @@ from services.ml.src.event_handlers.ievent_handler import IEventHandler
 from services.ml.src.event_handlers.prediction_event_handler import PredictionEventHandler
 from services.ml.src.infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 from services.ml.src.models.ipredictor import IPredictor
+from services.ml.src.models.sklearn_predictor import SklearnPredictor
 
+# Logger setup
 setup_logging()
 logger = logging.getLogger(__name__)
 
-predictor: IPredictor = None
+predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
 consumer_task = None
 rabbit_consumer = None
 
@@ -24,17 +26,20 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting up the ML Microservice...")
 
+    # 1. Prediction model loading
     try:
         predictor.load_model()
     except Exception as e:
         logger.critical(f"Failed to load the ML model on startup: {e}")
         raise e
 
+    # 2. Handlers definition
     prediction_handler = PredictionEventHandler(predictor=predictor)
     handlers_registry: dict[str, IEventHandler] = {
         "predict_event": prediction_handler
     }
 
+    # 3. RabbitMQ setup
     rabbit_consumer = RabbitMQConsumer(
         queue_url=settings.queue_url,
         queue_name=settings.queue_name,
@@ -67,17 +72,27 @@ app = FastAPI(
 
 @app.get("/info")
 async def info():
-    return {"app_name": settings.app_name, "model_path": settings.model_path}
+    return {
+        "app_name": settings.app_name, 
+        "model_path": settings.model_path
+    }
 
 @app.get("/healthz")
 async def healthz():
     """Liveness probe for container orchestration."""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy"
+    }
 
 @app.get("/readyz")
 async def readyz():
     """Readiness probe."""
-    # TODO: Add actual checks
+    # TODO: Add additional checks
     if not predictor.has_model():
-        return {"status": "not_ready", "reason": "model_not_loaded"}, 503
-    return {"status": "ready"}
+        return {
+            "status": "not_ready", 
+            "reason": "model_not_loaded"
+        }, 503
+    return {
+        "status": "ready"
+    }
