@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
 
-from services.ml.src.event_handlers.ievent_handler import IEventHandler
-from services.ml.src.infrastructure.rabbit_mq_consumer import RabbitMQConsumer
+from event_handlers.ievent_handler import IEventHandler
+from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 
 
 @pytest.fixture
@@ -32,8 +32,8 @@ def test_init(mock_handler: IEventHandler):
     assert consumer.connection is None
 
 @pytest.mark.asyncio
-@patch("services.ml.src.infrastructure.rabbit_mq_consumer.aio_pika.connect_robust")
-@patch("services.ml.src.infrastructure.rabbit_mq_consumer.asyncio.Future")
+@patch("infrastructure.rabbit_mq_consumer.aio_pika.connect_robust")
+@patch("infrastructure.rabbit_mq_consumer.asyncio.Future")
 async def test_start(mock_asyncio_future, mock_connect_robust, mock_handler: IEventHandler):
     mock_connection = AsyncMock()
     mock_channel = AsyncMock()

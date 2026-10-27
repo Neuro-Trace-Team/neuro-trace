@@ -6,7 +6,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from services.ml.src.models.ipredictor import IPredictor
+from models.ipredictor import IPredictor
 
 
 logger = logging.getLogger(__name__)

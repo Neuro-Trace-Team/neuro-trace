@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from services.ml.src.event_handlers.prediction_event_handler import PredictionEventHandler
+from event_handlers.prediction_event_handler import PredictionEventHandler
 
 
 @pytest.fixture

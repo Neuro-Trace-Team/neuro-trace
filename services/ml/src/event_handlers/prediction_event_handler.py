@@ -1,8 +1,8 @@
 import logging
 from typing import Any, Dict
 
-from services.ml.src.event_handlers.ievent_handler import IEventHandler
-from services.ml.src.models.ipredictor import IPredictor
+from event_handlers.ievent_handler import IEventHandler
+from models.ipredictor import IPredictor
 
 logger = logging.getLogger(__name__)
 

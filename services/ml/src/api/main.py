@@ -4,13 +4,13 @@ import logging
 
 from fastapi import FastAPI
 
-from services.ml.src.core.config import settings
-from services.ml.src.core.logger import setup_logging
-from services.ml.src.event_handlers.ievent_handler import IEventHandler
-from services.ml.src.event_handlers.prediction_event_handler import PredictionEventHandler
-from services.ml.src.infrastructure.rabbit_mq_consumer import RabbitMQConsumer
-from services.ml.src.models.ipredictor import IPredictor
-from services.ml.src.models.sklearn_predictor import SklearnPredictor
+from core.config import settings
+from core.logger import setup_logging
+from event_handlers.ievent_handler import IEventHandler
+from event_handlers.prediction_event_handler import PredictionEventHandler
+from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
+from models.ipredictor import IPredictor
+from models.sklearn_predictor import SklearnPredictor
 
 # Logger setup
 setup_logging()
