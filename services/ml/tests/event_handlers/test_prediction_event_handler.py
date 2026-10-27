@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -14,9 +14,18 @@ def mock_predictor():
     }
     return predictor
 
+@pytest.fixture
+def mock_result_publisher():
+    publisher = MagicMock()
+    publisher.publish_result = AsyncMock()
+    return publisher
+
 @pytest.mark.asyncio
-async def test_handle_success(mock_predictor):
-    handler = PredictionEventHandler(predictor=mock_predictor)
+async def test_handle_success(mock_predictor, mock_result_publisher):
+    handler = PredictionEventHandler(
+        predictor=mock_predictor,
+        result_publisher=mock_result_publisher
+    )
 
     payload = {
         "experiment_id": "exp_123",
@@ -44,11 +53,25 @@ async def test_handle_success(mock_predictor):
 
     mock_predictor.predict.assert_called_once_with(expected_feature_payload)
 
+    expected_output_payload = {
+        "experiment_id": "exp_123",
+        "subject_id": "sub_456",
+        "recording_id": "rec_789",
+        "window_id": "win_001",
+        "prediction_result": {
+            "prediction": [1], 
+            "probabilities": [[0.1, 0.9]]
+        }
+    }
+    mock_result_publisher.publish_result.assert_awaited_once_with(expected_output_payload)
 
 @pytest.mark.asyncio
-async def test_handle_predictor_exception(mock_predictor):
+async def test_handle_predictor_exception(mock_predictor, mock_result_publisher):
     mock_predictor.predict.side_effect = RuntimeError("Inference failed")
-    handler = PredictionEventHandler(predictor=mock_predictor)
+    handler = PredictionEventHandler(
+        predictor=mock_predictor,
+        result_publisher=mock_result_publisher
+    )
 
     payload = {
         "experiment_id": "exp_123",
@@ -62,3 +85,5 @@ async def test_handle_predictor_exception(mock_predictor):
         await handler.handle(payload)
 
     mock_predictor.predict.assert_called_once()
+
+    mock_result_publisher.publish_result.assert_not_awaited()
