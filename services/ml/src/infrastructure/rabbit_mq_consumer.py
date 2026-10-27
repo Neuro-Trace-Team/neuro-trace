@@ -67,7 +67,6 @@ class RabbitMQConsumer:
 
             except Exception as e:
                 logger.exception(f"Error handling message dispatch: {e}")
-                # TODO: Handle Exception
 
     async def close(self) -> None:
         if self.connection and not self.connection.is_closed:
@@ -76,5 +75,3 @@ class RabbitMQConsumer:
             logger.info("RabbitMQ connection closed successfully.")
         else:
             logger.debug("Close called, but RabbitMQ connection was already closed or None.")
-            # TODO: Log connection closing
-        
