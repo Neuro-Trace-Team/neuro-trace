@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Dict
+from typing import Dict, cast
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
@@ -80,8 +80,7 @@ async def test_dispatch_message_success(mock_handler: IEventHandler):
 
     await consumer._dispatch_message(mock_message)
 
-    # TODO: make this warning go away...
-    mock_handler.handle.assert_awaited_once_with(payload)
+    cast(AsyncMock, mock_handler.handle).assert_awaited_once_with(payload)
 
 @pytest.mark.asyncio
 async def test_dispatch_message_missing_handler(mock_handler):
