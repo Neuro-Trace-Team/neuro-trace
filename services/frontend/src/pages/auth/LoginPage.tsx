@@ -33,7 +33,8 @@ function LoginPage() {
             const mockUser = {
                 id: "1",
                 email: email || "test@neurotrace.com",
-                role: "admin" as const, // lub 'admin' w zależności od tego, co chcesz testować
+                //role: "admin" as const,
+                role: "doctor" as const,
                 firstName: "Jan",
                 lastName: "Kowalski",
                 createdAt: new Date().toISOString(),

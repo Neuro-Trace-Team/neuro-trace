@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  font-family: Inter, sans-serif;
+  font-family: var(--font-sans);
   background-color: #f3f5f5;
-
 }
 
 html,
@@ -14,7 +13,11 @@ body,
 }
 
 @theme {
+  --font-sans: "Inter", sans-serif;
   --font-heading: "Baloo 2", sans-serif;
+  --color-brand-navy: #01194a;
+  --color-brand-cyan: #00bdd0;
+  --color-brand-blue: #0069b1;
 }
 
 body {

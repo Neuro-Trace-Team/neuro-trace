@@ -10,12 +10,12 @@ function RootLayout() {
     <div className="relative flex min-h-svh flex-col bg-[#f3f5f5] text-[#06234e] md:flex-row">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <img
-          className="absolute left-[-2%] top-[-18%] h-auto w-[min(100vw,1292px)] max-w-none opacity-90 md:left-[-4%] md:top-[-22%]"
+          className="absolute left-[-25%] top-[-20%] rotate-[330deg] opacity-75 md:left-[-24%] md:top-[-65%]"
           src={ellipseUrl}
           alt=""
         />
         <img
-          className="absolute bottom-[-38%] right-[-42%] h-auto w-[min(100vw,1292px)] max-w-none rotate-[305deg] opacity-70"
+          className="absolute bottom-[-78%] right-[-32%] h-auto w-[min(100vw,1292px)] max-w-none rotate-[135deg] opacity-75 md:bottom-[-80%] md:right-[-30%]"
           src={ellipseUrl}
           alt=""
         />

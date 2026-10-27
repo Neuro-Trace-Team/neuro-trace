@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-const paths: Record<string, string> = {
+const paths = {
   home: "M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9",
   grid: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
   add: "M12 5v14M5 12h14",
@@ -22,7 +22,7 @@ const paths: Record<string, string> = {
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   check: "m5 12 4 4L19 6",
   plus: "M12 5v14m-7-7h14",
-};
+} as const;
 
 export default function Icon({
   name,

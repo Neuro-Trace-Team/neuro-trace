@@ -1,12 +1,14 @@
+import { useId, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import type { UserRole } from "../types/user.types";
 import { useAuth } from "../context/AuthContext";
-import Icon from "./Icon";
+import ButtonNavigation from "./ButtonNavigation";
+import GlassPane from "./GlassPane";
 
 const doctorLinks = [
   { label: "Home", path: "/doctor", icon: "home" },
-  { label: "Examinations", path: "/doctor/examinations", icon: "grid" },
-  { label: "Enter new examination", path: "/doctor/examinations/new", icon: "add" },
+  { label: "Examinations", path: "/doctor/examinations", icon: "examinations" },
+  { label: "Enter new examination", path: "/doctor/examinations/new", icon: "new-examination" },
 ] as const;
 
 const adminLinks = [
@@ -19,7 +21,10 @@ const adminLinks = [
 export default function AppSidebar({ role }: { role: UserRole }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const links = role === "admin" ? adminLinks : doctorLinks;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigationId = useId();
+  const roleLinks = role === "admin" ? adminLinks : doctorLinks;
+
 
   const logoutAndNavigate = () => {
     logout();
@@ -27,54 +32,80 @@ export default function AppSidebar({ role }: { role: UserRole }) {
   };
 
   return (
-    <aside className="relative z-20 flex w-full shrink-0 flex-col border-b border-white/80 bg-white/55 px-4 py-3 shadow-[0_0_16px_rgba(10,40,60,0.08)] backdrop-blur-md md:min-h-svh md:w-[200px] md:border-b-0 md:border-r md:px-[18px] md:pb-6 md:pt-10">
-      <NavLink
-        aria-label="NeuroTrace home"
-        className="mx-auto mb-2 flex h-12 w-12 items-center justify-center md:mb-8 md:h-[104px] md:w-[104px]"
-        to={role === "admin" ? "/admin" : "/doctor"}
-      >
-        <img alt="" className="h-full w-full object-contain" src="/favicon-light.svg" />
-      </NavLink>
-      <nav aria-label="Main navigation" className="flex gap-1 overflow-x-auto md:flex-1 md:flex-col md:gap-1.5">
-        {links.map(({ label, path, icon }) => (
+    <aside className="sticky top-0 z-20 w-full shrink-0 md:static md:min-h-svh md:w-[200px]">
+      <GlassPane className="flex flex-col gap-4 rounded-t-none rounded-b-[14px] border-x-0 border-t-0 px-4 py-3 md:min-h-full md:gap-8 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:px-[18px] md:pb-6 md:pt-10">
+        <header className="flex items-center justify-between md:justify-center">
           <NavLink
-            end
-            key={path}
-            to={path}
-            className={({ isActive }) =>
-              `flex min-h-[42px] shrink-0 items-center gap-2 rounded-lg px-2 text-[15px] font-semibold transition-colors md:px-2 ${
-                isActive
-                  ? "border border-white/85 bg-white/45 text-[#06234e] shadow-[0_2px_4px_rgba(0,30,60,0.22)]"
-                  : "text-[#09264d] hover:bg-white/45"
-              }`
-            }
+            aria-label="NeuroTrace home"
+            className="flex h-12 w-12 items-center justify-center md:h-[104px] md:w-[104px]"
+            onClick={() => setIsMenuOpen(false)}
+            to={role === "admin" ? "/admin" : "/doctor"}
           >
-            <Icon className="h-[21px] w-[21px] shrink-0" name={icon} />
-            <span className="whitespace-nowrap md:whitespace-normal md:leading-4">{label}</span>
+            <img alt="" className="h-full w-full object-contain" src="/favicon-light.svg" />
           </NavLink>
-        ))}
-        <NavLink
-          to="/settings"
-          className={({ isActive }) =>
-            `mt-0 flex min-h-[42px] shrink-0 items-center gap-2 rounded-lg px-2 text-[15px] font-semibold transition-colors md:mt-auto ${
-              isActive
-                ? "border border-white/85 bg-white/45 shadow-[0_2px_4px_rgba(0,30,60,0.22)]"
-                : "hover:bg-white/45"
-            }`
-          }
+          <button
+            aria-controls={navigationId}
+            aria-expanded={isMenuOpen}
+            aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-brand-navy transition-colors hover:bg-white/45 focus-visible:outline-2 focus-visible:outline-brand-cyan md:hidden"
+            onClick={() => setIsMenuOpen((open) => !open)}
+            type="button"
+          >
+            <span
+              aria-hidden="true"
+              className="relative flex h-6 w-6 flex-col justify-center gap-[5px]"
+            >
+              <span
+                className={`h-[2px] w-full rounded-full bg-current transition-transform ${
+                  isMenuOpen ? "translate-y-[7px] rotate-45" : ""
+                }`}
+              />
+              <span
+                className={`h-[2px] w-full rounded-full bg-current transition-opacity ${
+                  isMenuOpen ? "opacity-0" : ""
+                }`}
+              />
+              <span
+                className={`h-[2px] w-full rounded-full bg-current transition-transform ${
+                  isMenuOpen ? "-translate-y-[7px] -rotate-45" : ""
+                }`}
+              />
+            </span>
+          </button>
+        </header>
+
+        <nav
+          aria-label="Main navigation"
+          className={`${isMenuOpen ? "flex" : "hidden"} flex-col gap-12 md:flex`}
+          id={navigationId}
         >
-          <Icon className="h-[21px] w-[21px] shrink-0" name="settings" />
-          <span>Settings</span>
-        </NavLink>
-        <button
-          className="flex min-h-[42px] shrink-0 items-center gap-2 rounded-lg px-2 text-[15px] font-semibold hover:bg-white/45 focus-visible:outline-2 focus-visible:outline-[#00a9c4]"
-          onClick={logoutAndNavigate}
-          type="button"
-        >
-          <Icon className="h-[21px] w-[21px] shrink-0" name="logout" />
-          <span>Log out</span>
-        </button>
-      </nav>
+          <div className="flex flex-col gap-2">
+            {roleLinks.map(({ label, path, icon }) => (
+              <ButtonNavigation
+                key={path}
+                icon={icon}
+                onNavigate={() => setIsMenuOpen(false)}
+                to={path}
+              >
+                {label}
+              </ButtonNavigation>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <ButtonNavigation
+              icon="settings"
+              onNavigate={() => setIsMenuOpen(false)}
+              to="/settings"
+            >
+              Settings
+            </ButtonNavigation>
+            <ButtonNavigation icon="logout" onClick={logoutAndNavigate}>
+              Log out
+            </ButtonNavigation>
+          </div>
+        </nav>
+      </GlassPane>
     </aside>
   );
 }
