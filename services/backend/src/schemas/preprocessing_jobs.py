@@ -43,7 +43,7 @@ class PreprocessingJobResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> "PreprocessingJobResult":
-        has_output = self.output_bucket is not None or self.output_storage_key is not None
+        has_output = bool(self.output_bucket) or bool(self.output_storage_key)
         if self.status == "COMPLETED":
             if self.output_bucket is None or self.output_storage_key is None:
                 raise ValueError("Completed preprocessing requires output_bucket and output_storage_key")

@@ -102,7 +102,7 @@ def list_preprocessing_jobs(
 def get_preprocessing_job(
     job_id: UUID,
     medical_db: Annotated[Session, Depends(get_medical_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User | None, Depends(get_current_user_or_preprocessing_service)],
 ) -> PreprocessingJobResponse:
     try:
         return preprocessing_job_response(preprocessing_jobs_service.get_preprocessing_job(medical_db, job_id))

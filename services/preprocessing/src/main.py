@@ -25,6 +25,7 @@ class JobResponse(BaseModel):
     job_id: UUID
     examination_id: UUID
     status: str
+    pipeline_version: str
 
 
 def _start_job(

@@ -16,6 +16,7 @@ class Settings:
     rustfs_secret_access_key: str
     rustfs_bucket: str
     work_root: Path
+    pipeline_version: str = "0.1.0"
     pipeline_log_level: str = "INFO"
     rabbitmq_url: str = "amqp://guest:guest@rabbitmq:5672/"
     rabbitmq_exchange: str = ""
@@ -43,6 +44,7 @@ class Settings:
             rustfs_secret_access_key=os.getenv("RUSTFS_SECRET_KEY", ""),
             rustfs_bucket=os.getenv("RUSTFS_BUCKET", "eeg-data"),
             work_root=Path(os.getenv("PREPROCESSING_WORK_ROOT", "/tmp/preprocessing")),
+            pipeline_version=os.getenv("PIPELINE_VERSION", "0.1.0"),
             pipeline_log_level=os.getenv("PIPELINE_LOG_LEVEL", "INFO"),
             rabbitmq_url=rabbitmq_url,
             rabbitmq_exchange=os.getenv("RABBITMQ_EXCHANGE", ""),

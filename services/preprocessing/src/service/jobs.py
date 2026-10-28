@@ -63,7 +63,9 @@ class NeuroTraceClient:
 
     def create_job(self, examination_id: str) -> dict:
         return self._request(
-            "POST", f"/api/v1/examinations/{examination_id}/preprocessing-jobs"
+            "POST",
+            f"/api/v1/examinations/{examination_id}/preprocessing-jobs",
+            {"pipeline_version": self.settings.pipeline_version},
         )
 
     def get_job(self, job_id: str) -> dict:
@@ -87,12 +89,13 @@ class NeuroTraceClient:
         self,
         job_id: str,
         status: Literal["COMPLETED", "FAILED"],
-        result_file_location: str | None = None,
         error_message: str | None = None,
     ) -> dict:
-        payload: dict[str, str] = {"status": status}
-        if result_file_location is not None:
-            payload["result_file_location"] = result_file_location
+        payload: dict[str, str] = {
+            "status": status,
+            "output_bucket": "",
+            "output_storage_key": "",
+        }
         if error_message is not None:
             payload["error_message"] = error_message
         return self._request(
@@ -129,6 +132,7 @@ class JobManager:
                 "job_id": job_id,
                 "examination_id": str(examination_uuid),
                 "status": "QUEUED",
+                "pipeline_version": self.settings.pipeline_version,
                 "created_at": self._now(),
             }
         return job_id
@@ -201,9 +205,7 @@ class JobManager:
                 published_rows=published_rows,
                 rabbitmq_queue=self.settings.rabbitmq_queue,
             )
-            self.backend.submit_result(
-                job_id, "COMPLETED", result_file_location=str(output_root)
-            )
+            self.backend.submit_result(job_id, "COMPLETED")
         except Exception as exc:
             message = str(exc)
             self._update(job_id, status="FAILED", finished_at=self._now(), error=message)

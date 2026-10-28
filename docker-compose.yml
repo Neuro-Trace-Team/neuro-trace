@@ -73,6 +73,7 @@ services:
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_BUCKET: examinations
       BACKEND_TOKEN: ${PREPROCESSING_SERVICE_TOKEN}
 
     depends_on:
