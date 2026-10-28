@@ -109,16 +109,20 @@ export default function DataTable({
               const rowIndex = rows.indexOf(row);
               return (
                 <tr
-                  className={`group transition-colors items-center ${onRowClick ? "cursor-pointer" : ""} ${
+                  className={`group items-center transition-[background-color,box-shadow] duration-150 ease-out ${
+                    onRowClick
+                      ? "cursor-pointer hover:bg-[#eaf8fa] active:bg-[#ddf3f5] motion-reduce:transition-none"
+                      : ""
+                  } ${
                     selected.includes(rowIndex)
-                      ? "bg-[#eaf8fa] hover:bg-[#e3f5f7]"
-                      : "bg-white even:bg-[#f8fafb] hover:bg-[#f0f8f9]"
+                      ? "bg-[#eaf8fa] even:bg-[#eaf8fa]"
+                      : "bg-white even:bg-[#f7fafb]"
                   }`}
                   key={`${row.join("-")}-${rowIndex}`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {selectable && (
-                    <td className="border-b border-[#edf1f3] px-4 py-1.5 group-last:border-0" onClick={(e) => {e.stopPropagation();setSelected((items) => items.includes(rowIndex) ? items.filter((item) => item !== rowIndex) : [...items, rowIndex])}}>
+                    <td className="border-b border-[#edf1f3] px-4 py-2.5 group-last:border-0" onClick={(e) => {e.stopPropagation();setSelected((items) => items.includes(rowIndex) ? items.filter((item) => item !== rowIndex) : [...items, rowIndex])}}>
                       <input
                         aria-label={`Select row ${visibleIndex + 1}`}
                         checked={selected.includes(rowIndex)}
@@ -131,7 +135,7 @@ export default function DataTable({
                   )}
                   {row.map((cell, index) => (
                     <td
-                      className={`max-w-[420px] truncate border-b border-[#edf1f3] px-4 py-2.5 group-last:border-0 ${
+                      className={`max-w-[420px] truncate border-b border-[#edf1f3] px-4 py-3.5 group-last:border-0 ${
                         index === 0 ? "font-semibold text-[#102d58]" : ""
                       }`}
                       key={`${columns[index]}-${index}`}

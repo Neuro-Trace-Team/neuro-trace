@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import DataTable from "../../components/DataTable";
 import { PageTitle, SectionTitle, Surface } from "../../components/PageUI";
 import { useAuth } from "../../context/AuthContext";
@@ -5,6 +6,7 @@ import { examRows, patientRows } from "../mockData";
 
 function DoctorDashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const firstName = user?.firstName || "Alice";
 
   return (
@@ -13,7 +15,7 @@ function DoctorDashboardPage() {
       <div className="space-y-3">
         <Surface>
           <SectionTitle>Recently Viewed Examinations</SectionTitle>
-          <DataTable columns={["Examination ID", "Date", "Patient ID"]} rows={examRows.slice(0, 9)} selectable={false} showPagination={false} showToolbar={false} />
+          <DataTable columns={["Examination ID", "Date", "Patient ID"]} onRowClick={() => navigate("/doctor/examinations/BE9d7nB72na")} rows={examRows.slice(0, 9)} selectable={false} showPagination={false} showToolbar={false} />
         </Surface>
         <Surface>
           <SectionTitle>Recently Viewed Patients</SectionTitle>

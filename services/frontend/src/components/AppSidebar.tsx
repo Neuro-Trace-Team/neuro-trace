@@ -32,8 +32,8 @@ export default function AppSidebar({ role }: { role: UserRole }) {
   };
 
   return (
-    <aside className="sticky top-0 z-20 w-full shrink-0 md:static md:min-h-svh md:w-[200px]">
-      <GlassPane className="flex flex-col gap-4 rounded-t-none rounded-b-[14px] border-x-0 border-t-0 px-4 py-3 md:min-h-full md:gap-8 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:px-[18px] md:pb-6 md:pt-10">
+    <aside className="sticky top-0 z-20 h-screen w-full shrink-0 md:min-h-svh md:w-[200px]">
+      <GlassPane className="h-full flex flex-col gap-4 rounded-t-none rounded-b-[14px] border-x-0 border-t-0 px-4 py-3 md:min-h-svh md:gap-8 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:px-[18px] md:pb-6 md:pt-10">
         <header className="flex items-center justify-between md:justify-center">
           <NavLink
             aria-label="NeuroTrace home"
