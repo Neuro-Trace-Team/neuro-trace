@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_current_user, require_roles
+from src.api.deps import get_current_user, require_preprocessing_service, require_roles
 from src.core.roles import Role
 from src.db.sessions import get_audit_db, get_medical_db
 from src.models.auth import User
@@ -37,6 +37,7 @@ from src.services import preprocessing_jobs as preprocessing_jobs_service
 router = APIRouter(prefix="/internal/preprocessing", tags=["internal preprocessing"])
 analysis_router = APIRouter(prefix="/internal/analyses", tags=["internal analyses"])
 admin_only = Depends(require_roles(Role.ADMIN))
+preprocessing_service_only = Depends(require_preprocessing_service)
 
 
 def _preprocessing_job_response(job: PreprocessingJob) -> PreprocessingJobResponse:
@@ -86,7 +87,7 @@ def _analysis_result_response(result: AnalysisResult) -> AnalysisResultResponse:
 @router.get(
     "/examinations/{examination_id}",
     response_model=PreprocessingExaminationResponse,
-    dependencies=[admin_only],
+    dependencies=[preprocessing_service_only],
 )
 def get_preprocessing_examination(
     examination_id: UUID,
@@ -143,12 +144,11 @@ def get_preprocessing_examination(
 @router.patch(
     "/jobs/{job_id}/status",
     response_model=PreprocessingJobResponse,
-    dependencies=[admin_only],
+    dependencies=[preprocessing_service_only],
 )
 def update_preprocessing_job_status(
     job_id: UUID,
     payload: PreprocessingJobStatusUpdate,
-    current_user: Annotated[User, Depends(get_current_user)],
     medical_db: Annotated[Session, Depends(get_medical_db)],
     audit_db: Annotated[Session, Depends(get_audit_db)],
 ) -> PreprocessingJobResponse:
@@ -164,7 +164,7 @@ def update_preprocessing_job_status(
     audit_service.log(
         audit_db,
         event_code="EXAMINATION_UPDATED",
-        user_id=current_user.id,
+        user_id=None,
         resource_type="EXAMINATION",
         resource_id=job.examination_id,
         metadata={"action": "PREPROCESSING_JOB_STATUS_UPDATED", "job_id": str(job.id), "status": job.status},
@@ -175,12 +175,11 @@ def update_preprocessing_job_status(
 @router.post(
     "/jobs/{job_id}/result",
     response_model=PreprocessingJobResponse,
-    dependencies=[admin_only],
+    dependencies=[preprocessing_service_only],
 )
 def save_preprocessing_job_result(
     job_id: UUID,
     payload: PreprocessingJobResult,
-    current_user: Annotated[User, Depends(get_current_user)],
     medical_db: Annotated[Session, Depends(get_medical_db)],
     audit_db: Annotated[Session, Depends(get_audit_db)],
 ) -> PreprocessingJobResponse:
@@ -203,7 +202,7 @@ def save_preprocessing_job_result(
     audit_service.log(
         audit_db,
         event_code="EXAMINATION_UPDATED",
-        user_id=current_user.id,
+        user_id=None,
         resource_type="EXAMINATION",
         resource_id=job.examination_id,
         metadata={"action": "PREPROCESSING_JOB_RESULT_SAVED", "job_id": str(job.id), "status": job.status},

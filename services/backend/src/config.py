@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     max_upload_size_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
     preprocessing_url: str
     jwt_secret: str = Field(min_length=32)
+    preprocessing_service_jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = Field(default=15, gt=0)
     refresh_token_ttl_days: int = Field(default=7, gt=0)

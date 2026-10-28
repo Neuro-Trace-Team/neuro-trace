@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from src.core.roles import Role
-from src.core.security import decode_access_token
+from src.core.security import decode_access_token, decode_preprocessing_service_token
 from src.db.sessions import get_audit_db, get_auth_db
 from src.models.auth import User
 from src.repositories.auth import get_user_by_id
@@ -38,6 +38,31 @@ def get_current_user(
     if user is None or not user.is_active:
         raise credentials_error
     return user
+
+
+def require_preprocessing_service(
+    token: Annotated[str, Depends(oauth2_scheme)],
+) -> None:
+    credentials_error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired preprocessing service token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        decode_preprocessing_service_token(token)
+    except jwt.InvalidTokenError:
+        raise credentials_error from None
+
+
+def get_current_user_or_preprocessing_service(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    auth_db: Annotated[Session, Depends(get_auth_db)],
+) -> User | None:
+    try:
+        decode_preprocessing_service_token(token)
+        return None
+    except jwt.InvalidTokenError:
+        return get_current_user(token=token, auth_db=auth_db)
 
 
 def require_roles(*roles: Role):

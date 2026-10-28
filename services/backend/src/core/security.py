@@ -51,3 +51,19 @@ def create_access_token(*, user_id: UUID, role: str) -> tuple[str, int]:
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+
+
+def decode_preprocessing_service_token(token: str) -> dict[str, Any]:
+    settings = get_settings()
+    payload = jwt.decode(
+        token,
+        settings.preprocessing_service_jwt_secret,
+        algorithms=[settings.jwt_algorithm],
+    )
+    if (
+        payload.get("service") != "preprocessing"
+        or payload.get("token_type") != "service"
+        or not isinstance(payload.get("exp"), (int, float))
+    ):
+        raise jwt.InvalidTokenError("Invalid preprocessing service token claims")
+    return payload

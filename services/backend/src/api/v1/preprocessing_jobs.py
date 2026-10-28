@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, get_current_user_or_preprocessing_service
 from src.db.sessions import get_audit_db, get_medical_db
 from src.models.auth import User
 from src.models.medical import PreprocessingJob
@@ -49,7 +49,7 @@ def create_preprocessing_job(
     examination_id: UUID,
     payload: PreprocessingJobCreate,
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User | None, Depends(get_current_user_or_preprocessing_service)],
     medical_db: Annotated[Session, Depends(get_medical_db)],
     audit_db: Annotated[Session, Depends(get_audit_db)],
 ) -> PreprocessingJobResponse:
@@ -65,7 +65,7 @@ def create_preprocessing_job(
     audit_service.log(
         audit_db,
         event_code="EXAMINATION_UPDATED",
-        user_id=current_user.id,
+        user_id=current_user.id if current_user is not None else None,
         resource_type="EXAMINATION",
         resource_id=examination_id,
         metadata={"action": "PREPROCESSING_JOB_CREATED", "job_id": str(job.id), "pipeline_version": job.pipeline_version},
