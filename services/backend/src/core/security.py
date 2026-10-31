@@ -67,3 +67,20 @@ def decode_preprocessing_service_token(token: str) -> dict[str, Any]:
     ):
         raise jwt.InvalidTokenError("Invalid preprocessing service token claims")
     return payload
+
+
+def decode_ml_service_token(token: str) -> dict[str, Any]:
+    """Validate the ML service token using the shared service-token secret."""
+    settings = get_settings()
+    payload = jwt.decode(
+        token,
+        settings.preprocessing_service_jwt_secret,
+        algorithms=[settings.jwt_algorithm],
+    )
+    if (
+        payload.get("service") != "ml"
+        or payload.get("token_type") != "service"
+        or not isinstance(payload.get("exp"), (int, float))
+    ):
+        raise jwt.InvalidTokenError("Invalid ML service token claims")
+    return payload

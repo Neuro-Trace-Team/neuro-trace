@@ -4,7 +4,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.api.deps import get_current_user, require_preprocessing_service, require_roles
+from src.api.deps import (
+    get_current_user,
+    require_admin_or_ml_service,
+    require_preprocessing_service,
+    require_roles,
+)
 from src.core.roles import Role
 from src.db.sessions import get_audit_db, get_medical_db
 from src.models.auth import User
@@ -235,12 +240,11 @@ def update_analysis_status(
 @analysis_router.post(
     "/{analysis_id}/result",
     response_model=InternalAnalysisCompletionResponse,
-    dependencies=[admin_only],
 )
 def save_analysis_result(
     analysis_id: UUID,
     payload: AnalysisResultCreate,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User | None, Depends(require_admin_or_ml_service)],
     medical_db: Annotated[Session, Depends(get_medical_db)],
     audit_db: Annotated[Session, Depends(get_audit_db)],
 ) -> InternalAnalysisCompletionResponse:
@@ -260,7 +264,7 @@ def save_analysis_result(
     audit_service.log(
         audit_db,
         event_code="ANALYSIS_COMPLETED",
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         resource_type="ANALYSIS",
         resource_id=analysis.id,
         metadata={"examination_id": str(analysis.examination_id), "model_name": analysis.model_name, "model_version": analysis.model_version},

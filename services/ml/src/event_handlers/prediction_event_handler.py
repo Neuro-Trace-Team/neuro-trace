@@ -16,6 +16,7 @@ class PredictionEventHandler(IEventHandler):
         """Handles the incoming combined EEG features message."""
 
         experiment_id = payload.get("experiment_id")
+        analysis_id = payload.get("analysis_id")
         subject_id = payload.get("subject_id")
         recording_id = payload.get("recording_id")
         window_id = payload.get("window_id")
@@ -26,8 +27,11 @@ class PredictionEventHandler(IEventHandler):
         )
 
         try:
+            if not analysis_id:
+                raise ValueError("Incoming prediction event is missing analysis_id")
+
             metadata_keys = {
-                "experiment_id", "subject_id", "recording_id", "window_id", 
+                "analysis_id", "experiment_id", "subject_id", "recording_id", "window_id",
                 "event_id", "event_index", "event_time_s", "event_timestamp",
                 "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag"
             }
@@ -38,17 +42,17 @@ class PredictionEventHandler(IEventHandler):
 
             logger.info(f"Inference successful for Recording {recording_id}: {result}")
 
-            # TODO: change the json to match the backend
-            output_payload = {
-                "experiment_id": experiment_id,
-                "subject_id": subject_id,
-                "recording_id": recording_id,
-                "window_id": window_id,
-                "prediction_result": result
-            }
+            probabilities = result.get("probabilities")
+            confidence = (
+                max(probabilities[0])
+                if probabilities and probabilities[0]
+                else None
+            )
+            output_payload = {"result": result}
+            if confidence is not None:
+                output_payload["confidence"] = confidence
 
-            await self.result_publisher.publish_result(output_payload)
+            await self.result_publisher.publish_result(analysis_id, output_payload)
         except Exception as e:
             logger.error(f"Failed to process prediction for Recording {recording_id}: {e}")
             raise e
-        

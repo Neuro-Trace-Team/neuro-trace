@@ -24,9 +24,14 @@ class Settings(BaseSettings):
 
     model_path: str = "src/models/weights/model.joblib"
 
-    backend_base_url: str = ""
-    backend_email: str = "example@example.com"
-    backend_password: str = ""
+    backend_base_url: str = Field(
+        default="http://backend:8080",
+        validation_alias=AliasChoices("BACKEND_URL", "BACKEND_BASE_URL"),
+    )
+    backend_service_token: str = Field(
+        default="",
+        validation_alias=AliasChoices("ML_SERVICE_TOKEN", "BACKEND_TOKEN"),
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
