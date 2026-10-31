@@ -1,8 +1,76 @@
-name: CI
+name: Docker Compose CI
 
 on:
   push:
   pull_request:
 
-jobs: {}
+permissions:
+  contents: read
 
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare CI environment
+        run: cp .env.example .env
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build project images
+        run: docker compose build
+
+      - name: Start the complete stack
+        run: docker compose up --detach --wait --wait-timeout 180
+
+      - name: Check service health and HTTP endpoints
+        run: |
+          set -euo pipefail
+
+          # Compose --wait covers services with healthchecks. Also ensure every
+          # service remains running, including frontend and ML which lack one.
+          docker compose ps --all
+          if docker compose ps --all --format json | jq -e 'select(.State != "running")' >/dev/null; then
+            echo "At least one Compose service is not running."
+            docker compose ps --all
+            exit 1
+          fi
+
+          check_http() {
+            local url="$1"
+            local attempts=30
+            until curl --fail --silent --show-error "$url" >/dev/null; do
+              attempts=$((attempts - 1))
+              if [ "$attempts" -le 0 ]; then
+                echo "Endpoint did not become available: $url"
+                return 1
+              fi
+              sleep 2
+            done
+          }
+
+          check_http http://localhost:8080/health/live
+          check_http http://localhost:8080/health/ready
+          docker compose exec -T preprocessing curl --fail --silent --show-error http://localhost:8001/health >/dev/null
+          check_http http://localhost:3000/
+          check_http http://localhost:9000/health
+
+          test "$(docker compose exec -T auth-db psql -U postgres -d auth_db -tAc "SELECT to_regclass('public.users') IS NOT NULL AND to_regclass('public.refresh_tokens') IS NOT NULL")" = "t"
+          test "$(docker compose exec -T medical-db psql -U postgres -d medical_db -tAc "SELECT to_regclass('public.patients') IS NOT NULL AND to_regclass('public.examinations') IS NOT NULL AND to_regclass('public.preprocessing_jobs') IS NOT NULL")" = "t"
+          test "$(docker compose exec -T audit-db psql -U postgres -d audit_db -tAc "SELECT to_regclass('public.audit_logs') IS NOT NULL AND to_regclass('public.audit_log_types') IS NOT NULL")" = "t"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop stack and remove test data
+        if: always()
+        run: docker compose down --volumes --remove-orphans
