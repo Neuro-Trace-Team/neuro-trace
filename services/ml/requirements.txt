@@ -8,3 +8,7 @@ pydantic_settings==2.16.2
 pytest==9.2.0
 respx==0.23.1
 uvicorn==0.54.0
+iniconfig==2.3.1
+pluggy==1.7.0
+pytest-asyncio==1.4.1
+respx==0.23.1
