@@ -13,6 +13,7 @@ from infrastructure.backend_auth_client import BackendAuthClient
 from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
 from services.ipredictor import IPredictor
 from infrastructure.rest_result_publisher import RestResultPublisher
+from services.mock_predictor import MockPredictor
 from services.sklearn_predictor import SklearnPredictor
 
 # Logger setup
@@ -30,7 +31,9 @@ result_publisher = RestResultPublisher(
     auth_client=auth_client
 )
 
-predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
+#predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
+# TODO: add actual model loading
+predictor: IPredictor = MockPredictor(model_path=settings.model_path)
 
 consumer_task = None
 rabbit_consumer = None
