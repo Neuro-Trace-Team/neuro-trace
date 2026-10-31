@@ -29,8 +29,14 @@ services:
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_BUCKET: examinations
 
       PREPROCESSING_URL: http://preprocessing:8001
+      JWT_SECRET: ${JWT_SECRET}
+      PREPROCESSING_SERVICE_JWT_SECRET: ${PREPROCESSING_SERVICE_JWT_SECRET}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_TTL_MINUTES: 15
+      REFRESH_TOKEN_TTL_DAYS: 7
 
     depends_on:
       auth-db:
@@ -39,13 +45,9 @@ services:
         condition: service_healthy
       audit-db:
         condition: service_healthy
-      rustfs:
-        condition: service_healthy
-      preprocessing:
-        condition: service_healthy
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -64,10 +66,15 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE}
+      RABBITMQ_ROUTING_KEY: ${RABBITMQ_ROUTING_KEY}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
 
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_BUCKET: examinations
+      BACKEND_TOKEN: ${PREPROCESSING_SERVICE_TOKEN}
 
     depends_on:
       rabbitmq:
@@ -144,8 +151,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
+    ports:
+      - "5432:5432"
+
     volumes:
       - auth-db-data:/var/lib/postgresql/data
+      - ./database/auth:/docker-entrypoint-initdb.d
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
@@ -166,8 +177,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
+    ports:
+      - "5433:5432"
+
     volumes:
       - medical-db-data:/var/lib/postgresql/data
+      - ./database/medical:/docker-entrypoint-initdb.d
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d medical_db"]
@@ -188,8 +203,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
+    ports:
+      - "5434:5432"
+
     volumes:
       - audit-db-data:/var/lib/postgresql/data
+      - ./database/audit:/docker-entrypoint-initdb.d
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d audit_db"]
@@ -241,4 +260,3 @@ volumes:
 networks:
   neuro-network:
     driver: bridge
-

@@ -1,0 +1,1490 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotrace.local/contracts/preprocessing-to-ml/combined-features.v1.schema.json",
+  "title": "NeuroTrace combined EEG features message",
+  "description": "Exactly one JSON object produced from one row of combined_features.csv.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "experiment_id",
+    "subject_id",
+    "recording_id",
+    "window_id",
+    "event_id",
+    "event_index",
+    "event_time_s",
+    "event_timestamp",
+    "cluster_id",
+    "cluster_event_time_s",
+    "cluster_size",
+    "overlap_flag",
+    "sampling_frequency_hz",
+    "baseline_start_s",
+    "baseline_end_s",
+    "baseline_out_of_bounds",
+    "baseline_overlaps_next_event",
+    "early_start_s",
+    "early_end_s",
+    "early_out_of_bounds",
+    "early_overlaps_next_event",
+    "sustained_start_s",
+    "sustained_end_s",
+    "sustained_out_of_bounds",
+    "sustained_overlaps_next_event",
+    "baseline_window_valid",
+    "baseline_sample_count",
+    "baseline_permutation_entropy",
+    "baseline_paf",
+    "baseline_paf_prominence",
+    "baseline_paf_valid",
+    "baseline_absolute_delta_power",
+    "baseline_delta_power_valid",
+    "baseline_absolute_theta_power",
+    "baseline_theta_power_valid",
+    "baseline_absolute_alpha_power",
+    "baseline_alpha_power_valid",
+    "baseline_absolute_beta_power",
+    "baseline_beta_power_valid",
+    "baseline_absolute_gamma_power",
+    "baseline_gamma_power_valid",
+    "baseline_gamma_power",
+    "baseline_absolute_spectral_power",
+    "baseline_relative_delta_power",
+    "baseline_relative_theta_power",
+    "baseline_relative_alpha_power",
+    "baseline_relative_beta_power",
+    "baseline_theta_alpha_ratio",
+    "early_window_valid",
+    "early_sample_count",
+    "early_permutation_entropy",
+    "early_paf",
+    "early_paf_prominence",
+    "early_paf_valid",
+    "early_absolute_delta_power",
+    "early_delta_power_valid",
+    "early_absolute_theta_power",
+    "early_theta_power_valid",
+    "early_absolute_alpha_power",
+    "early_alpha_power_valid",
+    "early_absolute_beta_power",
+    "early_beta_power_valid",
+    "early_absolute_gamma_power",
+    "early_gamma_power_valid",
+    "early_gamma_power",
+    "early_absolute_spectral_power",
+    "early_relative_delta_power",
+    "early_relative_theta_power",
+    "early_relative_alpha_power",
+    "early_relative_beta_power",
+    "early_theta_alpha_ratio",
+    "early_baseline_valid",
+    "early_delta_power_relative_change_mean_channels",
+    "early_delta_power_relative_change_global",
+    "early_delta_power_db_change_mean_channels",
+    "early_delta_power_db_change_global",
+    "relative_change_absolute_delta_power",
+    "db_change_absolute_delta_power",
+    "early_theta_power_relative_change_mean_channels",
+    "early_theta_power_relative_change_global",
+    "early_theta_power_db_change_mean_channels",
+    "early_theta_power_db_change_global",
+    "relative_change_absolute_theta_power",
+    "db_change_absolute_theta_power",
+    "early_alpha_power_relative_change_mean_channels",
+    "early_alpha_power_relative_change_global",
+    "early_alpha_power_db_change_mean_channels",
+    "early_alpha_power_db_change_global",
+    "relative_change_absolute_alpha_power",
+    "db_change_absolute_alpha_power",
+    "early_beta_power_relative_change_mean_channels",
+    "early_beta_power_relative_change_global",
+    "early_beta_power_db_change_mean_channels",
+    "early_beta_power_db_change_global",
+    "relative_change_absolute_beta_power",
+    "db_change_absolute_beta_power",
+    "early_gamma_power_relative_change_mean_channels",
+    "early_gamma_power_relative_change_global",
+    "early_gamma_power_db_change_mean_channels",
+    "early_gamma_power_db_change_global",
+    "relative_change_absolute_gamma_power",
+    "db_change_absolute_gamma_power",
+    "relative_change_gamma_power",
+    "db_change_gamma_power",
+    "early_spectral_power_relative_change_mean_channels",
+    "early_spectral_power_relative_change_global",
+    "early_spectral_power_db_change_mean_channels",
+    "early_spectral_power_db_change_global",
+    "relative_change_absolute_spectral_power",
+    "db_change_absolute_spectral_power",
+    "baseline_paf_hz",
+    "early_permutation_entropy_change",
+    "early_paf_change",
+    "sustained_window_valid",
+    "sustained_baseline_valid",
+    "segment_start_s",
+    "segment_end_s",
+    "baseline_available",
+    "permutation_entropy",
+    "paf_hz",
+    "paf_prominence",
+    "paf_quality",
+    "absolute_delta_power",
+    "delta_power_valid",
+    "absolute_theta_power",
+    "theta_power_valid",
+    "absolute_alpha_power",
+    "alpha_power_valid",
+    "absolute_beta_power",
+    "beta_power_valid",
+    "absolute_gamma_power",
+    "gamma_power_valid",
+    "gamma_power",
+    "absolute_spectral_power",
+    "relative_delta_power",
+    "relative_theta_power",
+    "relative_alpha_power",
+    "relative_beta_power",
+    "theta_alpha_ratio",
+    "sustained_sample_count",
+    "sustained_permutation_entropy",
+    "sustained_paf",
+    "sustained_paf_prominence",
+    "sustained_paf_valid",
+    "sustained_absolute_delta_power",
+    "sustained_delta_power_valid",
+    "sustained_absolute_theta_power",
+    "sustained_theta_power_valid",
+    "sustained_absolute_alpha_power",
+    "sustained_alpha_power_valid",
+    "sustained_absolute_beta_power",
+    "sustained_beta_power_valid",
+    "sustained_absolute_gamma_power",
+    "sustained_gamma_power_valid",
+    "sustained_gamma_power",
+    "sustained_absolute_spectral_power",
+    "sustained_relative_delta_power",
+    "sustained_relative_theta_power",
+    "sustained_relative_alpha_power",
+    "sustained_relative_beta_power",
+    "sustained_theta_alpha_ratio",
+    "sustained_delta_power_relative_change_mean_channels",
+    "sustained_delta_power_relative_change_global",
+    "sustained_delta_power_db_change_mean_channels",
+    "sustained_delta_power_db_change_global",
+    "sustained_theta_power_relative_change_mean_channels",
+    "sustained_theta_power_relative_change_global",
+    "sustained_theta_power_db_change_mean_channels",
+    "sustained_theta_power_db_change_global",
+    "sustained_alpha_power_relative_change_mean_channels",
+    "sustained_alpha_power_relative_change_global",
+    "sustained_alpha_power_db_change_mean_channels",
+    "sustained_alpha_power_db_change_global",
+    "sustained_beta_power_relative_change_mean_channels",
+    "sustained_beta_power_relative_change_global",
+    "sustained_beta_power_db_change_mean_channels",
+    "sustained_beta_power_db_change_global",
+    "sustained_gamma_power_relative_change_mean_channels",
+    "sustained_gamma_power_relative_change_global",
+    "sustained_gamma_power_db_change_mean_channels",
+    "sustained_gamma_power_db_change_global",
+    "sustained_spectral_power_relative_change_mean_channels",
+    "sustained_spectral_power_relative_change_global",
+    "sustained_spectral_power_db_change_mean_channels",
+    "sustained_spectral_power_db_change_global",
+    "sustained_permutation_entropy_change",
+    "sustained_paf_change",
+    "microstate_0_duration",
+    "microstate_0_coverage",
+    "microstate_0_occurrence",
+    "microstate_1_duration",
+    "microstate_1_coverage",
+    "microstate_1_occurrence",
+    "microstate_2_duration",
+    "microstate_2_coverage",
+    "microstate_2_occurrence",
+    "microstate_3_duration",
+    "microstate_3_coverage",
+    "microstate_3_occurrence",
+    "alpha_global_efficiency",
+    "beta_global_efficiency",
+    "delta_global_efficiency",
+    "theta_global_efficiency",
+    "alpha_local_efficiency",
+    "beta_local_efficiency",
+    "delta_local_efficiency",
+    "theta_local_efficiency"
+  ],
+  "properties": {
+    "experiment_id": {
+      "type": "string"
+    },
+    "subject_id": {
+      "type": "string"
+    },
+    "recording_id": {
+      "type": "string"
+    },
+    "window_id": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "event_id": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "event_index": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "event_time_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "event_timestamp": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cluster_id": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "cluster_event_time_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cluster_size": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "overlap_flag": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sampling_frequency_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_out_of_bounds": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_overlaps_next_event": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_out_of_bounds": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_overlaps_next_event": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_out_of_bounds": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_overlaps_next_event": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_sample_count": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_sample_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "early_permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_baseline_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_permutation_entropy_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_baseline_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "segment_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "segment_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_available": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "paf_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "paf_quality": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_sample_count": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_permutation_entropy_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_0_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_0_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_0_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_1_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_1_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_1_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_2_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_2_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_2_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_3_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_3_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_3_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "alpha_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "beta_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "delta_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "alpha_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "beta_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "delta_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  }
+}
+
