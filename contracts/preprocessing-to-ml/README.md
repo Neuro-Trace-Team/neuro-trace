@@ -18,17 +18,30 @@ exchange and binds the configured queue with the configured routing key.
 ## Payload
 
 Each message is a UTF-8 JSON object containing exactly one row from
-`combined_features.csv`. The payload is flat: it has no envelope, generated
-message identifier, publication timestamp, or other added metadata. Existing
-fields such as `experiment_id`, `event_id` and `event_timestamp` are retained
-because they already belong to the CSV row; no new fields were added by the
-contract.
+`combined_features.csv`, augmented with `analysis_id`: the backend Analysis
+record UUID returned when the preprocessing job is created. The payload stays
+flat, with all original CSV fields preserved. The UUID is shared by all rows
+of that job and is not a RustFS storage path.
+
+The backend creates the job and its queued Analysis in one transaction and
+stores the UUID in the job's `parameters.analysis_id`, also exposed as a
+top-level `analysis_id` in job responses. For service-authenticated creation,
+the examination uploader is recorded as `requested_by`. Model metadata defaults
+to `MockPredictor` / `0.1.0`; job creation accepts `model_name` and
+`model_version` overrides. Existing jobs without an analysis UUID are not
+backfilled.
+
+ML uses this UUID in `POST /api/v1/internal/analyses/{analysis_id}/result`.
+This does not introduce aggregation: multiple CSV rows still generate multiple
+messages, while the backend currently accepts only one completed result per
+analysis.
 
 The strict versioned JSON Schema is in
 `combined-features.v1.schema.json`:
 
-- it declares all 207 fields currently present in the payload;
-- all 207 fields are required;
+- it declares 208 fields (207 CSV fields plus `analysis_id`);
+- all 208 fields are required;
+- `analysis_id` is a string with UUID format;
 - `additionalProperties` is `false`, so an unknown field is invalid;
 - numeric fields are JSON `number` values or `null`;
 - identifier fields (`experiment_id`, `subject_id`, `recording_id`) are

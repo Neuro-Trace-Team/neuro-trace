@@ -8,10 +8,13 @@ from pydantic import BaseModel, Field, model_validator
 class PreprocessingJobCreate(BaseModel):
     pipeline_version: str = Field(min_length=1, max_length=100)
     parameters: dict[str, Any] | None = None
+    model_name: str = Field(default="MockPredictor", min_length=1, max_length=100, pattern=r"\S")
+    model_version: str = Field(default="0.1.0", min_length=1, max_length=100, pattern=r"\S")
 
 
 class PreprocessingJobResponse(BaseModel):
     id: UUID
+    analysis_id: UUID | None = None
     examination_id: UUID
     status: str
     pipeline_version: str

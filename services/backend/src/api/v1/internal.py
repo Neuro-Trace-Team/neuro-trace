@@ -48,6 +48,7 @@ preprocessing_service_only = Depends(require_preprocessing_service)
 def _preprocessing_job_response(job: PreprocessingJob) -> PreprocessingJobResponse:
     return PreprocessingJobResponse(
         id=job.id,
+        analysis_id=(job.parameters_json or {}).get("analysis_id"),
         examination_id=job.examination_id,
         status=job.status,
         pipeline_version=job.pipeline_version,

@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict
+from uuid import UUID
 
 from event_handlers.ievent_handler import IEventHandler
 from services.ipredictor import IPredictor
@@ -29,6 +30,7 @@ class PredictionEventHandler(IEventHandler):
         try:
             if not analysis_id:
                 raise ValueError("Incoming prediction event is missing analysis_id")
+            analysis_id = str(UUID(str(analysis_id)))
 
             metadata_keys = {
                 "analysis_id", "experiment_id", "subject_id", "recording_id", "window_id",
