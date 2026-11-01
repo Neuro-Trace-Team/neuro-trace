@@ -142,57 +142,52 @@ class _MessageProcessContext:
 def test_backend_authentication_and_result_publication_flow():
     async def scenario():
         base_url = "http://mock-backend"
-        login_route = respx.post(f"{base_url}/api/v1/auth/login").respond(
-            status_code=200,
-            json={"access_token": "integration-token"},
-        )
+        analysis_id = "de7b1a8e-c6f0-48e8-b0a9-cac4f75680a3"
         result_route = respx.post(
-            f"{base_url}/api/v1/examinations/exam-1/results"
+            f"{base_url}/api/v1/internal/analyses/{analysis_id}/result"
         ).respond(status_code=200)
 
-        auth_client = BackendAuthClient(
-            base_url=base_url,
-            email="ml@example.com",
-            password="test-password",
-        )
+        auth_client = BackendAuthClient("integration-service-token")
         publisher = RestResultPublisher(base_url, auth_client)
-        payload = {"prediction": {"label": "mock-positive"}}
+        payload = {
+            "result": {"prediction": {"label": "mock-positive"}},
+            "confidence": 0.9,
+        }
 
-        await publisher.publish_result("exam-1", payload)
+        await publisher.publish_result(analysis_id, payload)
 
-        assert login_route.call_count == 1
         assert result_route.call_count == 1
         request = result_route.calls.last.request
-        assert request.headers["Authorization"] == "Bearer integration-token"
+        assert request.headers["Authorization"] == "Bearer integration-service-token"
         assert json.loads(request.content) == payload
 
     with respx.mock:
         asyncio.run(scenario())
 
 
-def test_backend_result_publication_reauthenticates_after_401():
+def test_backend_rejects_result_with_401_without_reauthentication():
     async def scenario():
         base_url = "http://mock-backend"
-        respx.post(f"{base_url}/api/v1/auth/login").mock(
-            side_effect=[
-                httpx.Response(200, json={"access_token": "expired-token"}),
-                httpx.Response(200, json={"access_token": "fresh-token"}),
-            ]
-        )
+        analysis_id = "de7b1a8e-c6f0-48e8-b0a9-cac4f75680a3"
         result_route = respx.post(
-            f"{base_url}/api/v1/examinations/exam-1/results"
-        ).mock(
-            side_effect=[httpx.Response(401), httpx.Response(200)]
-        )
+            f"{base_url}/api/v1/internal/analyses/{analysis_id}/result"
+        ).respond(status_code=401, text="Unauthorized")
 
-        auth_client = BackendAuthClient(base_url, "ml@example.com", "test-password")
+        auth_client = BackendAuthClient("integration-service-token")
         publisher = RestResultPublisher(base_url, auth_client)
 
-        await publisher.publish_result("exam-1", {"prediction": [1]})
+        try:
+            await publisher.publish_result(
+                analysis_id, {"result": {"prediction": [1]}}
+            )
+        except httpx.HTTPStatusError as error:
+            assert error.response.status_code == 401
+        else:
+            raise AssertionError("Backend 401 response should be propagated")
 
-        assert result_route.call_count == 2
+        assert result_route.call_count == 1
         assert result_route.calls.last.request.headers["Authorization"] == (
-            "Bearer fresh-token"
+            "Bearer integration-service-token"
         )
 
     with respx.mock:
