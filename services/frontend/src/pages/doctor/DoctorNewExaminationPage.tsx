@@ -1,21 +1,31 @@
 import { useState, type DragEvent, type FormEvent } from "react";
 import Icon from "../../components/Icon";
-import { FormField, PageTitle, SectionTitle, SmallButton, Surface } from "../../components/PageUI";
+import ButtonPrimary from "../../components/ButtonPrimary";
+import ButtonSecondary from "../../components/ButtonSecondary";
+import Checkbox from "../../components/Checkbox";
+import InputSection from "../../components/InputSection";
+import { FormField, PageTitle, SectionTitle, Surface } from "../../components/PageUI";
+import { apiClient, getApiErrorMessage } from "../../services/apiClient";
+import type { Examination, Patient } from "../../types/api.types";
+import { useToast } from "../../context/useToast";
+
+const supportedExtensions = [".edf", ".bdf", ".set", ".fif", ".vhdr", ".eeg"];
 
 function DoctorNewExaminationPage() {
   const [newPatient, setNewPatient] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [artifactCount, setArtifactCount] = useState(3);
-  const [notice, setNotice] = useState("");
+  const [artifactCount, setArtifactCount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
 
   const acceptFile = (candidate?: File) => {
     if (!candidate) return;
-    if (!candidate.name.toLowerCase().endsWith(".edf")) {
-      setNotice("Please choose an EDF file.");
+    const extension = candidate.name.slice(candidate.name.lastIndexOf(".")).toLowerCase();
+    if (!supportedExtensions.includes(extension)) {
+      showToast("Choose an EDF, BDF, SET, FIF, VHDR, or EEG file.", "error");
       return;
     }
     setFile(candidate);
-    setNotice("");
   };
 
   const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
@@ -23,9 +33,79 @@ function DoctorNewExaminationPage() {
     acceptFile(event.dataTransfer.files[0]);
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setNotice(file ? "Your examination is ready. The analysis service is not connected yet." : "Choose an EDF file to continue.");
+    const formElement = event.currentTarget;
+    if (!file) {
+      showToast("Choose an EEG file to continue.", "error");
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const artifactEvents: Array<{ timestamp: number; type: string }> = [];
+    for (let index = 0; index < artifactCount; index += 1) {
+      const digits = Array.from({ length: 9 }, (_, digitIndex) =>
+        String(form.get(`artifact-${index}-digit-${digitIndex}`) ?? "").trim(),
+      );
+      if (digits.every((digit) => !digit)) continue;
+      if (digits.some((digit) => !/^\d$/.test(digit))) {
+        showToast(`Complete all nine digits for artifact ${index + 1}.`, "error");
+        return;
+      }
+
+      const hours = Number(digits.slice(0, 2).join(""));
+      const minutes = Number(digits.slice(2, 4).join(""));
+      const seconds = Number(digits.slice(4, 6).join(""));
+      const milliseconds = Number(digits.slice(6, 9).join(""));
+      if (minutes > 59 || seconds > 59) {
+        showToast(`Artifact ${index + 1} has an invalid time.`, "error");
+        return;
+      }
+      artifactEvents.push({
+        timestamp: hours * 3600 + minutes * 60 + seconds + milliseconds / 1000,
+        type: "ARTIFACT",
+      });
+    }
+
+    setIsSubmitting(true);
+    try {
+      const patientId = newPatient
+        ? (await apiClient.post<Patient>("/patients")).data.id
+        : String(form.get("patientId"));
+      const upload = new FormData();
+      upload.append("patient_id", patientId);
+      upload.append("file", file);
+      const { data: examination } = await apiClient.post<Examination>("/examinations", upload);
+      setFile(null);
+      formElement.reset();
+      setArtifactCount(0);
+      setNewPatient(false);
+
+      if (artifactEvents.length) {
+        try {
+          await Promise.all(
+            artifactEvents.map((artifact) =>
+              apiClient.post(`/examinations/${examination.id}/events`, artifact),
+            ),
+          );
+        } catch (eventError) {
+          showToast(
+            `Examination ${examination.id} was uploaded, but artifact timestamps could not all be saved: ${getApiErrorMessage(eventError, "request failed")}`,
+            "error",
+          );
+          return;
+        }
+      }
+
+      showToast(
+        `Examination ${examination.id} uploaded (${examination.processing_status}). Preprocessing and model analysis are not started automatically by the current backend.`,
+        "success",
+      );
+    } catch (submitError) {
+      showToast(getApiErrorMessage(submitError, "Could not upload the examination."), "error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -35,37 +115,62 @@ function DoctorNewExaminationPage() {
         <form className="grid gap-7 lg:grid-cols-2 lg:gap-10" onSubmit={submit}>
           <div>
             <SectionTitle>Patient Details</SectionTitle>
-            {!newPatient && <FormField label="Patient ID" name="patientId" placeholder="Patient ID" required />}
-            <label className="mt-3 flex items-center gap-2 text-[14px] text-[#102d58]">
-              <input checked={newPatient} className="h-4 w-4 accent-[#00abc1]" onChange={(event) => setNewPatient(event.target.checked)} type="checkbox" />
-              Create new patient instead
-            </label>
+            <FormField disabled={newPatient} label="Patient ID" name="patientId" placeholder={newPatient ? "Generated for this examination" : "Patient UUID"} required={!newPatient} />
+            <Checkbox checked={newPatient} className="mt-3" label="Create a new pseudonymized patient" onChange={setNewPatient} />
             {newPatient && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <FormField label="First name" name="firstName" placeholder="First name" required />
-                <FormField label="Last name" name="lastName" placeholder="Last name" required />
-              </div>
+              <p className="mt-2 text-xs text-[#52677b]">
+                The backend generates a patient ID and does not store names or other direct identifiers.
+              </p>
             )}
             <div className="mt-7">
               <SectionTitle>Examination Artifacts</SectionTitle>
               <p className="mb-1 text-[14px] font-semibold">Insert timestamps of artifact appearances</p>
-              <SmallButton aria-label="Add artifact timestamp" className="mb-1 h-8 w-9 px-1" onClick={() => setArtifactCount((count) => count + 1)} type="button">
-                <Icon className="h-4 w-4" name="plus" />
-              </SmallButton>
+              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => setArtifactCount((count) => count + 1)} type="button" />
               <div className="space-y-1.5">
                 {Array.from({ length: artifactCount }, (_, index) => (
-                  <div className="flex gap-1 text-[13px]" key={index}>
-                    {["HH", "HH", "MM", "MM", "SS", "SS", "MS", "MS", "MS"].map((part, field) => (
-                      <input
-                        aria-label={`Artifact ${index + 1} ${part} ${field + 1}`}
-                        className="h-8 min-w-0 flex-1 rounded-md border border-white bg-white/65 text-center text-[#57636a] outline-none focus:border-[#00a9c4]"
-                        key={`${part}-${field}`}
-                        maxLength={2}
-                        inputMode="numeric"
-                        placeholder={part}
-                        type="text"
-                      />
-                    ))}
+                  <div className="flex items-center gap-1 text-[13px]" key={index}>
+                    {Array.from({ length: 9 }, (_, digitIndex) => {
+                      const unit = digitIndex < 2 ? "H" : digitIndex < 4 ? "M" : digitIndex < 6 ? "S" : "MS";
+
+                      // Określamy, czy po danej cyfrze powinien pojawić się dwukropek
+                      // (po 2. cyfrze H, po 2. cyfrze M)
+                      const showColonAfter = digitIndex === 1 || digitIndex === 3 || digitIndex === 5;
+
+                      return (
+                        <div key={digitIndex} className="flex items-center gap-1">
+                          <InputSection
+                            aria-label={`Artifact ${index + 1} ${unit} digit ${digitIndex + 1}`}
+                            className="w-12"
+                            inputClassName="h-9 px-1 text-center"
+                            inputMode="numeric"
+                            maxLength={1}
+                            name={`artifact-${index}-digit-${digitIndex}`}
+                            onChange={(event) => {
+                              const input = event.currentTarget;
+                              const digit = input.value.replace(/\D/g, "").slice(-1);
+                              input.value = digit;
+                              if (digit) {
+                                input.form?.querySelector<HTMLInputElement>(
+                                  `input[name="artifact-${index}-digit-${digitIndex + 1}"]`,
+                                )?.focus();
+                              }
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Backspace" && !event.currentTarget.value) {
+                                event.currentTarget.form?.querySelector<HTMLInputElement>(
+                                  `input[name="artifact-${index}-digit-${digitIndex - 1}"]`,
+                                )?.focus();
+                              }
+                            }}
+                            placeholder={unit}
+                            type="text"
+                          />
+                          {showColonAfter && (
+                            <span className="select-none px-0.5 font-bold text-[#52677b]">:</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -79,14 +184,13 @@ function DoctorNewExaminationPage() {
               onDrop={handleDrop}
             >
               <Icon className="mb-3 h-8 w-8" name="upload" />
-              <span className="text-[14px] font-semibold">{file?.name ?? "Drag and drop EDF file here"}</span>
+              <span className="text-[14px] font-semibold">{file?.name ?? "Drag and drop an EEG file here"}</span>
               <span className="my-3 rounded-md border border-white bg-white/80 px-3 py-1.5 text-[13px] font-semibold shadow-sm">Browse files</span>
-              <input accept=".edf,application/edf" className="sr-only" onChange={(event) => acceptFile(event.target.files?.[0])} type="file" />
+              <input accept=".edf,.bdf,.set,.fif,.vhdr,.eeg" className="sr-only" onChange={(event) => acceptFile(event.target.files?.[0])} type="file" />
             </label>
-            <button className="mt-3 h-[42px] w-full rounded-full bg-gradient-to-r from-[#00bdc5] to-[#0071b4] px-3 text-[13px] font-bold text-white shadow-md transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-[#06234e]" type="submit">
-              CONFIRM AND START ANALYSIS
-            </button>
-            {notice && <p aria-live="polite" className="mt-2 text-sm text-[#0b5566]" role="status">{notice}</p>}
+            <ButtonPrimary className="mt-3 w-full" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Uploading..." : "Upload examination"}
+            </ButtonPrimary>
           </div>
         </form>
       </Surface>

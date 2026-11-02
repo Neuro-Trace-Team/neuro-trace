@@ -79,41 +79,41 @@ export default function ButtonNavigation(props: ButtonNavigationProps) {
       />
     );
 
-  if (props.to !== undefined) {
+  if (props.to === undefined) {
     return (
-      <NavLink
-        aria-disabled={disabled || undefined}
-        className={({ isActive }) => classes(isActive)}
-        end
-        onClick={(event) => {
-          if (disabled) {
-            event.preventDefault();
-            return;
-          }
-          props.onNavigate?.(event);
-        }}
-        tabIndex={disabled ? -1 : undefined}
-        to={props.to}
+      <button
+        className={classes()}
+        disabled={disabled}
+        onClick={props.onClick}
+        type="button"
       >
-        {({ isActive }) => (
-          <>
-            {renderIcon(isActive)}
-            <span>{children}</span>
-          </>
-        )}
-      </NavLink>
+        {renderIcon()}
+        <span>{children}</span>
+      </button>
     );
   }
 
   return (
-    <button
-      className={classes()}
-      disabled={disabled}
-      onClick={props.onClick}
-      type="button"
+    <NavLink
+      aria-disabled={disabled || undefined}
+      className={({ isActive }) => classes(isActive)}
+      end
+      onClick={(event) => {
+        if (disabled) {
+          event.preventDefault();
+          return;
+        }
+        props.onNavigate?.(event);
+      }}
+      tabIndex={disabled ? -1 : undefined}
+      to={props.to}
     >
-      {renderIcon()}
-      <span>{children}</span>
-    </button>
+      {({ isActive }) => (
+        <>
+          {renderIcon(isActive)}
+          <span>{children}</span>
+        </>
+      )}
+    </NavLink>
   );
 }

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'doctor' | null;
+export type UserRole = 'admin' | 'doctor';
 
 export interface User {
   id: string;
@@ -6,5 +6,5 @@ export interface User {
   role: UserRole;
   firstName: string;
   lastName: string;
-  createdAt: string;
+  createdAt?: string;
 }

@@ -1,9 +1,11 @@
 import { useId, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import type { UserRole } from "../types/user.types";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import ButtonNavigation from "./ButtonNavigation";
+import ButtonSecondary from "./ButtonSecondary";
 import GlassPane from "./GlassPane";
+import { useToast } from "../context/useToast";
 
 const doctorLinks = [
   { label: "Home", path: "/doctor", icon: "home" },
@@ -20,6 +22,7 @@ const adminLinks = [
 
 export default function AppSidebar({ role }: { role: UserRole }) {
   const { logout } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigationId = useId();
@@ -27,8 +30,11 @@ export default function AppSidebar({ role }: { role: UserRole }) {
 
 
   const logoutAndNavigate = () => {
-    logout();
-    navigate("/auth/login", { replace: true });
+    void logout()
+      .catch(() => {
+        showToast("You were signed out on this device, but the backend session could not be revoked.", "error");
+      })
+      .finally(() => navigate("/auth/login", { replace: true }));
   };
 
   return (
@@ -43,11 +49,12 @@ export default function AppSidebar({ role }: { role: UserRole }) {
           >
             <img alt="" className="h-full w-full object-contain" src="/favicon-light.svg" />
           </NavLink>
-          <button
+          <ButtonSecondary
             aria-controls={navigationId}
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-brand-navy transition-colors hover:bg-white/45 focus-visible:outline-2 focus-visible:outline-brand-cyan md:hidden"
+            className="h-11 w-11 border-0 bg-transparent p-0 text-brand-navy shadow-none hover:bg-white/45 hover:text-brand-navy md:hidden"
+            iconOnly
             onClick={() => setIsMenuOpen((open) => !open)}
             type="button"
           >
@@ -71,7 +78,7 @@ export default function AppSidebar({ role }: { role: UserRole }) {
                 }`}
               />
             </span>
-          </button>
+          </ButtonSecondary>
         </header>
 
         <nav
@@ -100,7 +107,7 @@ export default function AppSidebar({ role }: { role: UserRole }) {
             >
               Settings
             </ButtonNavigation>
-            <ButtonNavigation icon="logout" onClick={logoutAndNavigate}>
+            <ButtonNavigation className="border-0" icon="logout" onClick={logoutAndNavigate}>
               Log out
             </ButtonNavigation>
           </div>

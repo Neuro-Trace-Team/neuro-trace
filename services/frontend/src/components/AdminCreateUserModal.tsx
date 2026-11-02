@@ -1,12 +1,17 @@
 import { useState, type FormEvent } from "react";
-import Icon from "./Icon";
-import { SmallButton } from "./PageUI";
+import ButtonPrimary from "./ButtonPrimary";
+import ButtonSecondary from "./ButtonSecondary";
+import InputSection from "./InputSection";
+import Modal from "./Modal";
+import { getApiErrorMessage } from "../services/apiClient";
+import { useToast } from "../context/useToast";
 
-export type ManagedUser = {
-  name: string;
+export type CreateUserInput = {
+  first_name: string;
+  last_name: string;
   email: string;
-  role: string;
-  lastLogin: string;
+  password: string;
+  role: "DOCTOR";
 };
 
 export default function AdminCreateUserModal({
@@ -14,75 +19,72 @@ export default function AdminCreateUserModal({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (user: ManagedUser) => void;
+  onCreate: (user: CreateUserInput) => Promise<void>;
 }) {
-  const [showPassword, setShowPassword] = useState(false);
   const role = "Doctor";
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    onCreate({
-      name: `${form.get("firstName")} ${form.get("lastName")}`,
+    setIsSubmitting(true);
+    try {
+      await onCreate({
+      first_name: String(form.get("firstName")),
+      last_name: String(form.get("lastName")),
       email: String(form.get("email")),
-      role,
-      lastLogin: "Never",
-    });
+      password: String(form.get("password")),
+      role: "DOCTOR",
+      });
+      showToast("Doctor account created successfully.", "success");
+    } catch (createError) {
+      showToast(getApiErrorMessage(createError, "Could not create the account."), "error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#061d36]/35 p-4 backdrop-blur-[2px]"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    <Modal
+      className="max-w-[624px]"
+      description="Create a physician account."
+      onClose={onClose}
+      title="Create New Account"
     >
-      <section aria-labelledby="create-account-title" aria-modal="true" className="max-h-[calc(100svh-2rem)] w-full max-w-[624px] overflow-y-auto rounded-[8px] bg-[#f4f6f6] shadow-[0_12px_40px_rgba(0,20,40,0.3)]" role="dialog">
-        <header className="flex h-[60px] items-center justify-between bg-gradient-to-r from-[#00b9c5] to-[#0071b4] px-6 text-white">
-          <h2 className="text-[23px] font-semibold" id="create-account-title">Create New Account</h2>
-          <button aria-label="Close dialog" className="rounded p-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white" onClick={onClose} type="button">
-            <Icon className="h-5 w-5" name="close" />
-          </button>
-        </header>
-        <form className="space-y-4 px-6 pb-5 pt-6" onSubmit={submit}>
+      <form className="space-y-4" onSubmit={submit}>
           <p className="text-[14px] leading-[21px] text-[#102d58]">
-            Create a physician account and email an invitation. The user must change their temporary password on first sign-in.
+            Create a physician account with a temporary password. The backend does not send invitation emails.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1 text-[14px] font-semibold">Name<input className="h-[39px] w-full rounded-md border border-[#d6d9dc] bg-white px-3 font-normal outline-none focus:border-[#009bb4]" name="firstName" placeholder="Name" required /></label>
-            <label className="space-y-1 text-[14px] font-semibold">Surname<input className="h-[39px] w-full rounded-md border border-[#d6d9dc] bg-white px-3 font-normal outline-none focus:border-[#009bb4]" name="lastName" placeholder="Surname" required /></label>
+            <InputSection label="Name" name="firstName" placeholder="Name" required />
+            <InputSection label="Surname" name="lastName" placeholder="Surname" required />
           </div>
-          <label className="block space-y-1 text-[14px] font-semibold">Email address<input className="h-[39px] w-full rounded-md border border-[#d6d9dc] bg-white px-3 font-normal outline-none focus:border-[#009bb4]" name="email" placeholder="Email address" required type="email" /></label>
+          <InputSection label="Email address" name="email" placeholder="Email address" required type="email" />
           <fieldset>
             <legend className="mb-1.5 text-[14px] font-semibold">Role</legend>
             <div className="grid grid-cols-2 gap-3">
               {(["Doctor", "Admin"] as const).map((option) => (
-                <button
+                <ButtonSecondary
                   aria-pressed={role === option}
-                  className={`h-[42px] rounded-md text-left px-4 text-[14px] font-bold ${role === option ? "border border-white bg-white shadow-[0_2px_4px_rgba(0,0,0,0.2)]" : "bg-[#dedfe0] text-[#73777a]"}`}
+                  className={`h-[42px] justify-start text-left ${role === option ? "border-[#9adce3] bg-[#e8f8fa] text-[#07516a]" : ""}`}
                   disabled={option === "Admin"}
                   key={option}
                   type="button"
                 >
                   {option}
-                </button>
+                </ButtonSecondary>
               ))}
             </div>
           </fieldset>
-          <label className="block space-y-1 text-[14px] font-semibold">Temporary password
-            <span className="relative block">
-              <input className="h-[39px] w-full rounded-md border border-[#d6d9dc] bg-white px-3 pr-11 font-normal outline-none focus:border-[#009bb4]" name="password" placeholder="Temporary password" required type={showPassword ? "text" : "password"} />
-              <button aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowPassword((value) => !value)} type="button">
-                <Icon className="h-5 w-5" name="eye" />
-              </button>
-            </span>
-          </label>
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-            <SmallButton onClick={onClose} type="button">Cancel</SmallButton>
-            <button className="min-h-[42px] rounded-full bg-gradient-to-r from-[#00bdc5] to-[#0071b4] px-4 text-[13px] font-bold text-white shadow-md hover:brightness-105 focus-visible:outline-2 focus-visible:outline-[#06234e]" type="submit">
-              SEND INVITATION AND CREATE ACCOUNT
-            </button>
+          <InputSection label="Temporary password" minLength={12} name="password" placeholder="At least 12 characters" required type="password" />
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <ButtonSecondary onClick={onClose} type="button">Cancel</ButtonSecondary>
+            <ButtonPrimary disabled={isSubmitting} type="submit">
+              {isSubmitting ? "CREATING ACCOUNT..." : "CREATE ACCOUNT"}
+            </ButtonPrimary>
           </div>
-        </form>
-      </section>
-    </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,20 +1,13 @@
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { backendClient, getApiErrorMessage } from "../../services/apiClient";
 import { PageTitle, SectionTitle, Surface } from "../../components/PageUI";
-
-const storageMetrics = [
-  ["Total number of files", "128 402"],
-  ["Average file size", "18.4 MB"],
-  ["Used storage", "2.37 TB"],
-  ["Database connection", "Online"],
-  ["Response time", "42 ms"],
-  ["Last synchronisation", "2 mins ago"],
-  ["Raw files", "1.84 TB"],
-  ["Anonymized files", "0.53 TB"],
-  ["Today's uploads", "142 GB"],
-];
+import type { BackendReadiness } from "../../types/api.types";
+import { useToast } from "../../context/useToast";
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-md bg-[#dfe1e2]/90 px-2.5 py-1">
+    <div className="min-w-0 rounded-md bg-[#ffffff]/90 px-2.5 py-1">
       <p className="truncate text-[10px] text-[#193456]">{label}</p>
       <p className="truncate text-[16px] font-bold leading-5 text-[#09264d]">{value}</p>
     </div>
@@ -22,50 +15,61 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function AdminDatabasePage() {
+  const [readiness, setReadiness] = useState<BackendReadiness | null>(null);
+  const [liveStatus, setLiveStatus] = useState("Checking");
+  const [error, setError] = useState("");
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    backendClient
+      .get<{ status: string }>("/health/live")
+      .then(({ data }) => setLiveStatus(data.status))
+      .catch((loadError: unknown) => {
+        setLiveStatus("Unavailable");
+        setError(getApiErrorMessage(loadError, "Could not reach the backend."));
+        showToast(getApiErrorMessage(loadError, "Could not reach the backend."), "error");
+      });
+
+    backendClient
+      .get<BackendReadiness>("/health/ready")
+      .then(({ data }) => setReadiness(data))
+      .catch((loadError: unknown) => {
+        const responseData = axios.isAxiosError<BackendReadiness>(loadError)
+          ? loadError.response?.data
+          : undefined;
+        if (responseData?.dependencies) {
+          setReadiness(responseData);
+        } else {
+          setError(getApiErrorMessage(loadError, "Could not read backend readiness."));
+          showToast(getApiErrorMessage(loadError, "Could not read backend readiness."), "error");
+        }
+      });
+  }, [showToast]);
+
   return (
     <div className="mx-auto max-w-[1100px]">
-      <PageTitle>Database Management</PageTitle>
+      <PageTitle>Backend and Database Status</PageTitle>
       <div className="space-y-3">
         <Surface className="px-5 py-3">
-          <SectionTitle>EEG Files Storage Monitor</SectionTitle>
-          <div className="px-2">
-            <div className="mb-1 flex justify-between text-[12px] font-bold text-[#384149]">
-              <span>Storage usage</span><span>74%</span>
-            </div>
-            <div aria-label="Storage usage 74 percent" className="h-[10px] overflow-hidden rounded-full bg-[#dedfe0]" role="progressbar" aria-valuenow={74} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full w-[74%] rounded-full bg-gradient-to-r from-[#00c1ca] to-[#0071b4]" />
-            </div>
-            <div className="mb-1 flex justify-between text-[9px] text-[#81898c]"><span>0%</span><span>50%</span><span>100%</span></div>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-              {storageMetrics.map(([label, value]) => <Metric key={label} label={label} value={value} />)}
-            </div>
+          <SectionTitle>Service Health</SectionTitle>
+          <p className="mb-3 text-sm text-[#52677b]">
+            Backend liveness: <strong>{liveStatus}</strong>
+          </p>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+            {Object.entries(readiness?.dependencies ?? {}).map(([name, status]) => (
+              <Metric key={name} label={name.replaceAll("_", " ")} value={status} />
+            ))}
+            {!readiness && !error && <p className="text-sm text-[#52677b]">Checking dependencies...</p>}
           </div>
+          {readiness && <p className="mt-3 text-sm">Overall readiness: <strong>{readiness.status}</strong></p>}
         </Surface>
         <Surface className="px-5 py-3">
-          <SectionTitle>Database and AI Model Management</SectionTitle>
-          <div className="space-y-2 px-2">
-            <div>
-              <p className="mb-1 text-[13px] font-bold text-[#43494c]">Database state</p>
-              <div className="grid gap-1 sm:grid-cols-3">
-                <Metric label="Records processed" value="24 860" />
-                <Metric label="Personal information deleted" value="98.2%" />
-                <Metric label="Last synchronisation" value="5 min ago" />
-              </div>
-              <div className="mt-1"><Metric label="Last event" value="2026-01-01 09:42 — automatic deletion of 412 personal data records" /></div>
-            </div>
-            <div>
-              <p className="mb-1 text-[13px] font-bold text-[#43494c]">AI Training dataset</p>
-              <div className="grid gap-1 sm:grid-cols-3">
-                <Metric label="Anonymous records" value="18 304" />
-                <Metric label="Current model training base" value="14 902" />
-                <Metric label="Retraining readiness" value="93.1%" />
-              </div>
-            </div>
-            <div>
-              <p className="mb-1 text-[13px] font-bold text-[#43494c]">Database consistency monitor</p>
-              <Metric label="Index consistency" value="100%" />
-            </div>
-          </div>
+          <SectionTitle>Available Monitoring</SectionTitle>
+          <p className="text-sm leading-6 text-[#52677b]">
+            The backend currently exposes dependency readiness only. Storage
+            capacity, database usage, backup history, and model-training metrics
+            are not available through its API.
+          </p>
         </Surface>
       </div>
     </div>
