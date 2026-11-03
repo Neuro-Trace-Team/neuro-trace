@@ -63,7 +63,13 @@ class NeuroTraceClient:
 
     def create_job(self, examination_id: str) -> dict:
         return self._request(
+<<<<<<< HEAD
             "POST", f"/api/v1/examinations/{examination_id}/preprocessing-jobs"
+=======
+            "POST",
+            f"/api/v1/examinations/{examination_id}/preprocessing-jobs",
+            {"pipeline_version": self.settings.pipeline_version},
+>>>>>>> dev
         )
 
     def get_job(self, job_id: str) -> dict:
@@ -87,12 +93,22 @@ class NeuroTraceClient:
         self,
         job_id: str,
         status: Literal["COMPLETED", "FAILED"],
+<<<<<<< HEAD
         result_file_location: str | None = None,
         error_message: str | None = None,
     ) -> dict:
         payload: dict[str, str] = {"status": status}
         if result_file_location is not None:
             payload["result_file_location"] = result_file_location
+=======
+        error_message: str | None = None,
+    ) -> dict:
+        payload: dict[str, str] = {
+            "status": status,
+            "output_bucket": "",
+            "output_storage_key": "",
+        }
+>>>>>>> dev
         if error_message is not None:
             payload["error_message"] = error_message
         return self._request(
@@ -113,7 +129,15 @@ class JobManager:
         self._jobs: dict[str, dict] = {}
         self._lock = threading.Lock()
 
+<<<<<<< HEAD
     def create(self, examination_id: str, job_id: str | None = None) -> str:
+=======
+    def create(self, examination_id: str, job_id: str | None = None, *, analysis_id: str | None = None) -> str:
+        try:
+            analysis_uuid = uuid.UUID(analysis_id)
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ValueError("analysis_id must be a UUID supplied by the backend") from exc
+>>>>>>> dev
         try:
             examination_uuid = uuid.UUID(examination_id)
         except (ValueError, AttributeError, TypeError) as exc:
@@ -127,8 +151,15 @@ class JobManager:
         with self._lock:
             self._jobs[job_id] = {
                 "job_id": job_id,
+<<<<<<< HEAD
                 "examination_id": str(examination_uuid),
                 "status": "QUEUED",
+=======
+                "analysis_id": str(analysis_uuid),
+                "examination_id": str(examination_uuid),
+                "status": "QUEUED",
+                "pipeline_version": self.settings.pipeline_version,
+>>>>>>> dev
                 "created_at": self._now(),
             }
         return job_id
@@ -155,6 +186,12 @@ class JobManager:
             if self.backend is None:
                 raise RuntimeError("NeuroTrace backend client is not configured")
             backend_job = self.backend.get_job(job_id)
+<<<<<<< HEAD
+=======
+            analysis_id = self.get(job_id)["analysis_id"]
+            if str(backend_job.get("analysis_id")) != analysis_id:
+                raise ValueError("Backend analysis_id does not match the preprocessing job")
+>>>>>>> dev
             if backend_job.get("status") == "CANCELLED":
                 self._update(job_id, status="CANCELLED", finished_at=self._now())
                 self.backend.update_status(job_id, "CANCELLED")
@@ -190,7 +227,11 @@ class JobManager:
                 output_root / "study" / "subject" / "run" / "combined_features.csv"
             )
             published_rows = publish_combined_features(
+<<<<<<< HEAD
                 self.settings, combined_features_path
+=======
+                self.settings, combined_features_path, analysis_id=analysis_id
+>>>>>>> dev
             )
             self._update(
                 job_id,
@@ -201,9 +242,13 @@ class JobManager:
                 published_rows=published_rows,
                 rabbitmq_queue=self.settings.rabbitmq_queue,
             )
+<<<<<<< HEAD
             self.backend.submit_result(
                 job_id, "COMPLETED", result_file_location=str(output_root)
             )
+=======
+            self.backend.submit_result(job_id, "COMPLETED")
+>>>>>>> dev
         except Exception as exc:
             message = str(exc)
             self._update(job_id, status="FAILED", finished_at=self._now(), error=message)

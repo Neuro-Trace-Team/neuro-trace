@@ -4,6 +4,10 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
+<<<<<<< HEAD
+=======
+from uuid import UUID
+>>>>>>> dev
 
 import aio_pika
 from aio_pika import DeliveryMode, ExchangeType, Message
@@ -72,10 +76,21 @@ async def _publish_rows(settings: Settings, rows: list[dict[str, Any]]) -> int:
         await connection.close()
 
 
+<<<<<<< HEAD
 def publish_combined_features(settings: Settings, csv_path: str | Path) -> int:
     """Publish every row of combined_features.csv as one JSON message."""
+=======
+def publish_combined_features(settings: Settings, csv_path: str | Path, *, analysis_id: str) -> int:
+    """Publish each CSV row with the backend analysis UUID as metadata."""
+    analysis_id = str(UUID(analysis_id))
+>>>>>>> dev
     path = Path(csv_path)
     if not path.is_file():
         raise FileNotFoundError(f"Combined features file not found: {path}")
     rows = _read_rows(path)
+<<<<<<< HEAD
+=======
+    for row in rows:
+        row["analysis_id"] = analysis_id
+>>>>>>> dev
     return asyncio.run(_publish_rows(settings, rows))
