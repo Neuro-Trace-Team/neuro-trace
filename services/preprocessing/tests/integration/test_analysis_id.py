@@ -13,6 +13,7 @@ def test_job_preserves_backend_analysis_id_until_publication(backend_client, mon
     examination_id, analysis_id = str(uuid4()), str(uuid4())
     job_id = manager.create(examination_id, analysis_id=analysis_id)
     backend.get_job.return_value = {"status": "QUEUED", "analysis_id": analysis_id}
+    backend.get_examination.return_value = {"source_file": {"bucket": "exam-bucket"}}
     monkeypatch.setattr("service.jobs.subprocess.run", Mock(return_value=Mock(
         returncode=0, stdout="", stderr=""
     )))
@@ -24,7 +25,10 @@ def test_job_preserves_backend_analysis_id_until_publication(backend_client, mon
     assert manager.get(job_id)["analysis_id"] == analysis_id
     assert manager.get(job_id)["status"] == "COMPLETED"
     assert publish.call_args.kwargs == {"analysis_id": analysis_id}
-    backend.submit_result.assert_called_once_with(job_id, "COMPLETED")
+    backend.submit_result.assert_called_once_with(
+        job_id, "COMPLETED", output_bucket="exam-bucket",
+        output_storage_key=f"preprocessing/{examination_id}/{job_id}/combined_features.csv",
+    )
 
 
 @pytest.mark.parametrize("analysis_id", [None, "bucket/path", "invalid"])

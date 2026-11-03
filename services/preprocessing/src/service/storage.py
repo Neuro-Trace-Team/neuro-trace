@@ -26,15 +26,6 @@ class RustFSStorage:
             config=Config(s3={"addressing_style": "path"}),
         )
 
-<<<<<<< HEAD
-    def download_study(self, study_id: str, destination: Path) -> None:
-        destination.mkdir(parents=True, exist_ok=True)
-        client = self._client()
-        for filename in ("events.csv", "eeg_data.bdf"):
-            # The public contract is bucket/{study_id}/{filename}.
-            client.download_file(
-                self.settings.rustfs_bucket,
-=======
     def download_study(self, study_id: str, destination: Path, bucket: str | None = None) -> None:
         destination.mkdir(parents=True, exist_ok=True)
         client = self._client()
@@ -43,10 +34,17 @@ class RustFSStorage:
             # The public contract is bucket/{study_id}/{filename}.
             client.download_file(
                 source_bucket,
->>>>>>> dev
                 f"{study_id}/{filename}",
                 str(destination / filename),
             )
+
+    def upload_result(self, csv_path: Path, bucket: str, storage_key: str) -> None:
+        """Upload the pipeline output unchanged to backend-provided storage."""
+        if not csv_path.is_file():
+            raise FileNotFoundError(f"Combined features file not found: {csv_path}")
+        if not isinstance(bucket, str) or not bucket.strip():
+            raise ValueError("Examination response does not contain a storage bucket")
+        self._client().upload_file(str(csv_path), bucket, storage_key)
 
     def download_examination(self, examination: dict, destination: Path) -> None:
         """Download the recording described by the backend examination DTO.
@@ -56,24 +54,6 @@ class RustFSStorage:
         names used by older backend deployments; the EEG pipeline sees exactly
         the same local files as before.
         """
-<<<<<<< HEAD
-        study_id = next(
-            (
-                examination.get(key)
-                for key in (
-                    "study_id",
-                    "storage_prefix",
-                    "data_prefix",
-                    "recording_prefix",
-                    "storage_path",
-                )
-            ),
-            None,
-        )
-        if not isinstance(study_id, str) or not study_id:
-            raise ValueError("Examination response does not contain a storage prefix")
-        self.download_study(study_id, destination)
-=======
         source_file = examination.get("source_file")
         storage_key = source_file.get("storage_key") if isinstance(source_file, dict) else None
         bucket = source_file.get("bucket") if isinstance(source_file, dict) else None
@@ -83,4 +63,3 @@ class RustFSStorage:
         if not study_id:
             raise ValueError("Examination response does not contain a storage prefix")
         self.download_study(study_id, destination, bucket=bucket)
->>>>>>> dev

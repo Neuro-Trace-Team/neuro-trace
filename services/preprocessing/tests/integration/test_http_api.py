@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from unittest.mock import Mock
+from urllib.error import HTTPError, URLError
 
-from service.jobs import BackendAPIError, NeuroTraceClient
+import pytest
+
+from service.jobs import BackendAPIError
 
 
 class _Response:
@@ -41,14 +45,20 @@ def test_backend_http_request_contains_expected_method_path_and_payload(
 
 
 def test_backend_http_errors_are_exposed_as_backend_api_errors(monkeypatch, backend_client) -> None:
-    error = Mock()
-    error.code = 503
-    error.read.return_value = b"backend unavailable"
-    monkeypatch.setattr("service.jobs.urlopen", Mock(side_effect=BackendAPIError("mock error", 503)))
+    error = HTTPError(
+        "http://mock-backend", 503, "Unavailable", {}, BytesIO(b"backend unavailable")
+    )
+    monkeypatch.setattr("service.jobs.urlopen", Mock(side_effect=error))
 
-    try:
+    with pytest.raises(BackendAPIError, match="backend unavailable") as raised:
         backend_client.get_job("job-1")
-    except BackendAPIError as raised:
-        assert raised.status_code == 503
-    else:
-        raise AssertionError("BackendAPIError was not raised")
+    assert raised.value.status_code == 503
+
+
+@pytest.mark.parametrize("error", [URLError("connection refused"), TimeoutError()])
+def test_backend_connection_errors_are_wrapped(monkeypatch, backend_client, error):
+    monkeypatch.setattr("service.jobs.urlopen", Mock(side_effect=error))
+
+    with pytest.raises(BackendAPIError, match="Cannot reach NeuroTrace backend") as raised:
+        backend_client.get_job("job-1")
+    assert raised.value.status_code is None

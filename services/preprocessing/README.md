@@ -107,11 +107,18 @@ The job execution process is as follows:
 
 6. `JobManager` runs `python -m eeg_pipeline.cli` with the `--input`,
    `--output`, and `--all` parameters and the configured log level.
-7. When processing finishes successfully, every row of `combined_features.csv`
-   is published as one JSON message to the durable RabbitMQ queue configured by
-   `RABBITMQ_QUEUE`. Only after publishing succeeds does the state change to
-   `COMPLETED` with the output location; failures report `FAILED` with an
-   error message. A backend-cancelled job reports `CANCELLED`.
+7. When processing finishes successfully, the service uploads the unchanged
+   `combined_features.csv` to the bucket returned by the backend in
+   `source_file.bucket`, using the object key
+   `preprocessing/<examination_id>/<job_id>/combined_features.csv`.
+   The configured S3 credentials need write access to that bucket.
+8. Every CSV row is then published to RabbitMQ. After successful upload and
+   publication, the service reports `COMPLETED` to the backend with
+   `output_bucket` and `output_storage_key`. These coordinates are also available
+   in the local job status. Missing output, missing bucket, upload, publication,
+   or callback errors result in `FAILED`. A backend-cancelled job reports
+   `CANCELLED`. If publication or the callback fails after upload, the CSV
+   remains in the bucket.
 
 Job state is stored only in process memory. Restarting the container removes
 the job history, and background jobs do not constitute a durable queue.
