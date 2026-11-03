@@ -62,3 +62,59 @@ def test_backend_connection_errors_are_wrapped(monkeypatch, backend_client, erro
     with pytest.raises(BackendAPIError, match="Cannot reach NeuroTrace backend") as raised:
         backend_client.get_job("job-1")
     assert raised.value.status_code is None
+
+
+def test_start_job_accepts_examination_without_backend_analysis_id(monkeypatch):
+    from uuid import uuid4
+    from fastapi import BackgroundTasks
+    import main
+
+    examination_id, job_id = uuid4(), str(uuid4())
+    backend = Mock()
+    backend.create_job.return_value = {"id": job_id, "examination_id": str(examination_id)}
+    manager = main.JobManager(main.settings, Mock(), backend)
+    monkeypatch.setattr(main, "backend", backend)
+    monkeypatch.setattr(main, "jobs", manager)
+    tasks = BackgroundTasks()
+
+    result = main.preprocess_examination(
+        examination_id, tasks, main.JobRequest(examination_id=examination_id)
+    )
+
+    assert result["examination_id"] == str(examination_id)
+    assert "analysis_id" not in result
+    assert result["job_id"] == job_id
+    assert len(tasks.tasks) == 1
+    assert tasks.tasks[0].args == (job_id, str(examination_id))
+    main.JobResponse(**result)
+
+
+def test_request_examination_mismatch_rejected_before_backend_call(monkeypatch):
+    from uuid import uuid4
+    from fastapi import BackgroundTasks, HTTPException
+    import main
+
+    backend = Mock()
+    monkeypatch.setattr(main, "backend", backend)
+    with pytest.raises(HTTPException) as raised:
+        main.preprocess_examination(
+            uuid4(), BackgroundTasks(), main.JobRequest(examination_id=uuid4())
+        )
+    assert raised.value.status_code == 422
+    backend.create_job.assert_not_called()
+
+
+@pytest.mark.parametrize("backend_examination_id", [None, "invalid", "13b5b2e5-078b-447d-a6d8-6e18330d105a"])
+def test_invalid_backend_examination_rejected(monkeypatch, backend_examination_id):
+    from uuid import uuid4
+    from fastapi import BackgroundTasks, HTTPException
+    import main
+
+    backend = Mock()
+    backend.create_job.return_value = {"id": str(uuid4()), "examination_id": backend_examination_id}
+    monkeypatch.setattr(main, "backend", backend)
+    tasks = BackgroundTasks()
+    with pytest.raises(HTTPException) as raised:
+        main.preprocess_examination(uuid4(), tasks)
+    assert raised.value.status_code == 502
+    assert tasks.tasks == []

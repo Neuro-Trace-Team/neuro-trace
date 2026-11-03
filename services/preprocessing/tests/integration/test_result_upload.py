@@ -17,9 +17,9 @@ def test_upload_lifecycle(backend_client, monkeypatch, failure):
     monkeypatch.setattr(storage, '_client', lambda: client)
     monkeypatch.setattr(storage, 'download_examination', Mock())
     manager = JobManager(backend_client.settings, storage, backend)
-    examination_id, analysis_id = str(uuid4()), str(uuid4())
-    job_id = manager.create(examination_id, analysis_id=analysis_id)
-    backend.get_job.return_value = {'status': 'QUEUED', 'analysis_id': analysis_id}
+    examination_id = str(uuid4())
+    job_id = manager.create(examination_id)
+    backend.get_job.return_value = {'status': 'QUEUED', 'examination_id': examination_id}
     backend.get_examination.return_value = {'source_file': {'bucket': '' if failure == 'bucket' else 'backend-bucket'}}
     output = backend_client.settings.work_root / job_id / 'output/study/subject/run/combined_features.csv'
     key = f'preprocessing/{examination_id}/{job_id}/combined_features.csv'
