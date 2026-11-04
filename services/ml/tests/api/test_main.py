@@ -1,70 +1,60 @@
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi.testclient import TestClient
 import pytest
 
-from api.main import app
+from api.main import app, healthz, info, lifespan, readyz
 
 
-@pytest.fixture(autouse=True)
-def mock_rabbit_consumer():
-    """Automatically mocks RabbitMQConsumer for all tests in this file so lifespan works smoothly."""
-    with patch("api.main.RabbitMQConsumer") as mock_cls:
-        mock_instance = MagicMock()
-        mock_instance.start = AsyncMock()
-        mock_instance.close = AsyncMock()
-        mock_cls.return_value = mock_instance
-        yield mock_cls
-
+@pytest.mark.asyncio
 @patch("api.main.predictor")
-def test_info_endpoint(mock_predictor):
+async def test_info_endpoint(mock_predictor):
+    response = await info()
+
+    assert response["app_name"]
+    assert "model_path" in response
+    mock_predictor.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_healthz_endpoint():
+    assert await healthz() == {"status": "healthy"}
+
+
+@pytest.mark.asyncio
+@patch("api.main.predictor")
+async def test_readyz_endpoint_ready(mock_predictor):
     mock_predictor.has_model.return_value = True
 
-    with TestClient(app) as client:
-        response = client.get("/info")
-        assert response.status_code == 200
-        data = response.json()
-        assert "app_name" in data
-        assert "model_path" in data
+    assert await readyz() == {"status": "ready"}
 
+
+@pytest.mark.asyncio
 @patch("api.main.predictor")
-def test_healthz_endpoint(mock_predictor):
-    mock_predictor.has_model.return_value = True
-
-    with TestClient(app) as client:
-        response = client.get("/healthz")
-        assert response.status_code == 200
-        assert response.json() == {
-            "status": "healthy"
-        }
-
-@patch("api.main.predictor")
-def test_readyz_endpoint_ready(mock_predictor):
-    mock_predictor.has_model.return_value = True
-
-    with TestClient(app) as client:
-        response = client.get("/readyz")
-        assert response.status_code == 200
-        assert response.json() == {
-            "status": "ready"
-        }
-
-@patch("api.main.predictor")
-def test_readyz_endpoint_not_ready(mock_predictor):
+async def test_readyz_endpoint_not_ready(mock_predictor):
     mock_predictor.has_model.return_value = False
 
-    with TestClient(app) as client:
-        response = client.get("/readyz")
-        assert response.status_code == 503
-        assert response.json() == {
-            "status": "not_ready",
-            "reason": "model_not_loaded"
-        }
+    response = await readyz()
 
+    assert response.status_code == 503
+    assert json.loads(response.body) == {
+        "status": "not_ready",
+        "reason": "model_not_loaded",
+    }
+
+
+@pytest.mark.asyncio
 @patch("api.main.predictor")
-def test_lifespan_startup_and_shutdown(mock_predictor):
+@patch("api.main.RabbitMQConsumer")
+async def test_lifespan_startup_and_shutdown(mock_consumer_class, mock_predictor):
+    mock_consumer = MagicMock()
+    mock_consumer.start = AsyncMock()
+    mock_consumer.close = AsyncMock()
+    mock_consumer_class.return_value = mock_consumer
     mock_predictor.load_model.return_value = None
-    mock_predictor.has_model.return_value = True
 
-    with TestClient(app):
+    async with lifespan(app):
         mock_predictor.load_model.assert_called_once()
+        mock_consumer_class.assert_called_once()
+
+    mock_consumer.close.assert_awaited_once()

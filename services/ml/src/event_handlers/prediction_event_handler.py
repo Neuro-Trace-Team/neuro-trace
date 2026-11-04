@@ -1,9 +1,17 @@
 import logging
 from typing import Any, Dict
+from uuid import UUID
 
 from event_handlers.ievent_handler import IEventHandler
 from services.ipredictor import IPredictor
 from services.iresultpublisher import IResultPublisher
+
+
+metadata_keys = {
+    "analysis_id", "experiment_id", "subject_id", "recording_id", "window_id",
+    "event_id", "event_index", "event_time_s", "event_timestamp",
+    "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag"
+}
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +37,9 @@ class PredictionEventHandler(IEventHandler):
         try:
             if not analysis_id:
                 raise ValueError("Incoming prediction event is missing analysis_id")
-
-            metadata_keys = {
-                "analysis_id", "experiment_id", "subject_id", "recording_id", "window_id",
-                "event_id", "event_index", "event_time_s", "event_timestamp",
-                "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag"
-            }
+            analysis_id = str(UUID(str(analysis_id)))
 
             feature_payload = {k: v for k, v in payload.items() if k not in metadata_keys}
-
             result = self.predictor.predict(feature_payload)
 
             logger.info(f"Inference successful for Recording {recording_id}: {result}")

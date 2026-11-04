@@ -27,6 +27,7 @@ def _client_ip(request: Request) -> str | None:
 def preprocessing_job_response(job: PreprocessingJob) -> PreprocessingJobResponse:
     return PreprocessingJobResponse(
         id=job.id,
+        analysis_id=(job.parameters_json or {}).get("analysis_id"),
         examination_id=job.examination_id,
         status=job.status,
         pipeline_version=job.pipeline_version,
@@ -59,6 +60,9 @@ def create_preprocessing_job(
             examination_id=examination_id,
             pipeline_version=payload.pipeline_version,
             parameters=payload.parameters,
+            requested_by=current_user.id if current_user else None,
+            model_name=payload.model_name.strip(),
+            model_version=payload.model_version.strip(),
         )
     except examinations_service.ExaminationNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examination not found") from None

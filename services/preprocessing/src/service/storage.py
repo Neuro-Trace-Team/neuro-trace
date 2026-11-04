@@ -38,6 +38,14 @@ class RustFSStorage:
                 str(destination / filename),
             )
 
+    def upload_result(self, csv_path: Path, bucket: str, storage_key: str) -> None:
+        """Upload the pipeline output unchanged to backend-provided storage."""
+        if not csv_path.is_file():
+            raise FileNotFoundError(f"Combined features file not found: {csv_path}")
+        if not isinstance(bucket, str) or not bucket.strip():
+            raise ValueError("Examination response does not contain a storage bucket")
+        self._client().upload_file(str(csv_path), bucket, storage_key)
+
     def download_examination(self, examination: dict, destination: Path) -> None:
         """Download the recording described by the backend examination DTO.
 

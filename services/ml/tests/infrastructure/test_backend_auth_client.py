@@ -1,47 +1,28 @@
-import httpx
-from infrastructure.backend_auth_client import BackendAuthClient
 import pytest
-import respx
+
+from infrastructure.backend_auth_client import BackendAuthClient
 
 
 @pytest.mark.asyncio
-@respx.mock
-async def test_get_token_success_and_cache():
-    base_url = "http://backend-api"
-    login_url = f"{base_url}/api/v1/auth/login"
+async def test_get_token_returns_configured_service_token():
+    client = BackendAuthClient("  mock_service_jwt  ")
 
-    route = respx.post(login_url).respond(
-        status_code=200, 
-        json={"access_token": "mock_jwt_token_123"}
-    )
+    assert await client.get_token() == "mock_service_jwt"
+    assert await client.get_token() == "mock_service_jwt"
 
-    client = BackendAuthClient(base_url=base_url, email="test@test.com", password="password")
-
-    token1 = await client.get_token()
-    assert token1 == "mock_jwt_token_123"
-    assert route.call_count == 1
-
-    token2 = await client.get_token()
-    assert token2 == "mock_jwt_token_123"
-    assert route.call_count == 1
 
 @pytest.mark.asyncio
-@respx.mock
-async def test_get_token_http_error():
-    base_url = "http://backend-api"
-    login_url = f"{base_url}/api/v1/auth/login"
+async def test_get_token_rejects_missing_service_token():
+    client = BackendAuthClient(" ")
 
-    respx.post(login_url).respond(status_code=401, text="Unauthorized")
-
-    client = BackendAuthClient(base_url=base_url, email="test@test.com", password="wrong")
-
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(RuntimeError, match="ML_SERVICE_TOKEN is not configured"):
         await client.get_token()
 
+
 @pytest.mark.asyncio
-async def test_invalidate_token():
-    client = BackendAuthClient(base_url="http://backend-api", email="a@b.com", password="123")
-    client._access_token = "cached_token_abc"
+async def test_invalidate_token_is_noop_for_static_token():
+    client = BackendAuthClient("static_service_token")
 
     await client.invalidate_token()
-    assert client._access_token is None
+
+    assert await client.get_token() == "static_service_token"

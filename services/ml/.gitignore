@@ -1,1 +1,4 @@
 *.egg-info/
+
+# Temporary before setting up git LFS
+models

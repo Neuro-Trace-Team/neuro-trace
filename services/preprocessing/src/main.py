@@ -28,6 +28,10 @@ class JobResponse(BaseModel):
     pipeline_version: str
 
 
+class JobRequest(BaseModel):
+    examination_id: UUID
+
+
 def _start_job(
     examination_id: UUID,
     background_tasks: BackgroundTasks,
@@ -60,8 +64,14 @@ def health() -> dict[str, str]:
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobResponse,
 )
-def preprocess_examination(examination_id: UUID, background_tasks: BackgroundTasks):
+def preprocess_examination(
+    examination_id: UUID,
+    background_tasks: BackgroundTasks,
+    request: JobRequest | None = None,
+):
     """Queue preprocessing for one backend examination."""
+    if request is not None and request.examination_id != examination_id:
+        raise HTTPException(status_code=422, detail="Request examination_id does not match URL")
     try:
         backend_job = backend.create_job(str(examination_id))
     except BackendAPIError as exc:
@@ -75,6 +85,15 @@ def preprocess_examination(examination_id: UUID, background_tasks: BackgroundTas
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Backend job response does not contain a job UUID",
         )
+    try:
+        backend_examination_id = UUID(backend_job.get("examination_id", ""))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Backend job response does not contain an examination UUID",
+        ) from exc
+    if backend_examination_id != examination_id:
+        raise HTTPException(status_code=502, detail="Backend examination_id does not match request")
     return _start_job(examination_id, background_tasks, backend_job_id)
 
 

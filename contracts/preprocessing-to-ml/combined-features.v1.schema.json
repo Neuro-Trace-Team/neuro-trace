@@ -6,6 +6,11 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+  "description": "One row of combined_features.csv augmented with the backend analysis UUID.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
     "experiment_id",
     "subject_id",
     "recording_id",
@@ -215,6 +220,11 @@
     "theta_local_efficiency"
   ],
   "properties": {
+    "analysis_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the backend analysis created with the preprocessing job."
+    },
     "experiment_id": {
       "type": "string"
     },

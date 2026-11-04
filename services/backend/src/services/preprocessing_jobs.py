@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from src.models.medical import PreprocessingJob
+from src.models.medical import Analysis, PreprocessingJob
 from src.repositories import preprocessing_jobs as preprocessing_jobs_repository
 from src.services import examinations as examinations_service
 
@@ -50,17 +50,34 @@ def create_preprocessing_job(
     examination_id: UUID,
     pipeline_version: str,
     parameters: dict[str, Any] | None,
+    requested_by: UUID | None = None,
+    model_name: str = "MockPredictor",
+    model_version: str = "0.1.0",
 ) -> PreprocessingJob:
     examination = examinations_service.get_examination(session, examination_id)
+    analysis_id = uuid4()
     job = PreprocessingJob(
+        id=uuid4(),
         examination_id=examination_id,
         status="QUEUED",
         pipeline_version=pipeline_version.strip(),
-        parameters_json=parameters,
+        parameters_json={**(parameters or {}), "analysis_id": str(analysis_id)},
     )
     examination.processing_status = "PREPROCESSING"
     examination.updated_at = _now()
     session.add(job)
+    # Persist the FK target before inserting the analysis; commit both together
+    # so the worker never receives an ID for an uncommitted analysis.
+    session.flush()
+    session.add(Analysis(
+        id=analysis_id,
+        examination_id=examination_id,
+        preprocessing_job_id=job.id,
+        requested_by=requested_by or examination.uploaded_by,
+        status="QUEUED",
+        model_name=model_name,
+        model_version=model_version,
+    ))
     return _commit(session, job)
 
 

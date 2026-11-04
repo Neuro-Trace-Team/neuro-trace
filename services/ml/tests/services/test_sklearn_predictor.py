@@ -3,7 +3,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from services.sklearn_predictor import SklearnPredictor
+from services.sklearn_predictor import FeatureValidationError, SklearnPredictor
 
 
 class DummyModelWithProba:
@@ -58,15 +58,12 @@ def test_predict_without_loading():
         predictor.predict([1.0, 2.0])
 
 def test_predict_with_dict_features():
-    predictor = SklearnPredictor()
+    predictor = SklearnPredictor(feature_names=["feature1", "feature2"])
     predictor.model = DummyModelWithProba()
 
-    features = {
-        "feature1": 1.5, 
-        "feature2": 2.5
-    }
-    result = predictor.predict(features)
+    result = predictor.predict({"feature1": 1.5, "feature2": 2.5})
 
+    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]]}
     assert result == {
         "prediction": [1],
         "probabilities": [[0.2, 0.8]]
@@ -107,3 +104,43 @@ def test_predict_without_predict_proba():
         "prediction": [0],
         "probabilities": None
     }
+
+class RecordingModel:
+    """Captures the DataFrame it receives."""
+    def predict(self, X):
+        self.X = X
+        return np.array([1])
+
+
+@pytest.fixture
+def predictor():
+    p = SklearnPredictor(feature_names=["a", "b", "c"])
+    p.model = RecordingModel()
+    return p
+
+
+def test_columns_follow_configured_order(predictor):
+    predictor.predict({"c": 3, "a": 1, "b": 2})
+    assert list(predictor.model.X.columns) == ["a", "b", "c"]
+    assert predictor.model.X.iloc[0].tolist() == [1, 2, 3]
+
+
+def test_extra_keys_are_ignored(predictor):
+    predictor.predict({"a": 1, "b": 2, "c": 3, "event_id": "x"})
+    assert list(predictor.model.X.columns) == ["a", "b", "c"]
+
+
+def test_missing_feature_raises(predictor):
+    with pytest.raises(FeatureValidationError, match="Missing 1 features: \\['c'\\]"):
+        predictor.predict({"a": 1, "b": 2})
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), "abc", None])
+def test_invalid_values_raise(predictor, bad):
+    with pytest.raises(FeatureValidationError):
+        predictor.predict({"a": 1, "b": 2, "c": bad})
+
+def test_real_feature_list_has_no_duplicates_and_expected_length():
+    from services.features import FEATURE_NAMES
+    assert len(FEATURE_NAMES) == len(set(FEATURE_NAMES))
+    assert len(FEATURE_NAMES) == 129

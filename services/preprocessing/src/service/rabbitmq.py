@@ -4,6 +4,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
+from uuid import UUID, uuid5
 
 import aio_pika
 from aio_pika import DeliveryMode, ExchangeType, Message
@@ -72,10 +73,25 @@ async def _publish_rows(settings: Settings, rows: list[dict[str, Any]]) -> int:
         await connection.close()
 
 
-def publish_combined_features(settings: Settings, csv_path: str | Path) -> int:
-    """Publish every row of combined_features.csv as one JSON message."""
+def publish_combined_features(settings: Settings, csv_path: str | Path, *, examination_id: str) -> int:
+    """Publish rows with an examination UUID and a stable UUID per row.
+
+    Row IDs are scoped to the examination and the zero-based CSV row position.
+    Republishing the same CSV preserves IDs without changing the source file.
+    """
+    examination_uuid = UUID(examination_id)
     path = Path(csv_path)
     if not path.is_file():
         raise FileNotFoundError(f"Combined features file not found: {path}")
     rows = _read_rows(path)
-    return asyncio.run(_publish_rows(settings, rows))
+    messages = [
+        {
+            "examination_id": str(examination_uuid),
+            "analysis_id": str(uuid5(examination_uuid, f"combined_features:row:{index}")),
+            "total_analyses_count": len(rows),
+            **{key: value for key, value in row.items()
+               if key not in {"examination_id", "analysis_id", "total_analyses_count"}},
+        }
+        for index, row in enumerate(rows)
+    ]
+    return asyncio.run(_publish_rows(settings, messages))
