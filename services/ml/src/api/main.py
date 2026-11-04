@@ -22,9 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 auth_client = BackendAuthClient(
-    base_url=settings.backend_base_url,
-    email=settings.backend_email,
-    password=settings.backend_password
+    service_token=settings.backend_service_token,
 )
 result_publisher = RestResultPublisher(
     base_url=settings.backend_base_url, 

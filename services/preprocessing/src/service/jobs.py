@@ -116,7 +116,11 @@ class JobManager:
         self._jobs: dict[str, dict] = {}
         self._lock = threading.Lock()
 
-    def create(self, examination_id: str, job_id: str | None = None) -> str:
+    def create(self, examination_id: str, job_id: str | None = None, *, analysis_id: str | None = None) -> str:
+        try:
+            analysis_uuid = uuid.UUID(analysis_id)
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ValueError("analysis_id must be a UUID supplied by the backend") from exc
         try:
             examination_uuid = uuid.UUID(examination_id)
         except (ValueError, AttributeError, TypeError) as exc:
@@ -130,6 +134,7 @@ class JobManager:
         with self._lock:
             self._jobs[job_id] = {
                 "job_id": job_id,
+                "analysis_id": str(analysis_uuid),
                 "examination_id": str(examination_uuid),
                 "status": "QUEUED",
                 "pipeline_version": self.settings.pipeline_version,
@@ -159,6 +164,9 @@ class JobManager:
             if self.backend is None:
                 raise RuntimeError("NeuroTrace backend client is not configured")
             backend_job = self.backend.get_job(job_id)
+            analysis_id = self.get(job_id)["analysis_id"]
+            if str(backend_job.get("analysis_id")) != analysis_id:
+                raise ValueError("Backend analysis_id does not match the preprocessing job")
             if backend_job.get("status") == "CANCELLED":
                 self._update(job_id, status="CANCELLED", finished_at=self._now())
                 self.backend.update_status(job_id, "CANCELLED")
@@ -194,7 +202,7 @@ class JobManager:
                 output_root / "study" / "subject" / "run" / "combined_features.csv"
             )
             published_rows = publish_combined_features(
-                self.settings, combined_features_path
+                self.settings, combined_features_path, analysis_id=analysis_id
             )
             self._update(
                 job_id,

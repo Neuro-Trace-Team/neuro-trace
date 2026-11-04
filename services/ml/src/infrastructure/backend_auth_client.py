@@ -1,53 +1,15 @@
-import logging
-from typing import Optional
-
-import httpx
-
-
-logger = logging.getLogger(__name__)
-
 class BackendAuthClient:
-    def __init__(self, base_url: str, email: str, password: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.email = email
-        self.password = password
-        self._access_token: Optional[str] = None
+    """Provide the pre-issued bearer token used by backend service clients."""
 
-    async def get_token(self) -> Optional[str]:
-        """Fetches a fresh access token or reuses the cached one."""
-        if self._access_token:
-            logger.debug("Reusing cached access token.")
-            return self._access_token
+    def __init__(self, service_token: str) -> None:
+        self.service_token = service_token.strip()
 
-        login_url = f"{self.base_url}/api/v1/auth/login"
-        logger.info("Attempting to fetch a fresh access token from %s", login_url)
+    async def get_token(self) -> str:
+        if not self.service_token:
+            raise RuntimeError("ML_SERVICE_TOKEN is not configured")
+        return self.service_token
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    login_url,
-                    json={
-                        "email": self.email, 
-                        "password": self.password
-                    }, 
-                    timeout=10.0
-                )
-                response.raise_for_status()
-
-                data = response.json()
-
-                self._access_token = data["access_token"]
-                logger.info("Successfully obtained and cached new access token.")
-                
-                return self._access_token
-
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error occurred while fetching token: status_code={e.response.status_code}, response={e.response.text}")
-            raise
-        except Exception as e:
-            logger.exception("Unexpected error occurred while fetching token: %s", e)
-            raise
-
-    async def invalidate_token(self) -> Optional[str]:
-        logger.debug("Invalidating cached access token.")
-        self._access_token = None
+    async def invalidate_token(self) -> None:
+        # Service tokens are static for the lifetime of this process. A 401
+        # requires token rotation in the deployment environment.
+        return None

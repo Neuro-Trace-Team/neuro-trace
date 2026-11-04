@@ -58,14 +58,17 @@ def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: 
         rabbitmq_routing_key="features",
     )
 
-    assert publish_combined_features(settings, csv_path) == 2
+    analysis_id = "86b0602a-1452-440b-aeef-6c6c39fdf29b"
+    assert publish_combined_features(settings, csv_path, analysis_id=analysis_id) == 2
     assert exchange.publish.await_count == 2
     assert json.loads(exchange.publish.await_args_list[0].args[0].body) == {
         "event_index": 1,
         "alpha_power": 0.42,
+        "analysis_id": analysis_id,
     }
     assert json.loads(exchange.publish.await_args_list[1].args[0].body) == {
         "event_index": 2,
         "alpha_power": None,
+        "analysis_id": analysis_id,
     }
     assert connection.closed is True

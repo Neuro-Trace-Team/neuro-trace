@@ -7,7 +7,11 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from src.core.roles import Role
-from src.core.security import decode_access_token, decode_preprocessing_service_token
+from src.core.security import (
+    decode_access_token,
+    decode_ml_service_token,
+    decode_preprocessing_service_token,
+)
 from src.db.sessions import get_audit_db, get_auth_db
 from src.models.auth import User
 from src.repositories.auth import get_user_by_id
@@ -52,6 +56,24 @@ def require_preprocessing_service(
         decode_preprocessing_service_token(token)
     except jwt.InvalidTokenError:
         raise credentials_error from None
+
+
+def require_admin_or_ml_service(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    auth_db: Annotated[Session, Depends(get_auth_db)],
+) -> User | None:
+    """Allow an ML service token or an authenticated administrator."""
+    try:
+        decode_ml_service_token(token)
+        return None
+    except jwt.InvalidTokenError:
+        user = get_current_user(token=token, auth_db=auth_db)
+        if user.role != Role.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            ) from None
+        return user
 
 
 def get_current_user_or_preprocessing_service(
