@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
-from services.ipredictor import IPredictor
+from infrastructure.services.ipredictor import IPredictor
 
 logger = logging.getLogger(__name__)
 

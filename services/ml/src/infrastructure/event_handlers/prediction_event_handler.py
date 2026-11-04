@@ -2,9 +2,9 @@ import logging
 from typing import Any, Dict
 from uuid import UUID
 
-from event_handlers.ievent_handler import IEventHandler
-from services.ipredictor import IPredictor
-from services.iresultpublisher import IResultPublisher
+from infrastructure.event_handlers.ievent_handler import IEventHandler
+from infrastructure.services.ipredictor import IPredictor
+from infrastructure.services.iresultpublisher import IResultPublisher
 
 
 metadata_keys = {

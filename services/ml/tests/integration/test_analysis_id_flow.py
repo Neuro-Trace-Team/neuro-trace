@@ -7,9 +7,9 @@ import httpx
 import pytest
 import respx
 
-from event_handlers.prediction_event_handler import PredictionEventHandler
-from infrastructure.backend_auth_client import BackendAuthClient
-from infrastructure.rest_result_publisher import RestResultPublisher
+from infrastructure.event_handlers.prediction_event_handler import PredictionEventHandler
+from infrastructure.clients.backend_auth_client import BackendAuthClient
+from infrastructure.clients.rest_result_publisher import RestResultPublisher
 
 
 def test_analysis_uuid_reaches_backend_callback():

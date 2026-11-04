@@ -3,12 +3,13 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+from infrastructure.clients.backend_auth_client import BackendAuthClient
+from infrastructure.clients.rest_result_publisher import RestResultPublisher
+from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
 import respx
 
 from core.config import Settings
-from infrastructure.backend_auth_client import BackendAuthClient
-from infrastructure.rabbit_mq_consumer import RabbitMQConsumer
-from infrastructure.rest_result_publisher import RestResultPublisher
+
 
 
 def test_rabbitmq_settings_are_mapped_from_service_environment():
@@ -80,7 +81,7 @@ def test_rabbitmq_consumer_connects_to_configured_host_and_queue():
         queue_name = "preprocessing.combined_features"
 
         with patch(
-            "infrastructure.rabbit_mq_consumer.aio_pika.connect_robust",
+            "infrastructure.messaging.rabbit_mq_consumer.aio_pika.connect_robust",
             new=AsyncMock(return_value=connection),
         ) as connect_robust:
             consumer = RabbitMQConsumer(queue_url, queue_name, handlers={})

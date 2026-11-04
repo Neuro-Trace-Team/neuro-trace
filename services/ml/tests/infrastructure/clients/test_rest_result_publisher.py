@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from infrastructure.rest_result_publisher import RestResultPublisher
+from infrastructure.clients.rest_result_publisher import RestResultPublisher
 
 
 @pytest.fixture

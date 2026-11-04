@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from event_handlers.prediction_event_handler import PredictionEventHandler
+from infrastructure.event_handlers.prediction_event_handler import PredictionEventHandler
 
 
 @pytest.fixture

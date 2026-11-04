@@ -5,7 +5,7 @@ from typing import Dict
 
 import aio_pika
 
-from event_handlers.ievent_handler import IEventHandler
+from infrastructure.event_handlers.ievent_handler import IEventHandler
 
 logger = logging.getLogger(__name__)
 
