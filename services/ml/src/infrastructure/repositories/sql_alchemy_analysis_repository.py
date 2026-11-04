@@ -3,6 +3,7 @@ from domain.entities.analysis import Analysis, NewAnalysis
 from infrastructure.db.models import AnalysisRow
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 
 
 def _to_domain(r: AnalysisRow) -> Analysis:
@@ -18,15 +19,29 @@ class SqlAlchemyAnalysisRepository:
             select(func.count()).where(AnalysisRow.examination_id == analysis.examination_id)
         )).scalar_one()
 
-        row = AnalysisRow(
-            examination_id=analysis.examination_id,
-            result=analysis.result,
-            confidence=analysis.confidence,
-            total_analyses_count=count + 1,
+        stmt = (
+            insert(AnalysisRow)
+            .values(
+                examination_id=analysis.examination_id,
+                time_stamp=analysis.time_stamp,
+                result=analysis.result,
+                confidence=analysis.confidence,
+                total_analyses_count=count + 1,
+            )
+            .on_conflict_do_nothing(index_elements=["examination_id", "time_stamp"])
+            .returning(AnalysisRow)
         )
-        self._session.add(row)
-        await self._session.flush()
-        await self._session.refresh(row)
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+
+        if row is None:
+            # Idempotency: Duplicate (e.g. redelivered message): return the analysis that already exists
+            row = (await self._session.execute(
+                select(AnalysisRow).where(
+                    AnalysisRow.examination_id == analysis.examination_id,
+                    AnalysisRow.time_stamp == analysis.time_stamp,
+                )
+            )).scalar_one()
+
         return _to_domain(row)
 
     async def get(self, analysis_id: int) -> Analysis | None:
