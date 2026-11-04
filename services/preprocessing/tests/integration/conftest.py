@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import sys
 import types
+from pathlib import Path
 
 import pytest
+
+SERVICE_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = SERVICE_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
 
 try:
     import aio_pika  # noqa: F401

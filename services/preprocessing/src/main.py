@@ -23,22 +23,20 @@ class JobResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     job_id: UUID
+    analysis_id: UUID
     examination_id: UUID
     status: str
     pipeline_version: str
-
-
-class JobRequest(BaseModel):
-    examination_id: UUID
 
 
 def _start_job(
     examination_id: UUID,
     background_tasks: BackgroundTasks,
     job_id: str | None = None,
+    analysis_id: str | None = None,
 ):
     try:
-        local_job_id = jobs.create(str(examination_id), job_id)
+        local_job_id = jobs.create(str(examination_id), job_id, analysis_id=analysis_id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     background_tasks.add_task(jobs.run, local_job_id, str(examination_id))
@@ -64,14 +62,8 @@ def health() -> dict[str, str]:
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobResponse,
 )
-def preprocess_examination(
-    examination_id: UUID,
-    background_tasks: BackgroundTasks,
-    request: JobRequest | None = None,
-):
+def preprocess_examination(examination_id: UUID, background_tasks: BackgroundTasks):
     """Queue preprocessing for one backend examination."""
-    if request is not None and request.examination_id != examination_id:
-        raise HTTPException(status_code=422, detail="Request examination_id does not match URL")
     try:
         backend_job = backend.create_job(str(examination_id))
     except BackendAPIError as exc:
@@ -86,15 +78,13 @@ def preprocess_examination(
             detail="Backend job response does not contain a job UUID",
         )
     try:
-        backend_examination_id = UUID(backend_job.get("examination_id", ""))
+        analysis_id = str(UUID(backend_job.get("analysis_id", "")))
     except (ValueError, TypeError, AttributeError) as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Backend job response does not contain an examination UUID",
+            detail="Backend job response does not contain an analysis UUID",
         ) from exc
-    if backend_examination_id != examination_id:
-        raise HTTPException(status_code=502, detail="Backend examination_id does not match request")
-    return _start_job(examination_id, background_tasks, backend_job_id)
+    return _start_job(examination_id, background_tasks, backend_job_id, analysis_id)
 
 
 @app.get("/api/v1/preprocessing-jobs/{job_id}", response_model=JobResponse)
