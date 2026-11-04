@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime
 from uuid import UUID
 
 @dataclass(frozen=True)
 class NewAnalysis:
     examination_id: UUID
+    time_stamp: float
     result: float
     confidence: float
 
@@ -12,7 +12,7 @@ class NewAnalysis:
 class Analysis:
     analysis_id: int
     examination_id: UUID
-    time_stamp: datetime
+    time_stamp: float
     result: float
     confidence: float
     total_analyses_count: int
