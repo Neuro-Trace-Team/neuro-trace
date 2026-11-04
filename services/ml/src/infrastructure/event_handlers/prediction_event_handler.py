@@ -3,8 +3,8 @@ from typing import Any, Dict
 from uuid import UUID
 
 from infrastructure.event_handlers.ievent_handler import IEventHandler
-from infrastructure.services.ipredictor import IPredictor
-from infrastructure.services.iresultpublisher import IResultPublisher
+from domain.services.ipredictor import IPredictor
+from domain.services.iresultpublisher import IResultPublisher
 
 
 metadata_keys = {

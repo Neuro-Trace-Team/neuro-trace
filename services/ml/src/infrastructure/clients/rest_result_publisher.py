@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from infrastructure.clients.backend_auth_client import BackendAuthClient
-from infrastructure.services.iresultpublisher import IResultPublisher
+from domain.services.iresultpublisher import IResultPublisher
 
 
 logger = logging.getLogger(__name__)

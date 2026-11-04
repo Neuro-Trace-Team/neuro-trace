@@ -11,7 +11,7 @@ from infrastructure.event_handlers.prediction_event_handler import PredictionEve
 from fastapi.responses import JSONResponse
 from infrastructure.clients.backend_auth_client import BackendAuthClient
 from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
-from infrastructure.services.ipredictor import IPredictor
+from domain.services.ipredictor import IPredictor
 from infrastructure.clients.rest_result_publisher import RestResultPublisher
 from infrastructure.services.mock_predictor import MockPredictor
 from infrastructure.services.sklearn_predictor import SklearnPredictor
