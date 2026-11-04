@@ -1,0 +1,6 @@
+# Runtime dependencies for the HTTP/S3 adapter. The EEG pipeline dependencies
+# remain in requirements.txt.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+boto3>=1.34
+aio-pika>=9.4
