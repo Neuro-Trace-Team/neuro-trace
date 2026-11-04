@@ -14,7 +14,8 @@ const supportedExtensions = [".edf", ".bdf", ".set", ".fif", ".vhdr", ".eeg"];
 function DoctorNewExaminationPage() {
   const [newPatient, setNewPatient] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [artifactCount, setArtifactCount] = useState(0);
+  const [artifactIds, setArtifactIds] = useState<number[]>([]);
+  const [nextArtifactId, setNextArtifactId] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
@@ -43,9 +44,10 @@ function DoctorNewExaminationPage() {
 
     const form = new FormData(event.currentTarget);
     const artifactEvents: Array<{ timestamp: number; type: string }> = [];
-    for (let index = 0; index < artifactCount; index += 1) {
+    for (let index = 0; index < artifactIds.length; index += 1) {
+      const artifactId = artifactIds[index];
       const digits = Array.from({ length: 9 }, (_, digitIndex) =>
-        String(form.get(`artifact-${index}-digit-${digitIndex}`) ?? "").trim(),
+        String(form.get(`artifact-${artifactId}-digit-${digitIndex}`) ?? "").trim(),
       );
       if (digits.every((digit) => !digit)) continue;
       if (digits.some((digit) => !/^\d$/.test(digit))) {
@@ -78,7 +80,8 @@ function DoctorNewExaminationPage() {
       const { data: examination } = await apiClient.post<Examination>("/examinations", upload);
       setFile(null);
       formElement.reset();
-      setArtifactCount(0);
+      setArtifactIds([]);
+      setNextArtifactId(0);
       setNewPatient(false);
 
       if (artifactEvents.length) {
@@ -125,10 +128,13 @@ function DoctorNewExaminationPage() {
             <div className="mt-7">
               <SectionTitle>Examination Artifacts</SectionTitle>
               <p className="mb-1 text-[14px] font-semibold">Insert timestamps of artifact appearances</p>
-              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => setArtifactCount((count) => count + 1)} type="button" />
+              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => {
+                setArtifactIds((ids) => [...ids, nextArtifactId]);
+                setNextArtifactId((id) => id + 1);
+              }} type="button" />
               <div className="space-y-1.5">
-                {Array.from({ length: artifactCount }, (_, index) => (
-                  <div className="flex items-center gap-1 text-[13px]" key={index}>
+                {artifactIds.map((artifactId, index) => (
+                  <div className="flex items-center gap-1 text-[13px]" key={artifactId}>
                     {Array.from({ length: 9 }, (_, digitIndex) => {
                       const unit = digitIndex < 2 ? "H" : digitIndex < 4 ? "M" : digitIndex < 6 ? "S" : "MS";
 
@@ -144,21 +150,21 @@ function DoctorNewExaminationPage() {
                             inputClassName="h-9 px-1 text-center"
                             inputMode="numeric"
                             maxLength={1}
-                            name={`artifact-${index}-digit-${digitIndex}`}
+                            name={`artifact-${artifactId}-digit-${digitIndex}`}
                             onChange={(event) => {
                               const input = event.currentTarget;
                               const digit = input.value.replace(/\D/g, "").slice(-1);
                               input.value = digit;
                               if (digit) {
                                 input.form?.querySelector<HTMLInputElement>(
-                                  `input[name="artifact-${index}-digit-${digitIndex + 1}"]`,
+                                  `input[name="artifact-${artifactId}-digit-${digitIndex + 1}"]`,
                                 )?.focus();
                               }
                             }}
                             onKeyDown={(event) => {
                               if (event.key === "Backspace" && !event.currentTarget.value) {
                                 event.currentTarget.form?.querySelector<HTMLInputElement>(
-                                  `input[name="artifact-${index}-digit-${digitIndex - 1}"]`,
+                                  `input[name="artifact-${artifactId}-digit-${digitIndex - 1}"]`,
                                 )?.focus();
                               }
                             }}
@@ -171,6 +177,14 @@ function DoctorNewExaminationPage() {
                         </div>
                       );
                     })}
+                    <ButtonSecondary
+                      aria-label={`Remove artifact timestamp ${index + 1}`}
+                      className="h-9 w-9 shrink-0 px-0"
+                      icon="trash"
+                      iconOnly
+                      onClick={() => setArtifactIds((ids) => ids.filter((id) => id !== artifactId))}
+                      type="button"
+                    />
                   </div>
                 ))}
               </div>

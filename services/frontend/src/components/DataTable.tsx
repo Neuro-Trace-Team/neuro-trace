@@ -2,6 +2,7 @@ import { useCallback, useId, useMemo, useState } from "react";
 import ButtonPrimary from "./ButtonPrimary";
 import ButtonSecondary from "./ButtonSecondary";
 import Checkbox from "./Checkbox";
+import Icon from "./Icon";
 import InputSection from "./InputSection";
 import Modal from "./Modal";
 
@@ -29,6 +30,11 @@ type DataTableProps = {
   itemLabelPlural?: string;
   searchValue?: string;
   onSearchChange?: (query: string) => void;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  sortableColumns?: Record<string, string>;
+  onSortChange?: (sortBy: string, sortOrder: "asc" | "desc") => void;
+  sortable?: boolean;
 };
 
 export default function DataTable({
@@ -55,12 +61,18 @@ export default function DataTable({
   itemLabelPlural = `${itemLabel}s`,
   searchValue,
   onSearchChange,
+  sortBy,
+  sortOrder,
+  sortableColumns,
+  onSortChange,
+  sortable = true,
 }: DataTableProps) {
   const [localQuery, setLocalQuery] = useState("");
   const [localPage, setLocalPage] = useState(1);
   const [pageInput, setPageInput] = useState(String(currentPage ?? localPage));
   const pageInputId = useId();
   const [selected, setSelected] = useState<number[]>([]);
+  const [localSort, setLocalSort] = useState<{ columnIndex: number; order: "asc" | "desc" } | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const closeFilterModal = useCallback(() => setIsFilterModalOpen(false), []);
   const page = currentPage ?? localPage;
@@ -83,19 +95,47 @@ export default function DataTable({
       : rows.filter((row) => row.some((cell) => cell.toLowerCase().includes(query.toLowerCase()))),
     [query, rows, serverSearch],
   );
+  const sortedRows = useMemo(() => {
+    if (!localSort) return filteredRows;
+    return [...filteredRows].sort((first, second) => {
+      const firstValue = first[localSort.columnIndex] ?? "";
+      const secondValue = second[localSort.columnIndex] ?? "";
+      const firstNumber = Number(firstValue);
+      const secondNumber = Number(secondValue);
+      const comparison = firstValue.trim() && secondValue.trim() && Number.isFinite(firstNumber) && Number.isFinite(secondNumber)
+        ? firstNumber - secondNumber
+        : firstValue.localeCompare(secondValue, undefined, { numeric: true, sensitivity: "base" });
+      return localSort.order === "asc" ? comparison : -comparison;
+    });
+  }, [filteredRows, localSort]);
   const pageCount = Math.max(
     1,
     Math.ceil((serverPagination ? totalCount ?? rows.length : filteredRows.length) / pageSize),
   );
   const visibleRows = serverPagination
-    ? filteredRows
-    : filteredRows.slice((page - 1) * pageSize, page * pageSize);
-  const resultCount = serverPagination ? totalCount ?? rows.length : filteredRows.length;
+    ? localSort ? sortedRows : filteredRows
+    : sortedRows.slice((page - 1) * pageSize, page * pageSize);
+  const resultCount = serverPagination ? totalCount ?? rows.length : sortedRows.length;
   const allSelected = visibleRows.length > 0 && visibleRows.every((row) => selected.includes(rows.indexOf(row)));
 
   const toggleAll = () => {
     const visibleIndexes = visibleRows.map((row) => rows.indexOf(row));
     setSelected(allSelected ? selected.filter((index) => !visibleIndexes.includes(index)) : [...new Set([...selected, ...visibleIndexes])]);
+  };
+
+  const sortColumn = (column: string, columnIndex: number) => {
+    const serverSortColumn = sortableColumns?.[column];
+    if (serverSortColumn && onSortChange) {
+      const nextOrder = sortBy === serverSortColumn && sortOrder === "asc" ? "desc" : "asc";
+      setLocalSort(null);
+      onSortChange(serverSortColumn, nextOrder);
+      return;
+    }
+
+    setLocalSort((current) => ({
+      columnIndex,
+      order: current?.columnIndex === columnIndex && current.order === "asc" ? "desc" : "asc",
+    }));
   };
 
   const exportRows = () => {
@@ -150,9 +190,35 @@ export default function DataTable({
                   <Checkbox checked={allSelected} label="Select all rows" onChange={toggleAll} showLabel={false} />
                 </th>
               )}
-              {columns.map((column) => (
-                <th className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold" key={column}>{column}</th>
-              ))}
+              {columns.map((column, columnIndex) => {
+                if (!sortable) {
+                  return (
+                    <th className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold" key={column}>
+                      {column}
+                    </th>
+                  );
+                }
+                const serverSortColumn = sortableColumns?.[column];
+                const isServerSorted = Boolean(serverSortColumn && sortBy === serverSortColumn);
+                const isLocallySorted = !isServerSorted && localSort?.columnIndex === columnIndex;
+                const activeOrder = isServerSorted ? sortOrder : isLocallySorted ? localSort?.order : undefined;
+                return (
+                  <th
+                    aria-sort={activeOrder ? (activeOrder === "asc" ? "ascending" : "descending") : "none"}
+                    className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold"
+                    key={column}
+                  >
+                    <button
+                      className="inline-flex cursor-pointer items-center gap-1.5 text-left hover:text-[#0876b5]"
+                      onClick={() => sortColumn(column, columnIndex)}
+                      type="button"
+                    >
+                      {column}
+                      <Icon className={`h-3.5 w-3.5 ${activeOrder ? "text-[#0876b5]" : "opacity-40"}`} name={activeOrder === "asc" ? "sortAsc" : activeOrder === "desc" ? "sortDesc" : "sort"} />
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

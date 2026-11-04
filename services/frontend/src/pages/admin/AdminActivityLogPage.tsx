@@ -13,8 +13,6 @@ type LogFilters = {
   user_id: string;
   date_from: string;
   date_to: string;
-  sort_by: "created_at" | "event_code";
-  sort_order: "asc" | "desc";
 };
 
 const emptyFilters: LogFilters = {
@@ -22,9 +20,9 @@ const emptyFilters: LogFilters = {
   user_id: "",
   date_from: "",
   date_to: "",
-  sort_by: "created_at",
-  sort_order: "desc",
 };
+type SortField = "created_at" | "event_code";
+type SortOrder = "asc" | "desc";
 
 function toApiDate(value: string) {
   return value ? new Date(value).toISOString() : undefined;
@@ -38,6 +36,8 @@ function AdminActivityLogPage() {
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [filters, setFilters] = useState(emptyFilters);
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
+  const [sortBy, setSortBy] = useState<SortField>("created_at");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { showToast } = useToast();
@@ -55,8 +55,8 @@ function AdminActivityLogPage() {
       user_id: filters.user_id || undefined,
       date_from: toApiDate(filters.date_from),
       date_to: toApiDate(filters.date_to),
-      sort_by: filters.sort_by,
-      sort_order: filters.sort_order,
+      sort_by: sortBy,
+      sort_order: sortOrder,
     };
     void apiClient
       .get<PaginatedResponse<AuditLog>>("/admin/audit-logs", {
@@ -70,7 +70,7 @@ function AdminActivityLogPage() {
         showToast(getApiErrorMessage(loadError, "Could not load the activity log."), "error");
       })
       .finally(() => setIsLoading(false));
-  }, [debouncedSearch, filters, page, showToast]);
+  }, [debouncedSearch, filters, page, showToast, sortBy, sortOrder]);
 
   const updateDraft = <K extends keyof LogFilters>(key: K, value: LogFilters[K]) => {
     setDraftFilters((current) => ({ ...current, [key]: value }));
@@ -91,6 +91,15 @@ function AdminActivityLogPage() {
       <Surface className="p-3">
         <DataTable
           columns={["Date", "Event", "Resource / User"]}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          sortableColumns={{ Date: "created_at", Event: "event_code" }}
+          onSortChange={(nextSortBy, nextSortOrder) => {
+            setIsLoading(true);
+            setPage(1);
+            setSortBy(nextSortBy as SortField);
+            setSortOrder(nextSortOrder);
+          }}
           itemLabel="log"
           itemLabelPlural="logs"
           currentPage={page}
@@ -128,20 +137,6 @@ function AdminActivityLogPage() {
               <InputSection label="User ID" name="user-id-filter" onChange={(event) => updateDraft("user_id", event.target.value)} placeholder="UUID" value={draftFilters.user_id} />
               <InputSection label="From" name="log-date-from" onChange={(event) => updateDraft("date_from", event.target.value)} type="datetime-local" value={draftFilters.date_from} />
               <InputSection label="To" name="log-date-to" onChange={(event) => updateDraft("date_to", event.target.value)} type="datetime-local" value={draftFilters.date_to} />
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Sort by
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("sort_by", event.target.value as LogFilters["sort_by"])} value={draftFilters.sort_by}>
-                  <option value="created_at">Date</option>
-                  <option value="event_code">Event</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Order
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("sort_order", event.target.value as LogFilters["sort_order"])} value={draftFilters.sort_order}>
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
-                </select>
-              </label>
             </div>
           )}
           onRowClick={(_row, rowIndex) => setSelectedLogId(logs[rowIndex]?.id ?? null)}

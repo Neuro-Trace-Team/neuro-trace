@@ -43,9 +43,15 @@ function LoginPage() {
         <GlassPane className="flex items-center justify-center min-h-[490px] w-full max-w-[342px] flex-col items-stretch px-[33px] pb-[30px] pt-[38px]">
             <div className="flex h-11 items-center justify-center gap-1.5" aria-label="NeuroTrace">
                 <img className="h-11 w-11 object-contain" src="/favicon-light.svg" alt="" />
-                <span className="font-heading text-[30px] font-extrabold leading-none tracking-[-0.7px]">
-                    <span className="text-[#00877f]">Neuro</span>
-                    <span className="text-[#00425c]">Trace</span>
+                <span
+                    className="inline-block bg-clip-text font-heading text-[30px] font-extrabold leading-none tracking-[-0.7px] text-transparent"
+                    style={{
+                        backgroundImage: "linear-gradient(96deg, #08A984 0%, #01194A 100%)",
+                        backgroundPosition: "-6px -4px",
+                        backgroundSize: "calc(100% + 12px) calc(100% + 10px)",
+                    }}
+                >
+                    NeuroTrace
                 </span>
             </div>
 

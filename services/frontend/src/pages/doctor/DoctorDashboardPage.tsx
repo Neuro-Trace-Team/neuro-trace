@@ -59,6 +59,7 @@ function DoctorDashboardPage() {
             columns={["Examination ID", "Date", "Patient ID"]}
             onRowClick={(row) => navigate(`/doctor/examinations/${row[0]}`)}
             rows={examinationRows}
+            sortable={false}
             selectable={false}
             showPagination={false}
             showToolbar={false} />
@@ -68,6 +69,7 @@ function DoctorDashboardPage() {
           <DataTable
             columns={["Patient ID", "Number of Examinations", "First Examination", "Latest Examination"]}
             rows={patientRows}
+            sortable={false}
             selectable={false}
             showPagination={false}
             showToolbar={false} />

@@ -11,7 +11,7 @@ import { useToast } from "../../context/useToast";
 
 type UserRoleFilter = "all" | "ADMIN" | "DOCTOR";
 type ActiveFilter = "all" | "active" | "inactive";
-type SortField = "created_at" | "updated_at" | "email";
+type SortField = "created_at" | "email";
 type SortOrder = "asc" | "desc";
 
 function AdminUsersPage() {
@@ -20,8 +20,6 @@ function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [draftSortBy, setDraftSortBy] = useState<SortField>("created_at");
-  const [draftSortOrder, setDraftSortOrder] = useState<SortOrder>("desc");
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("all");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const [draftRoleFilter, setDraftRoleFilter] = useState<UserRoleFilter>("all");
@@ -92,8 +90,6 @@ function AdminUsersPage() {
     formatDate(user.created_at),
   ]);
   const filtersActive =
-    sortBy !== "created_at" ||
-    sortOrder !== "desc" ||
     roleFilter !== "all" ||
     activeFilter !== "all";
 
@@ -103,6 +99,14 @@ function AdminUsersPage() {
       <Surface className="p-3">
         <DataTable
           columns={["User", "Email", "Role", "Created"]}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          sortableColumns={{ Email: "email", Created: "created_at" }}
+          onSortChange={(nextSortBy, nextSortOrder) => {
+            setIsLoading(true);
+            setSortBy(nextSortBy as SortField);
+            setSortOrder(nextSortOrder);
+          }}
           itemLabel="user"
           itemLabelPlural="users"
           rows={rows}
@@ -116,23 +120,17 @@ function AdminUsersPage() {
             setIsLoading(true);
           }}
           showFilters
-          filterTitle="Filter and sort users"
+          filterTitle="Filter users"
           filtersActive={filtersActive}
           onApplyFilters={() => {
             setIsLoading(true);
-            setSortBy(draftSortBy);
-            setSortOrder(draftSortOrder);
             setRoleFilter(draftRoleFilter);
             setActiveFilter(draftActiveFilter);
           }}
           onClearFilters={() => {
-            setDraftSortBy("created_at");
-            setDraftSortOrder("desc");
             setDraftRoleFilter("all");
             setDraftActiveFilter("all");
             setIsLoading(true);
-            setSortBy("created_at");
-            setSortOrder("desc");
             setRoleFilter("all");
             setActiveFilter("all");
           }}
@@ -152,21 +150,6 @@ function AdminUsersPage() {
                   <option value="all">All statuses</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Sort by
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => setDraftSortBy(event.target.value as SortField)} value={draftSortBy}>
-                  <option value="created_at">Created date</option>
-                  <option value="updated_at">Updated date</option>
-                  <option value="email">Email</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Order
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => setDraftSortOrder(event.target.value as SortOrder)} value={draftSortOrder}>
-                  <option value="desc">Newest first / Z–A</option>
-                  <option value="asc">Oldest first / A–Z</option>
                 </select>
               </label>
               <p className="text-xs text-[#52677b] sm:col-span-2">

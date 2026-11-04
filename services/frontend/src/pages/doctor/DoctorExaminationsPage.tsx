@@ -19,8 +19,6 @@ type ExaminationFilters = {
   pain_level_min: string;
   pain_level_max: string;
   pain_source: "doctor" | "ai";
-  sort_by: "created_at" | "examination_date" | "processing_status";
-  sort_order: "asc" | "desc";
 };
 
 const emptyFilters: ExaminationFilters = {
@@ -32,9 +30,9 @@ const emptyFilters: ExaminationFilters = {
   pain_level_min: "",
   pain_level_max: "",
   pain_source: "doctor",
-  sort_by: "created_at",
-  sort_order: "desc",
 };
+type SortField = "created_at" | "examination_date" | "processing_status";
+type SortOrder = "asc" | "desc";
 
 function toApiDate(value: string) {
   return value ? new Date(value).toISOString() : undefined;
@@ -50,6 +48,8 @@ function DoctorExaminationsPage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState(emptyFilters);
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
+  const [sortBy, setSortBy] = useState<SortField>("created_at");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { showToast } = useToast();
@@ -78,8 +78,8 @@ function DoctorExaminationsPage() {
           pain_level_min: filters.pain_level_min || undefined,
           pain_level_max: filters.pain_level_max || undefined,
           pain_source: filters.pain_source,
-          sort_by: filters.sort_by,
-          sort_order: filters.sort_order,
+          sort_by: sortBy,
+          sort_order: sortOrder,
         },
       })
       .then(({ data }) => {
@@ -90,7 +90,7 @@ function DoctorExaminationsPage() {
         showToast(getApiErrorMessage(loadError, "Could not load examinations."), "error");
       })
       .finally(() => setIsLoading(false));
-  }, [debouncedSearch, filters, onlyMine, page, patientSearchId, showToast, user]);
+  }, [debouncedSearch, filters, onlyMine, page, patientSearchId, showToast, sortBy, sortOrder, user]);
 
   const updateDraft = <K extends keyof ExaminationFilters>(key: K, value: ExaminationFilters[K]) => {
     setDraftFilters((current) => ({ ...current, [key]: value }));
@@ -111,6 +111,15 @@ function DoctorExaminationsPage() {
       <Surface>
         <DataTable
           columns={["Examination ID", "Date", "Patient ID"]}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          sortableColumns={{ Date: "examination_date" }}
+          onSortChange={(nextSortBy, nextSortOrder) => {
+            setIsLoading(true);
+            setPage(1);
+            setSortBy(nextSortBy as SortField);
+            setSortOrder(nextSortOrder);
+          }}
           itemLabel="examination"
           itemLabelPlural="examinations"
           onRowClick={(row) => navigate(`/doctor/examinations/${row[0]}`)}
@@ -168,21 +177,6 @@ function DoctorExaminationsPage() {
                 <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("pain_source", event.target.value as ExaminationFilters["pain_source"])} value={draftFilters.pain_source}>
                   <option value="doctor">Doctor</option>
                   <option value="ai">AI</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Sort by
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("sort_by", event.target.value as ExaminationFilters["sort_by"])} value={draftFilters.sort_by}>
-                  <option value="created_at">Upload date</option>
-                  <option value="examination_date">Examination date</option>
-                  <option value="processing_status">Status</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Order
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("sort_order", event.target.value as ExaminationFilters["sort_order"])} value={draftFilters.sort_order}>
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
                 </select>
               </label>
             </div>

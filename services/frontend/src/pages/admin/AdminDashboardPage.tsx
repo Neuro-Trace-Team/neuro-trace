@@ -77,6 +77,7 @@ function AdminDashboardPage() {
         <DataTable
           columns={["Date", "Event", "Resource"]}
           rows={activityRows}
+          sortable={false}
           selectable={false}
           showPagination={false}
           showToolbar={false}
