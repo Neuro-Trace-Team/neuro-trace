@@ -98,21 +98,22 @@ services:
     container_name: neuro-ml
 
     environment:
+      MODEL_DB_URL: postgresql://postgres:postgres@model-db:5432/model_db
+
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
+      
       ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN}
-
-      RUSTFS_ENDPOINT: http://rustfs:9000
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
 
     depends_on:
       rabbitmq:
         condition: service_healthy
       rustfs:
+        condition: service_healthy
+      model-db:
         condition: service_healthy
 
     networks:
@@ -214,6 +215,31 @@ services:
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d audit_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - neuro-network
+
+  model-db:
+    image: postgres:17
+    container_name: neuro-model-db
+
+    environment:
+      POSTGRES_USER: model_db
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - model-db-data:/var/lib/postgresql/data
+      - ./database/model:/docker-entrypoint-initdb.d
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d model_db"]
       interval: 5s
       timeout: 5s
       retries: 5
