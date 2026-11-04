@@ -42,6 +42,9 @@ The strict versioned JSON Schema is in
 - it declares 208 fields (207 CSV fields plus `analysis_id`);
 - all 208 fields are required;
 - `analysis_id` is a string with UUID format;
+- it declares 208 fields (207 CSV fields plus `analysis_id`);
+- all 208 fields are required;
+- `analysis_id` is a string with UUID format;
 - `additionalProperties` is `false`, so an unknown field is invalid;
 - numeric fields are JSON `number` values or `null`;
 - identifier fields (`experiment_id`, `subject_id`, `recording_id`) are
