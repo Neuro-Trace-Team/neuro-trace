@@ -18,6 +18,11 @@ exchange and binds the configured queue with the configured routing key.
 ## Payload
 
 Each message is a UTF-8 JSON object containing exactly one row from
+`combined_features.csv`. The payload is flat: it has no envelope, generated
+message identifier, publication timestamp, or other added metadata. Existing
+fields such as `experiment_id`, `event_id` and `event_timestamp` are retained
+because they already belong to the CSV row; no new fields were added by the
+contract.
 `combined_features.csv`, augmented with `analysis_id`: the backend Analysis
 record UUID returned when the preprocessing job is created. The payload stays
 flat, with all original CSV fields preserved. The UUID is shared by all rows
@@ -39,6 +44,8 @@ analysis.
 The strict versioned JSON Schema is in
 `combined-features.v1.schema.json`:
 
+- it declares all 207 fields currently present in the payload;
+- all 207 fields are required;
 - it declares 208 fields (207 CSV fields plus `analysis_id`);
 - all 208 fields are required;
 - `analysis_id` is a string with UUID format;

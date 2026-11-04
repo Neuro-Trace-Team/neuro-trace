@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import csv
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
+from uuid import UUID
+
+import pytest
 
 from service.config import Settings
 from service.rabbitmq import publish_combined_features
@@ -22,7 +24,8 @@ class _FakeConnection:
         self.closed = True
 
 
-def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize("metadata_columns", [False, True])
+def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: Path, metadata_columns) -> None:
     exchange = Mock()
     exchange.publish = AsyncMock()
     queue = Mock()
@@ -45,6 +48,13 @@ def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: 
             {"event_index": 2, "alpha_power": "nan"},
         ])
 
+    if metadata_columns:
+        csv_path.write_text(
+            "event_index,examination_id,analysis_id,alpha_power,total_analyses_count\n"
+            "1,untrusted-examination,untrusted-analysis,0.42,999\n"
+            "2,untrusted-examination,untrusted-analysis,nan,999\n"
+        )
+
     settings = Settings(
         backend_url="http://mock-backend",
         backend_token="token",
@@ -58,17 +68,30 @@ def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: 
         rabbitmq_routing_key="features",
     )
 
-    analysis_id = "86b0602a-1452-440b-aeef-6c6c39fdf29b"
-    assert publish_combined_features(settings, csv_path, analysis_id=analysis_id) == 2
+    examination_id = "86b0602a-1452-440b-aeef-6c6c39fdf29b"
+    original_csv = csv_path.read_bytes()
+    assert publish_combined_features(settings, csv_path, examination_id=examination_id) == 2
     assert exchange.publish.await_count == 2
-    assert json.loads(exchange.publish.await_args_list[0].args[0].body) == {
-        "event_index": 1,
-        "alpha_power": 0.42,
-        "analysis_id": analysis_id,
-    }
-    assert json.loads(exchange.publish.await_args_list[1].args[0].body) == {
-        "event_index": 2,
-        "alpha_power": None,
-        "analysis_id": analysis_id,
-    }
+    messages = [json.loads(call.args[0].body) for call in exchange.publish.await_args_list]
+    for message in messages:
+        assert list(message)[:2] == ["examination_id", "analysis_id"]
+        assert message["examination_id"] == examination_id
+        assert UUID(message["analysis_id"]).version == 5
+        assert message["total_analyses_count"] == 2
+        assert type(message["total_analyses_count"]) is int
+    assert messages[0]["analysis_id"] != messages[1]["analysis_id"]
+    assert messages[0]["event_index"] == 1
+    assert messages[0]["alpha_power"] == 0.42
+    assert messages[1]["event_index"] == 2
+    assert messages[1]["alpha_power"] is None
     assert connection.closed is True
+
+    exchange.publish.reset_mock()
+    publish_combined_features(settings, csv_path, examination_id=examination_id)
+    assert [json.loads(call.args[0].body) for call in exchange.publish.await_args_list] == messages
+    assert csv_path.read_bytes() == original_csv
+
+    exchange.publish.reset_mock()
+    publish_combined_features(settings, csv_path, examination_id="13b5b2e5-078b-447d-a6d8-6e18330d105a")
+    other_messages = [json.loads(call.args[0].body) for call in exchange.publish.await_args_list]
+    assert {m["analysis_id"] for m in messages}.isdisjoint(m["analysis_id"] for m in other_messages)
