@@ -18,8 +18,8 @@ Testy jednostkowe można uruchomić niezależnie:
 python -m pytest -q tests --ignore=tests/integration
 ```
 
-Cały zestaw: `python -m pytest -q`. Konfiguracja `pytest.ini` dodaje katalog
-`src` do ścieżki importów dla obu zestawów testów.
+Cały zestaw: `PYTHONPATH=src python -m pytest -q`. Workflow CI uruchamia tę
+samą komendę z `PYTHONPATH=src` ustawionym jako zmienną środowiskową.
 
 Testy uploadu sprawdzają zapis niezmienionego CSV we wskazanym buckecie,
 kolejność uploadu, publikacji i callbacku oraz obsługę błędów każdego etapu.
