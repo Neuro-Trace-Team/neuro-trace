@@ -39,9 +39,6 @@ class PatientExaminationResponse(BaseModel):
     updated_at: datetime
     file_format: str
     file_size_bytes: int
-    sampling_frequency: int
-    duration_seconds: Decimal | None
-    processing_status: str
 
 
 class PatientExaminationListResponse(BaseModel):

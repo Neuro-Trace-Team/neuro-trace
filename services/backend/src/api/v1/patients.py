@@ -40,9 +40,6 @@ def _examination_response(examination: Examination) -> PatientExaminationRespons
         updated_at=examination.updated_at,
         file_format=examination.file_format,
         file_size_bytes=examination.file_size_bytes,
-        sampling_frequency=examination.sampling_frequency,
-        duration_seconds=examination.duration_seconds,
-        processing_status=examination.processing_status,
     )
 
 

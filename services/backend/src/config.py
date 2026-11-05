@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     rustfs_bucket: str = "examinations"
     max_upload_size_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
     preprocessing_url: str
+    ml_url: str
+    service_timeout_seconds: float = Field(default=10, gt=0)
     jwt_secret: str = Field(min_length=32)
-    preprocessing_service_jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = Field(default=15, gt=0)
     refresh_token_ttl_days: int = Field(default=7, gt=0)

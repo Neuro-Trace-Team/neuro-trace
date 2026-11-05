@@ -32,6 +32,7 @@ services:
       RUSTFS_BUCKET: examinations
 
       PREPROCESSING_URL: http://preprocessing:8001
+      ML_URL: http://ml:8000
       JWT_SECRET: ${JWT_SECRET}
       PREPROCESSING_SERVICE_JWT_SECRET: ${PREPROCESSING_SERVICE_JWT_SECRET}
       JWT_ALGORITHM: HS256
@@ -104,6 +105,9 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
       ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN}
+      # Local integration can run without proprietary trained weights. Set
+      # ML_PREDICTOR=sklearn only when src/models/weights/model.joblib is present.
+      ML_PREDICTOR: ${ML_PREDICTOR:-mock}
 
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
@@ -114,6 +118,12 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/readyz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
     networks:
       - neuro-network

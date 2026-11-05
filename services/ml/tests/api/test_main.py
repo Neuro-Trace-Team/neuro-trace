@@ -13,6 +13,7 @@ async def test_info_endpoint(mock_predictor):
 
     assert response["app_name"]
     assert "model_path" in response
+    assert response["predictor_mode"] in {"mock", "sklearn"}
     mock_predictor.assert_not_called()
 
 

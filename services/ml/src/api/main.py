@@ -29,7 +29,11 @@ result_publisher = RestResultPublisher(
     auth_client=auth_client
 )
 
-predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
+predictor: IPredictor = (
+    MockPredictor()
+    if settings.predictor_mode == "mock"
+    else SklearnPredictor(model_path=settings.model_path)
+)
 
 consumer_task = None
 rabbit_consumer = None
@@ -91,7 +95,8 @@ app = FastAPI(
 async def info():
     return {
         "app_name": settings.app_name, 
-        "model_path": settings.model_path
+        "model_path": settings.model_path,
+        "predictor_mode": settings.predictor_mode,
     }
 
 @app.get("/healthz")

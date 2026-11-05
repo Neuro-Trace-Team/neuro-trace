@@ -2,20 +2,9 @@
 
 from .audit import AuditLog, AuditLogType
 from .auth import PasswordResetToken, RefreshToken, User
-from .medical import (
-    Analysis,
-    AnalysisResult,
-    EEGChannel,
-    Examination,
-    ExaminationChannel,
-    ExaminationEvent,
-    PainAssessment,
-    Patient,
-    PreprocessingJob,
-)
+from .medical import Examination, ExaminationEvent, Patient
 
 __all__ = [
-    "Analysis", "AnalysisResult", "AuditLog", "AuditLogType", "EEGChannel",
-    "Examination", "ExaminationChannel", "ExaminationEvent", "PainAssessment",
-    "PasswordResetToken", "Patient", "PreprocessingJob", "RefreshToken", "User",
+    "AuditLog", "AuditLogType", "Examination", "ExaminationEvent",
+    "PasswordResetToken", "Patient", "RefreshToken", "User",
 ]

@@ -1,4 +1,5 @@
 from urllib.parse import quote
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +24,10 @@ class Settings(BaseSettings):
     )
 
     model_path: str = "src/models/weights/model.joblib"
+    predictor_mode: Literal["mock", "sklearn"] = Field(
+        default="sklearn",
+        validation_alias="ML_PREDICTOR",
+    )
 
     backend_base_url: str = Field(
         default="http://backend:8080",

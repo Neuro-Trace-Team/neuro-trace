@@ -1,6 +1,5 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -17,12 +16,6 @@ class ExaminationResponse(BaseModel):
     examination_date: datetime | None
     created_at: datetime
     updated_at: datetime
-    sampling_frequency: int
-    electrode_positions: dict[str, Any] | None
-    reference: str | None
-    power_line_frequency: int | None
-    duration_seconds: Decimal | None
-    processing_status: str
 
 
 class ExaminationListResponse(BaseModel):
@@ -34,31 +27,26 @@ class ExaminationListResponse(BaseModel):
 
 class ExaminationUpdate(BaseModel):
     examination_date: datetime | None = None
-    electrode_positions: dict[str, Any] | None = None
-    reference: str | None = Field(default=None, max_length=50)
-    power_line_frequency: int | None = None
-    duration_seconds: Decimal | None = Field(default=None, gt=0)
-
-    @field_validator("power_line_frequency")
-    @classmethod
-    def validate_power_line_frequency(cls, value: int | None) -> int | None:
-        if value is not None and value not in (50, 60):
-            raise ValueError("power_line_frequency must be 50 or 60")
-        return value
 
 
 class ExaminationEventCreate(BaseModel):
     timestamp: Decimal = Field(ge=0)
     type: str = Field(min_length=1, max_length=50)
     description: str | None = None
-    metadata: dict[str, Any] | None = None
+
+    @field_validator("type")
+    @classmethod
+    def strip_type(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("type must not be blank")
+        return value
 
 
 class ExaminationEventUpdate(BaseModel):
     timestamp: Decimal | None = Field(default=None, ge=0)
     type: str | None = Field(default=None, min_length=1, max_length=50)
     description: str | None = None
-    metadata: dict[str, Any] | None = None
 
 
 class ExaminationEventResponse(BaseModel):
@@ -67,28 +55,21 @@ class ExaminationEventResponse(BaseModel):
     timestamp: Decimal
     type: str
     description: str | None
-    metadata: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
 
 
-class ExaminationChannelInput(BaseModel):
-    channel_id: int = Field(gt=0)
-    position: int = Field(ge=0)
+class PreprocessingStatusResponse(BaseModel):
+    examination_id: UUID
+    status: str
 
 
-class ExaminationChannelReplace(BaseModel):
-    channels: list[ExaminationChannelInput]
+class MLAnalysisResponse(BaseModel):
+    analysis_id: UUID
+    result: Decimal
+    confidence: Decimal = Field(ge=0, le=1)
 
 
-class ExaminationChannelResponse(BaseModel):
-    channel_id: int
-    code: str
-    description: str | None
-    position: int
-
-
-class EEGChannelResponse(BaseModel):
-    id: int
-    code: str
-    description: str | None
+class ExaminationResultsResponse(BaseModel):
+    examination_id: UUID
+    analyses: list[MLAnalysisResponse]
