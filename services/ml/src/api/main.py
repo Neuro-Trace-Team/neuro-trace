@@ -33,11 +33,7 @@ result_publisher = RestResultPublisher(
     auth_client=auth_client
 )
 
-predictor: IPredictor = (
-    MockPredictor()
-    if settings.predictor_mode == "mock"
-    else SklearnPredictor(model_path=settings.model_path)
-)
+predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
 
 consumer_task = None
 rabbit_consumer = None

@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE"),
     )
 
-    model_path: str = "src/models/weights/model.joblib"
+    model_path: str = "/app/models/model.joblib"
     predictor_mode: Literal["mock", "sklearn"] = Field(
         default="sklearn",
         validation_alias="ML_PREDICTOR",
