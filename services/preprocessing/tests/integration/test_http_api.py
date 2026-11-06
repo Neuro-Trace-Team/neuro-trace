@@ -4,8 +4,10 @@ import json
 from io import BytesIO
 from unittest.mock import Mock
 from urllib.error import HTTPError, URLError
+from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from service.jobs import BackendAPIError
 
@@ -24,24 +26,21 @@ class _Response:
         return json.dumps(self.payload).encode("utf-8")
 
 
-def test_backend_http_request_contains_expected_method_path_and_payload(
-    monkeypatch, backend_client
-) -> None:
-    response = _Response({"id": "job-1", "status": "QUEUED"})
+def test_backend_examination_lookup_uses_only_examination_id(monkeypatch, backend_client) -> None:
+    response = _Response({"examination_id": "examination-1"})
     urlopen = Mock(return_value=response)
     monkeypatch.setattr("service.jobs.urlopen", urlopen)
 
-    result = backend_client.create_job("examination-1")
+    result = backend_client.get_examination("examination-1")
 
-    assert result == {"id": "job-1", "status": "QUEUED"}
+    assert result == {"examination_id": "examination-1"}
     request = urlopen.call_args.args[0]
     assert request.full_url == (
-        "http://mock-backend/api/v1/examinations/examination-1/"
-        "preprocessing-jobs"
+        "http://mock-backend/api/v1/internal/preprocessing/examinations/examination-1"
     )
-    assert request.method == "POST"
+    assert request.method == "GET"
     assert request.headers["Authorization"] == "Bearer mock-service-token"
-    assert json.loads(request.data) == {"pipeline_version": "0.1.0"}
+    assert request.data is None
 
 
 def test_backend_http_errors_are_exposed_as_backend_api_errors(monkeypatch, backend_client) -> None:
@@ -51,7 +50,7 @@ def test_backend_http_errors_are_exposed_as_backend_api_errors(monkeypatch, back
     monkeypatch.setattr("service.jobs.urlopen", Mock(side_effect=error))
 
     with pytest.raises(BackendAPIError, match="backend unavailable") as raised:
-        backend_client.get_job("job-1")
+        backend_client.get_examination("examination-1")
     assert raised.value.status_code == 503
 
 
@@ -60,37 +59,55 @@ def test_backend_connection_errors_are_wrapped(monkeypatch, backend_client, erro
     monkeypatch.setattr("service.jobs.urlopen", Mock(side_effect=error))
 
     with pytest.raises(BackendAPIError, match="Cannot reach NeuroTrace backend") as raised:
-        backend_client.get_job("job-1")
+        backend_client.get_examination("examination-1")
     assert raised.value.status_code is None
 
 
-def test_start_job_accepts_examination_without_backend_analysis_id(monkeypatch):
-    from uuid import uuid4
+def test_preprocessing_request_requires_storage_coordinates():
+    import main
+
+    with pytest.raises(ValidationError) as raised:
+        main.JobRequest(examination_id=uuid4())
+
+    assert {error["loc"][-1] for error in raised.value.errors()} == {
+        "storage_bucket",
+        "storage_key",
+    }
+
+
+def test_start_preprocessing_tracks_status_by_examination(monkeypatch):
     from fastapi import BackgroundTasks
     import main
 
-    examination_id, job_id = uuid4(), str(uuid4())
+    examination_id = uuid4()
+    bucket = "exam-bucket"
+    source_key = f"examinations/{examination_id}/recording.bdf"
     backend = Mock()
-    backend.create_job.return_value = {"id": job_id, "examination_id": str(examination_id)}
     manager = main.JobManager(main.settings, Mock(), backend)
     monkeypatch.setattr(main, "backend", backend)
     monkeypatch.setattr(main, "jobs", manager)
     tasks = BackgroundTasks()
 
     result = main.preprocess_examination(
-        examination_id, tasks, main.JobRequest(examination_id=examination_id)
+        examination_id,
+        tasks,
+        main.JobRequest(
+            examination_id=examination_id,
+            storage_bucket=bucket,
+            storage_key=source_key,
+        ),
     )
 
     assert result["examination_id"] == str(examination_id)
-    assert "analysis_id" not in result
-    assert result["job_id"] == job_id
+    assert "job_id" not in result
+    assert result["status"] == "QUEUED"
     assert len(tasks.tasks) == 1
-    assert tasks.tasks[0].args == (job_id, str(examination_id))
+    assert tasks.tasks[0].args == (str(examination_id),)
     main.JobResponse(**result)
+    backend.create_job.assert_not_called()
 
 
-def test_request_examination_mismatch_rejected_before_backend_call(monkeypatch):
-    from uuid import uuid4
+def test_request_examination_mismatch_rejected_before_starting(monkeypatch):
     from fastapi import BackgroundTasks, HTTPException
     import main
 
@@ -98,23 +115,36 @@ def test_request_examination_mismatch_rejected_before_backend_call(monkeypatch):
     monkeypatch.setattr(main, "backend", backend)
     with pytest.raises(HTTPException) as raised:
         main.preprocess_examination(
-            uuid4(), BackgroundTasks(), main.JobRequest(examination_id=uuid4())
+            uuid4(),
+            BackgroundTasks(),
+            main.JobRequest(
+                examination_id=uuid4(), storage_bucket="bucket", storage_key="source.bdf"
+            ),
         )
     assert raised.value.status_code == 422
     backend.create_job.assert_not_called()
 
 
-@pytest.mark.parametrize("backend_examination_id", [None, "invalid", "13b5b2e5-078b-447d-a6d8-6e18330d105a"])
-def test_invalid_backend_examination_rejected(monkeypatch, backend_examination_id):
-    from uuid import uuid4
+@pytest.mark.parametrize(
+    ("storage_bucket", "storage_key"), [("", "source.bdf"), ("bucket", " ")]
+)
+def test_missing_or_blank_coordinates_are_rejected_before_job_creation(
+    monkeypatch, storage_bucket, storage_key
+):
     from fastapi import BackgroundTasks, HTTPException
     import main
 
-    backend = Mock()
-    backend.create_job.return_value = {"id": str(uuid4()), "examination_id": backend_examination_id}
-    monkeypatch.setattr(main, "backend", backend)
-    tasks = BackgroundTasks()
+    examination_id = uuid4()
+    manager = Mock()
+    monkeypatch.setattr(main, "jobs", manager)
+    request = main.JobRequest(
+        examination_id=examination_id,
+        storage_bucket=storage_bucket,
+        storage_key=storage_key,
+    )
+
     with pytest.raises(HTTPException) as raised:
-        main.preprocess_examination(uuid4(), tasks)
-    assert raised.value.status_code == 502
-    assert tasks.tasks == []
+        main.preprocess_examination(examination_id, BackgroundTasks(), request)
+
+    assert raised.value.status_code == 422
+    manager.create.assert_not_called()
