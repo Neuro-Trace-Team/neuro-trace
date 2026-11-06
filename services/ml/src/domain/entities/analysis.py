@@ -6,7 +6,8 @@ class NewAnalysis:
     examination_id: UUID
     time_stamp: float
     result: float
-    confidence: float
+    confidence: float | None
+    total_analyses_count: int
 
 @dataclass(frozen=True)
 class Analysis:
@@ -14,5 +15,5 @@ class Analysis:
     examination_id: UUID
     time_stamp: float
     result: float
-    confidence: float
+    confidence: float | None
     total_analyses_count: int

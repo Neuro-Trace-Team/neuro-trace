@@ -12,5 +12,5 @@ class AnalysisRow(Base):
     examination_id: Mapped[UUID] = mapped_column(index=True)
     time_stamp: Mapped[float] = mapped_column(Float)
     result: Mapped[float] = mapped_column(Float)
-    confidence: Mapped[float] = mapped_column(Float)
+    confidence: Mapped[float | None] = mapped_column(Float)
     total_analyses_count: Mapped[int] = mapped_column(Integer)
