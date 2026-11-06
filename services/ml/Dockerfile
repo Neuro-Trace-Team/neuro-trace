@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY src/ ./src/
 # Copy model
-COPY model/ ./model/
+COPY models/ ./models/
 
 
 # Run FastAPI with Uvicorn (Lifespan handles starting the background worker automatically)
