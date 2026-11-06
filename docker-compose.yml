@@ -231,9 +231,9 @@ services:
     container_name: neuro-model-db
 
     environment:
+      POSTGRES_DB: postgres
       POSTGRES_USER: model_db
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
 
     ports:
       - "5432:5432"
@@ -243,7 +243,7 @@ services:
       - ./database/model:/docker-entrypoint-initdb.d
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d model_db"]
+      test: ["CMD-SHELL", "pg_isready -U model_db -d model_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -285,6 +285,7 @@ volumes:
   auth-db-data:
   medical-db-data:
   audit-db-data:
+  model-db-data:
   rustfs-data:
   rabbitmq-data:
 
