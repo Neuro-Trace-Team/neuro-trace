@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from src.api.deps import get_current_user
 from src.db.sessions import get_audit_db, get_medical_db
 from src.models.auth import User
-from src.models.medical import Examination, ExaminationEvent
+from src.models.medical import Examination, ExaminationEvent, ExaminationStatus
 from src.schemas.examinations import *
 from src.services import audit as audit_service
 from src.services import examinations as service
@@ -62,7 +62,11 @@ def preprocessing_status(examination_id: UUID, medical: Annotated[Session, Depen
 
 @router.get("/{examination_id}/results", response_model=ExaminationResultsResponse)
 def results(examination_id: UUID, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
-    try: service.get_examination(medical, examination_id); return ExaminationResultsResponse.model_validate(MLClient().results(examination_id))
+    try:
+        examination = service.get_examination(medical, examination_id)
+        if examination.status is not ExaminationStatus.READY:
+            raise HTTPException(status.HTTP_409_CONFLICT, "ML analyses are not ready")
+        return ExaminationResultsResponse.model_validate(MLClient().results(examination_id))
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
     except MLServiceError as error: raise HTTPException(502, str(error)) from error
 

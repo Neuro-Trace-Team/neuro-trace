@@ -17,5 +17,5 @@ def test_examination_and_event_schema_exclude_transferred_data() -> None:
     schema = (ROOT / "database" / "medical" / "init.sql").read_text(encoding="utf-8")
     for obsolete in ("processing_status", "sampling_frequency", "electrode_positions", "reference", "power_line_frequency", "duration_seconds", "metadata_json"):
         assert obsolete not in schema
-    for field in ("storage_bucket", "storage_key", "file_checksum", "deleted_at", "timestamp", "description"):
+    for field in ("storage_bucket", "storage_key", "file_checksum", "status", "deleted_at", "timestamp", "description"):
         assert field in schema

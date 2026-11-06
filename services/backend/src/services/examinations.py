@@ -9,7 +9,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from src.config import get_settings
-from src.models.medical import Examination, ExaminationEvent
+from src.models.medical import Examination, ExaminationEvent, ExaminationStatus
 from src.repositories import examinations as repository
 from src.services import patients as patients_service
 from src.services.storage import RustFSStorage
@@ -47,6 +47,16 @@ def get_examination(session: Session, examination_id: UUID) -> Examination:
     record = repository.get_examination(session, examination_id)
     if record is None: raise ExaminationNotFoundError
     return record
+def mark_examination_ready(session: Session, examination_id: UUID) -> bool:
+    record = repository.get_examination(session, examination_id)
+    if record is None:
+        return False
+    if record.status is ExaminationStatus.READY:
+        return True
+    record.status = ExaminationStatus.READY
+    record.updated_at = _now()
+    session.commit()
+    return True
 def list_examinations(session: Session, **kwargs): return repository.list_examinations(session, **kwargs)
 def update_examination(session: Session, *, examination_id: UUID, updates: dict) -> Examination:
     record = get_examination(session, examination_id)

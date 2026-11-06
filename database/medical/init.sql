@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS examinations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), patient_id UUID NOT NULL, uploaded_by UUID NOT NULL,
     original_filename VARCHAR(255) NOT NULL, file_format VARCHAR(20) NOT NULL, file_size_bytes BIGINT NOT NULL,
     storage_bucket VARCHAR(100) NOT NULL, storage_key VARCHAR(1024) NOT NULL, file_checksum VARCHAR(64) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PROCESSING',
     examination_date TIMESTAMPTZ NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ NULL,
     CONSTRAINT fk_examinations_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS examinations (
     CONSTRAINT chk_examinations_file_format_not_blank CHECK (btrim(file_format) <> ''),
     CONSTRAINT chk_examinations_file_size_positive CHECK (file_size_bytes > 0),
     CONSTRAINT chk_examinations_file_checksum_sha256 CHECK (file_checksum IS NULL OR file_checksum ~ '^[0-9A-Fa-f]{64}$'),
+    CONSTRAINT chk_examinations_status CHECK (status IN ('PROCESSING', 'READY')),
     CONSTRAINT chk_examinations_deleted_after_create CHECK (deleted_at IS NULL OR deleted_at >= created_at)
 );
 

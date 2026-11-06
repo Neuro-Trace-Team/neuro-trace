@@ -1,12 +1,18 @@
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Enum as SQLEnum, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import MedicalBase
+
+
+class ExaminationStatus(str, Enum):
+    PROCESSING = "PROCESSING"
+    READY = "READY"
 
 
 class Patient(MedicalBase):
@@ -27,6 +33,7 @@ class Examination(MedicalBase):
     storage_bucket: Mapped[str] = mapped_column(String(100), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(1024), nullable=False)
     file_checksum: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[ExaminationStatus] = mapped_column(SQLEnum(ExaminationStatus, native_enum=False, length=20), nullable=False, default=ExaminationStatus.PROCESSING, server_default=ExaminationStatus.PROCESSING.value)
     examination_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -3,6 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+from src.models.medical import ExaminationStatus
 
 
 class ExaminationResponse(BaseModel):
@@ -13,6 +14,7 @@ class ExaminationResponse(BaseModel):
     file_format: str
     file_size_bytes: int
     file_checksum: str | None
+    status: ExaminationStatus
     examination_date: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -65,11 +67,13 @@ class PreprocessingStatusResponse(BaseModel):
 
 
 class MLAnalysisResponse(BaseModel):
-    analysis_id: UUID
+    analysis_id: int
+    time_stamp: Decimal
     result: Decimal
-    confidence: Decimal = Field(ge=0, le=1)
+    confidence: Decimal | None = Field(default=None, ge=0, le=1)
 
 
 class ExaminationResultsResponse(BaseModel):
     examination_id: UUID
+    total_analyses_count: int | None
     analyses: list[MLAnalysisResponse]

@@ -51,13 +51,17 @@ def test_preprocessing_status_rejects_invalid_response(monkeypatch, examination_
 
 
 def test_ml_results_validates_contract(monkeypatch, examination_id) -> None:
-    analysis_id = uuid4()
     monkeypatch.setattr(ml, "get_settings", lambda: SimpleNamespace(ml_url="http://ml.test", service_timeout_seconds=1))
-    monkeypatch.setattr(ml.httpx, "get", lambda *args, **kwargs: httpx.Response(200, json={"examination_id": str(examination_id), "analyses": [{"analysis_id": str(analysis_id), "result": 6.4, "confidence": 0.91}]}, request=httpx.Request("GET", "http://ml.test")))
-    assert ml.MLClient().results(examination_id)["analyses"][0]["analysis_id"] == str(analysis_id)
+    captured = {}
+    def get(url, **kwargs):
+        captured["url"] = url
+        return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 1.5, "result": 6.4, "confidence": 0.91}]}, request=httpx.Request("GET", url))
+    monkeypatch.setattr(ml.httpx, "get", get)
+    assert ml.MLClient().results(examination_id)["analyses"][0]["analysis_id"] == 7
+    assert captured["url"] == f"http://ml.test/api/v1/examinations/{examination_id}/analyses"
 
 
-@pytest.mark.parametrize("payload", [{}, {"examination_id": "wrong", "analyses": []}, {"examination_id": "x"}])
+@pytest.mark.parametrize("payload", [{}, {"examination_id": "wrong", "total_analyses_count": 0, "analyses": []}, {"examination_id": "x"}, {"examination_id": "x", "total_analyses_count": "1", "analyses": []}])
 def test_ml_results_rejects_invalid_top_level_response(monkeypatch, examination_id, payload) -> None:
     monkeypatch.setattr(ml, "get_settings", lambda: SimpleNamespace(ml_url="http://ml.test", service_timeout_seconds=1))
     monkeypatch.setattr(ml.httpx, "get", lambda *args, **kwargs: httpx.Response(200, json=payload, request=httpx.Request("GET", "http://ml.test")))

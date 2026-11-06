@@ -40,7 +40,11 @@ services:
       REFRESH_TOKEN_TTL_DAYS: 7
 
       # TODO: Add rest of the RabbitMQ credentials
-      RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ${COMPLETED_ANALYSIS_QUEUE_NAME}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ${COMPLETED_ANALYSIS_QUEUE_NAME:-ml_microservice_completed_queue}
 
     depends_on:
       auth-db:
@@ -72,7 +76,7 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE}
       RABBITMQ_ROUTING_KEY: ${RABBITMQ_ROUTING_KEY}
-      RABBITMQ_PENDING_ANALYSIS_QUEUE: ${PENDING_ANALYSIS_QUEUE_NAME}
+      RABBITMQ_PENDING_ANALYSIS_QUEUE: ${PENDING_ANALYSIS_QUEUE_NAME:-ml_microservice_pending_queue}
 
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
@@ -102,14 +106,14 @@ services:
     container_name: neuro-ml
 
     environment:
-      MODEL_DB_URL: postgresql://postgres:postgres@model-db:5432/model_db
+      MODEL_DB_URL: postgresql+asyncpg://model_db:postgres@model-db:5432/postgres
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      RABBITMQ_PENDING_ANALYSIS_QUEUE: ${PENDING_ANALYSIS_QUEUE_NAME}
-      RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ${COMPLETED_ANALYSIS_QUEUE_NAME}
+      RABBITMQ_PENDING_ANALYSIS_QUEUE: ${PENDING_ANALYSIS_QUEUE_NAME:-ml_microservice_pending_queue}
+      RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ${COMPLETED_ANALYSIS_QUEUE_NAME:-ml_microservice_completed_queue}
       
       ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN}
       # Local integration can run without proprietary trained weights. Set
@@ -246,7 +250,7 @@ services:
       POSTGRES_DB: postgres
 
     ports:
-      - "5432:5432"
+      - "5435:5432"
 
     volumes:
       - model-db-data:/var/lib/postgresql/data
@@ -297,6 +301,7 @@ volumes:
   audit-db-data:
   rustfs-data:
   rabbitmq-data:
+  model-db-data:
 
 
 networks:

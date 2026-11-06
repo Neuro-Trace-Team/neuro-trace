@@ -12,6 +12,7 @@ if os.getenv("NEUROTRACE_INTEGRATION") != "1":
 from src.db import sessions
 from src.main import app
 from src.models.auth import User
+from src.services import examinations as examinations_service
 from src.services.auth import hash_password
 from src.services.ml import MLClient
 from src.services.preprocessing import PreprocessingClient
@@ -27,7 +28,7 @@ def clean_databases():
 def api(monkeypatch):
     monkeypatch.setattr(PreprocessingClient, "request", lambda self, examination_id, storage_bucket, storage_key: None)
     monkeypatch.setattr(PreprocessingClient, "status", lambda self, examination_id: {"examination_id": str(examination_id), "status": "COMPLETED"})
-    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"examination_id": str(examination_id), "analyses": [{"analysis_id": str(uuid4()), "result": 6.4, "confidence": 0.91}]})
+    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 1, "time_stamp": 1.0, "result": 6.4, "confidence": 0.91}]})
     with sessions.AuthSession() as db:
         db.add_all([User(email="admin@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Admin", last_name="User", role="ADMIN", is_active=True), User(email="doctor@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Doctor", last_name="User", role="DOCTOR", is_active=True)]); db.commit()
     with TestClient(app) as client: yield client
@@ -52,7 +53,11 @@ def test_all_current_business_endpoints(api):
     assert api.get("/api/v1/users", headers=h(login(api,"doctor@integration.local"))).status_code == 403
     patient=api.post("/api/v1/patients",headers=headers); assert patient.status_code==201; patient_id=patient.json()["id"]
     for path in ("/api/v1/patients", "/api/v1/patients/stats", f"/api/v1/patients/{patient_id}", f"/api/v1/patients/{patient_id}/stats"): assert api.get(path,headers=headers).status_code==200
-    upload=api.post("/api/v1/examinations",headers=headers,data={"patient_id":patient_id},files={"file":("integration.eeg",b"eeg","application/octet-stream")}); assert upload.status_code==201,upload.text; examination_id=upload.json()["id"]
+    upload=api.post("/api/v1/examinations",headers=headers,data={"patient_id":patient_id},files={"file":("integration.eeg",b"eeg","application/octet-stream")}); assert upload.status_code==201,upload.text; examination_id=upload.json()["id"]; assert upload.json()["status"] == "PROCESSING"
+    assert api.get(f"/api/v1/examinations/{examination_id}/results", headers=headers).status_code == 409
+    with sessions.MedicalSession() as medical:
+        assert examinations_service.mark_examination_ready(medical, examination_id)
+    assert api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json()["status"] == "READY"
     for path in ("/api/v1/examinations",f"/api/v1/examinations/{examination_id}",f"/api/v1/patients/{patient_id}/examinations",f"/api/v1/examinations/{examination_id}/events",f"/api/v1/examinations/{examination_id}/preprocessing-status",f"/api/v1/examinations/{examination_id}/results"): assert api.get(path,headers=headers).status_code==200
     assert api.patch(f"/api/v1/examinations/{examination_id}",headers=headers,json={"examination_date":"2026-11-05T12:00:00Z"}).status_code==200
     event=api.post(f"/api/v1/examinations/{examination_id}/events",headers=headers,json={"timestamp":1,"type":"stimulus"}); assert event.status_code==201; event_id=event.json()["id"]
