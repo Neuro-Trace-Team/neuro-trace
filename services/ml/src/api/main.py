@@ -2,10 +2,11 @@ import asyncio
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from core.config import settings
 from core.logger import setup_logging
+from infrastructure.db.session import create_engine, create_session_factory
 from infrastructure.event_handlers.ievent_handler import IEventHandler
 from infrastructure.event_handlers.prediction_event_handler import PredictionEventHandler
 from fastapi.responses import JSONResponse
@@ -13,8 +14,10 @@ from infrastructure.clients.backend_auth_client import BackendAuthClient
 from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
 from domain.services.ipredictor import IPredictor
 from infrastructure.clients.rest_result_publisher import RestResultPublisher
-from infrastructure.services.mock_predictor import MockPredictor
 from infrastructure.services.sklearn_predictor import SklearnPredictor
+from api.routes.analyses import router as analyses_router
+from sqlalchemy import text
+
 
 # Logger setup
 setup_logging()
@@ -47,16 +50,21 @@ async def lifespan(app: FastAPI):
         logger.critical(f"Failed to load the ML model on startup: {e}")
         raise e
 
-    # 2. Handlers definition
+    # 2. Database objects
+    engine = create_engine(settings.database_url)
+    session_factory = create_session_factory(engine)
+    app.state.session_factory = session_factory
+
+    # 3. Handlers definition
     prediction_handler = PredictionEventHandler(
         predictor=predictor,
-        result_publisher=result_publisher
+        session_factory=session_factory,
     )
     handlers_registry: dict[str, IEventHandler] = {
         "predict_event": prediction_handler
     }
 
-    # 3. RabbitMQ setup
+    # 4. RabbitMQ setup
     rabbit_consumer = RabbitMQConsumer(
         queue_url=settings.queue_url,
         queue_name=settings.queue_name,
@@ -79,13 +87,16 @@ async def lifespan(app: FastAPI):
             
     if rabbit_consumer:
         await rabbit_consumer.close()
-        
+
+    await engine.dispose()
+
     logger.info("Microservice shutdown complete.")
 
 app = FastAPI(
     title=settings.app_name,
     lifespan=lifespan
 )
+app.include_router(analyses_router)
 
 @app.get("/info")
 async def info():
@@ -102,10 +113,10 @@ async def healthz():
     }
 
 @app.get("/readyz")
-async def readyz():
+async def readyz(request: Request):
     """Readiness probe."""
-    # TODO: Add additional checks
     if not predictor.has_model():
+        logger.warning("Readiness check: model not ready", exc_info=True)
         return JSONResponse(
             status_code=503,
             content={
@@ -113,6 +124,12 @@ async def readyz():
                 "reason": "model_not_loaded"
             }
         )
+    try:
+        async with request.app.state.engine.connect() as conn:
+            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=2)
+    except Exception:
+        logger.warning("Readiness check: database unreachable", exc_info=True)
+        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "database_unavailable"})
     return {
         "status": "ready"
     }
