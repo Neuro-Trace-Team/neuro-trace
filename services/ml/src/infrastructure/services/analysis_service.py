@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 from domain.entities.analysis import Analysis
+from domain.repositories.ianalysis_repository import IAnalysisRepository
 
 
 @dataclass(frozen=True)
@@ -11,7 +12,7 @@ class ExaminationResults:
     analyses: list[Analysis]
 
 class AnalysisService:
-    def __init__(self, repo):
+    def __init__(self, repo: IAnalysisRepository):
         self._repo = repo
 
     async def get_results(self, examination_id: UUID) -> ExaminationResults:
