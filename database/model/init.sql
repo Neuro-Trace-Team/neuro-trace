@@ -1,12 +1,12 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS analyses (
-    analysis_id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    examination_id       UUID             NOT NULL,
-    event_timestamp           DOUBLE PRECISION NOT NULL,
-    result               DOUBLE PRECISION NOT NULL,
-    confidence           DOUBLE PRECISION NOT NULL,
-    total_analyses_count INTEGER          NOT NULL,
+    analysis_id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    examination_id          UUID                NOT NULL,
+    event_timestamp         DOUBLE PRECISION    NOT NULL,
+    result                  DOUBLE PRECISION    NOT NULL,
+    confidence              DOUBLE PRECISION,
+    total_analyses_count    INTEGER             NOT NULL,
 
     CONSTRAINT ck_analyses_event_timestamp_non_negative
         CHECK (event_timestamp >= 0),
