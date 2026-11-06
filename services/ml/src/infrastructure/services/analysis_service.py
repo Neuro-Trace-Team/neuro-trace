@@ -15,7 +15,7 @@ class AnalysisService:
         self._repo = repo
 
     async def get_results(self, examination_id: UUID) -> ExaminationResults:
-        analyses = await self._repo.list_for_examination(examination_id)    # ordered by time_stamp
+        analyses = await self._repo.list_for_examination(examination_id)    # ordered by event_timestamp
         expected = analyses[0].total_analyses_count if analyses else None
         complete = expected is not None and len(analyses) >= expected
         return ExaminationResults(complete, len(analyses), expected, analyses)

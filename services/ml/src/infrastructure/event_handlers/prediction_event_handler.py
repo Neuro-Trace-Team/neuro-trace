@@ -43,7 +43,7 @@ class PredictionEventHandler(IEventHandler):
 
         try:
             examination_id = UUID(str(self._require(payload, "examination_id")))
-            time_stamp = float(self._require(payload, "event_time_s"))
+            event_timestamp = float(self._require(payload, "event_time_s"))
             total = int(self._require(payload, "total_events"))
 
             feature_payload = {k: v for k, v in payload.items() if k not in metadata_keys}
@@ -51,7 +51,7 @@ class PredictionEventHandler(IEventHandler):
 
             new = NewAnalysis(
                 examination_id=examination_id,
-                event_timestamp=time_stamp,
+                event_timestamp=event_timestamp,
                 result=self._extract_result(result),
                 confidence=self._extract_confidence(result),
                 total_analyses_count=total,
@@ -73,7 +73,7 @@ class PredictionEventHandler(IEventHandler):
                 )
 
             logger.info(f"Stored analysis {saved.analysis_id} for examination {examination_id} "
-                        f"at t={time_stamp}s")
+                        f"at t={event_timestamp}s")
 
         except Exception as e:
             logger.exception(f"Failed to process prediction for Recording {recording_id}")

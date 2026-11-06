@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 class AnalysisDto(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     analysis_id: int
-    time_stamp: float
+    event_timestamp: float
     result: float
     confidence: float
 
