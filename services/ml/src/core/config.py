@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE"),
     )
 
-    model_path: str = "src/models/weights/model.joblib"
+    model_path: str = "/app/models/model.joblib"
 
     backend_base_url: str = Field(
         default="http://backend:8080",
