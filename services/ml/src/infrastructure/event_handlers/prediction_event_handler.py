@@ -16,7 +16,7 @@ from domain.services.iresultpublisher import IResultPublisher
 metadata_keys = {
     "analysis_id", "experiment_id", "subject_id", "recording_id", "window_id",
     "event_id", "event_index", "event_time_s", "event_timestamp",
-    "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag", "total_events"
+    "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag", "total_events", "examination_id"
 }
 
 logger = logging.getLogger(__name__)
