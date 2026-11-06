@@ -83,3 +83,47 @@ def test_result_callback_payload(backend_client, monkeypatch):
     }
     backend_client.submit_result('job', 'FAILED', error_message='upload failed')
     assert json.loads(request.call_args.args[0].data) == {'status': 'FAILED', 'error_message': 'upload failed'}
+
+
+def test_worker_downloads_from_post_coordinates_without_backend_examination_lookup(
+    backend_client, monkeypatch
+):
+    backend = Mock()
+    storage = Mock()
+    manager = JobManager(backend_client.settings, storage, backend)
+    examination_id = str(uuid4())
+    bucket = "backend-bucket"
+    storage_key = f"examinations/patient/{examination_id}/recording.bdf"
+    job_id = manager.create(
+        examination_id,
+        storage_bucket=bucket,
+        storage_key=storage_key,
+    )
+    backend.get_job.return_value = {
+        "status": "QUEUED",
+        "examination_id": examination_id,
+    }
+    output = backend_client.settings.work_root / job_id / "output/study/subject/run/combined_features.csv"
+
+    def pipeline(*args, **kwargs):
+        output.parent.mkdir(parents=True)
+        output.write_bytes(b"feature\n1\n")
+        return Mock(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("service.jobs.subprocess.run", pipeline)
+    monkeypatch.setattr("service.jobs.publish_combined_features", Mock(return_value=1))
+
+    manager.run(job_id, examination_id)
+
+    storage.download_recording_inputs.assert_called_once_with(
+        bucket,
+        storage_key,
+        backend_client.settings.work_root / job_id / "input/study/subject/run",
+    )
+    backend.get_examination.assert_not_called()
+    backend.submit_result.assert_called_once_with(
+        job_id,
+        "COMPLETED",
+        output_bucket=bucket,
+        output_storage_key=f"preprocessing/{examination_id}/{job_id}/combined_features.csv",
+    )

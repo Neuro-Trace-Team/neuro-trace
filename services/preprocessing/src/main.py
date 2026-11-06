@@ -41,16 +41,26 @@ def _start_job(
     examination_id: UUID,
     background_tasks: BackgroundTasks,
     job_id: str | None = None,
+    storage_bucket: str | None = None,
+    storage_key: str | None = None,
 ):
     try:
-        local_job_id = jobs.create(str(examination_id), job_id)
+        local_job_id = jobs.create(
+            str(examination_id), job_id, storage_bucket=storage_bucket, storage_key=storage_key
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     background_tasks.add_task(jobs.run, local_job_id, str(examination_id))
     return jobs.get(local_job_id)
 
 
-def _create_backend_job(examination_id: UUID, background_tasks: BackgroundTasks):
+def _create_backend_job(
+    examination_id: UUID,
+    background_tasks: BackgroundTasks,
+    *,
+    storage_bucket: str | None = None,
+    storage_key: str | None = None,
+):
     try:
         backend_job = backend.create_job(str(examination_id))
     except BackendAPIError as exc:
@@ -73,7 +83,10 @@ def _create_backend_job(examination_id: UUID, background_tasks: BackgroundTasks)
         ) from exc
     if backend_examination_id != examination_id:
         raise HTTPException(status_code=502, detail="Backend examination_id does not match request")
-    return _start_job(examination_id, background_tasks, backend_job_id)
+    return _start_job(
+        examination_id, background_tasks, backend_job_id,
+        storage_bucket=storage_bucket, storage_key=storage_key,
+    )
 
 
 @asynccontextmanager
@@ -105,7 +118,11 @@ def request_preprocessing(
         raise HTTPException(status_code=422, detail="Request examination_id does not match URL")
     if not request.storage_bucket.strip() or not request.storage_key.strip():
         raise HTTPException(status_code=422, detail="storage_bucket and storage_key must not be blank")
-    return _create_backend_job(examination_id, background_tasks)
+    return _create_backend_job(
+        examination_id, background_tasks,
+        storage_bucket=request.storage_bucket,
+        storage_key=request.storage_key,
+    )
 
 
 @app.post(
