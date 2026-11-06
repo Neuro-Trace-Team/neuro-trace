@@ -4,6 +4,7 @@ from typing import Any, Dict
 from uuid import UUID
 
 from domain.entities.analysis import NewAnalysis
+from domain.services.ieventpublisher import IEventPublisher
 from infrastructure.repositories.sql_alchemy_analysis_repository import SqlAlchemyAnalysisRepository
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -21,9 +22,10 @@ metadata_keys = {
 logger = logging.getLogger(__name__)
 
 class PredictionEventHandler(IEventHandler):
-    def __init__(self, predictor: IPredictor,session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, predictor: IPredictor, session_factory: async_sessionmaker[AsyncSession], event_publisher: IEventPublisher) -> None:
         self.predictor = predictor
         self.session_factory = session_factory
+        self.event_publisher = event_publisher
 
     async def handle(self, payload: Dict[str, Any]) -> None:
         """Handles the incoming combined EEG features message."""
@@ -56,7 +58,19 @@ class PredictionEventHandler(IEventHandler):
             )
 
             async with self.session_factory() as session, session.begin():
-                saved = await SqlAlchemyAnalysisRepository(session).add(new)
+                repo = SqlAlchemyAnalysisRepository(session)
+                await repo.lock_examination(examination_id)
+                saved = await repo.add(new)
+                received = await repo.count_for_examination(examination_id)
+
+            if received >= saved.total_analyses_count:
+                await self.event_publisher.publish(
+                    "examination_completed",
+                    {
+                        "examination_id": examination_id,
+                        "total_analyses_count": saved.total_analyses_count,
+                    },
+                )
 
             logger.info(f"Stored analysis {saved.analysis_id} for examination {examination_id} "
                         f"at t={time_stamp}s")

@@ -2,7 +2,7 @@ from uuid import UUID
 from domain.entities.analysis import Analysis, NewAnalysis
 from domain.repositories.ianalysis_repository import IAnalysisRepository
 from infrastructure.db.models import AnalysisRow
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 
@@ -49,3 +49,15 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
             .order_by(AnalysisRow.time_stamp)
         )
         return [_to_domain(r) for r in rows]
+
+    async def count_for_examination(self, examination_id: UUID) -> int:
+        return (await self._session.execute(
+            select(func.count()).where(AnalysisRow.examination_id == examination_id)
+        )).scalar_one()
+
+    async def lock_examination(self, examination_id: UUID) -> None:
+        """Serialize concurrent writers for one examination until the transaction ends."""
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"),
+            {"k": str(examination_id)},
+        )

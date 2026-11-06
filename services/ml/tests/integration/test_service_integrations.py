@@ -25,7 +25,7 @@ def test_rabbitmq_settings_are_mapped_from_service_environment():
     assert settings.queue_url == (
         "amqp://integration-user:integration-password@rabbitmq:5672/"
     )
-    assert settings.queue_name == "preprocessing.combined_features"
+    assert settings.pending_analysis_queue_name == "preprocessing.combined_features"
 
 
 class _FakeQueue:

@@ -14,6 +14,7 @@ from infrastructure.clients.backend_auth_client import BackendAuthClient
 from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
 from domain.services.ipredictor import IPredictor
 from infrastructure.clients.rest_result_publisher import RestResultPublisher
+from infrastructure.messaging.rabbit_mq_publisher import RabbitMQPublisher
 from infrastructure.services.sklearn_predictor import SklearnPredictor
 from api.routes.analyses import router as analyses_router
 from sqlalchemy import text
@@ -55,21 +56,31 @@ async def lifespan(app: FastAPI):
     session_factory = create_session_factory(engine)
     app.state.session_factory = session_factory
 
-    # 3. Handlers definition
+    # 3. RabbitMQ Publisher setup
+    event_publisher = RabbitMQPublisher(
+        settings.queue_url,
+        settings.completed_queue_name
+    )
+    logger.info("Creating RabbitMQ publisher service...")
+    await event_publisher.connect()
+
+    # 4. Handlers definition
     prediction_handler = PredictionEventHandler(
         predictor=predictor,
         session_factory=session_factory,
+        event_publisher=event_publisher
     )
     handlers_registry: dict[str, IEventHandler] = {
         "predict_event": prediction_handler
     }
 
-    # 4. RabbitMQ setup
+    # 5. RabbitMQ Consumer setup
     rabbit_consumer = RabbitMQConsumer(
         queue_url=settings.queue_url,
-        queue_name=settings.queue_name,
+        queue_name=settings.pending_analysis_queue_name,
         handlers=handlers_registry
     )
+
 
     logger.info("Creating background RabbitMQ consumer task...")
     consumer_task = asyncio.create_task(rabbit_consumer.start())
@@ -87,6 +98,8 @@ async def lifespan(app: FastAPI):
             
     if rabbit_consumer:
         await rabbit_consumer.close()
+
+    await event_publisher.close()   
 
     await engine.dispose()
 

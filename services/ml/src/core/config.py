@@ -18,9 +18,13 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("QUEUE_URL", "RABBITMQ_URL"),
     )
-    queue_name: str = Field(
-        default="ml_microservice_queue",
-        validation_alias=AliasChoices("QUEUE_NAME", "RABBITMQ_QUEUE"),
+    pending_analysis_queue_name: str = Field(
+        default="ml_microservice_pending_queue",
+        validation_alias=AliasChoices("PENDING_ANALYSIS_QUEUE_NAME", "RABBITMQ_PENDING_ANALYSIS_QUEUE"),
+    )
+    completed_queue_name: str = Field(
+        default="ml_microservice_completed_queue",
+        validation_alias=AliasChoices("COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE"),
     )
 
     model_path: str = "src/models/weights/model.joblib"
