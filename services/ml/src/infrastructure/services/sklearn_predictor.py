@@ -7,7 +7,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from services.ipredictor import IPredictor
+from domain.services.ipredictor import IPredictor
 
 class FeatureValidationError(ValueError):
     pass

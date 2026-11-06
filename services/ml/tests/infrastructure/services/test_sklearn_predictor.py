@@ -3,7 +3,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from services.sklearn_predictor import FeatureValidationError, SklearnPredictor
+from infrastructure.services.sklearn_predictor import FeatureValidationError, SklearnPredictor
 
 
 class DummyModelWithProba:
@@ -141,6 +141,6 @@ def test_invalid_values_raise(predictor, bad):
         predictor.predict({"a": 1, "b": 2, "c": bad})
 
 def test_real_feature_list_has_no_duplicates_and_expected_length():
-    from services.features import FEATURE_NAMES
+    from infrastructure.services.features import FEATURE_NAMES
     assert len(FEATURE_NAMES) == len(set(FEATURE_NAMES))
     assert len(FEATURE_NAMES) == 129
