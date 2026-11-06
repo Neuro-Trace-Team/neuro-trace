@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import InputSection from "./InputSection";
 
 export function PageTitle({ children }: { children: ReactNode }) {
   return (
@@ -32,21 +33,6 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   );
 }
 
-export function SmallButton({
-  children,
-  className = "",
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      className={`inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-white/90 bg-white/80 px-3 py-1.5 text-[13px] font-semibold text-[#09264d] shadow-[0_2px_3px_rgba(0,0,0,0.2)] transition hover:bg-white focus-visible:outline-2 focus-visible:outline-[#00a9c4] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function FormField({
   label,
   className = "",
@@ -59,13 +45,12 @@ export function FormField({
 }) {
   const id = props.id ?? props.name ?? label.toLowerCase().replaceAll(" ", "-");
   return (
-    <label className={`flex flex-col gap-1.5 text-[14px] font-semibold text-[#08264c] ${className}`} htmlFor={id}>
-      {label}
-      <input
-        {...props}
-        className={`h-9 rounded-md border border-[#d5d9db] bg-white/80 px-3 font-normal outline-none placeholder:text-[#858f93] focus:border-[#009bb4] focus:ring-2 focus:ring-[#00b7c8]/20 ${inputClassName}`}
-        id={id}
-      />
-    </label>
+    <InputSection
+      {...props}
+      className={className}
+      id={id}
+      inputClassName={inputClassName}
+      label={label}
+    />
   );
 }

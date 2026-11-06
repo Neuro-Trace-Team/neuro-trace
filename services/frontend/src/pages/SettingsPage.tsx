@@ -1,98 +1,183 @@
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Icon from "../components/Icon";
+import ButtonPrimary from "../components/ButtonPrimary";
+import ButtonSecondary from "../components/ButtonSecondary";
+import InputSection from "../components/InputSection";
 import { PageTitle, SectionTitle, Surface } from "../components/PageUI";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
+import { useToast } from "../context/useToast";
+import { apiClient, getApiErrorMessage } from "../services/apiClient";
+import { useNavigate } from "react-router-dom";
+import type { ApiUser } from "../types/api.types";
+import { mapApiUser } from "../services/api";
 
 const accountFields = [
   { key: "firstName", label: "First Name" },
   { key: "lastName", label: "Last Name" },
   { key: "email", label: "Email address" },
-  { key: "password", label: "Password" },
 ] as const;
 
 function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const { showToast } = useToast();
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
     return savedTheme === "dark" ? "Dark" : savedTheme === "light" ? "Light" : "System";
   });
   const [language, setLanguage] = useState("English");
   const [details, setDetails] = useState({
-    firstName: user?.firstName || "Alice",
-    lastName: user?.lastName || "Smith",
-    email: user?.email || "email123@gmail.com",
-    password: "********",
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    email: user?.email || "",
   });
+
+  useEffect(() => {
+    localStorage.setItem("theme", theme.toLowerCase());
+    document.documentElement.dataset.theme = theme.toLowerCase();
+    document.documentElement.classList.toggle(
+      "dark",
+      theme === "Dark" ||
+        (theme === "System" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches),
+    );
+  }, [theme]);
+
+  const saveField = async (key: (typeof accountFields)[number]["key"]) => {
+    const fieldMap = {
+      firstName: "first_name",
+      lastName: "last_name",
+      email: "email",
+    } as const;
+    setIsSaving(true);
+    try {
+      const { data } = await apiClient.patch<ApiUser>("/users/me", { [fieldMap[key]]: details[key] });
+      const updatedUser = mapApiUser(data);
+      updateUser(updatedUser);
+      setDetails({
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+      });
+      setEditing(null);
+      showToast("Account details saved.", "success");
+    } catch (saveError) {
+      showToast(getApiErrorMessage(saveError, "Could not save account details."), "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const changePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      await apiClient.post("/auth/change-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      showToast("Password changed successfully. Please sign in with your new password.", "success");
+      await logout(false);
+      navigate("/auth/login", { replace: true });
+    } catch (passwordError) {
+      showToast(getApiErrorMessage(passwordError, "Could not change the password."), "error");
+    }
+  };
+
+  const selectTheme = (selectedTheme: string) => {
+    setTheme(selectedTheme);
+  };
 
   return (
     <div className="mx-auto max-w-[1100px]">
       <PageTitle>Settings</PageTitle>
-      <div className="space-y-5">
-        <Surface className="min-h-[315px]">
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)]">
           <SectionTitle>Account Details</SectionTitle>
-          <div className="mt-7 max-w-[480px] space-y-4">
+          <p className="mb-5 text-sm text-[#52677b]">Review and manage the profile information linked to your account.</p>
+          <div className="max-w-[600px] divide-y divide-[#dce7eb] overflow-hidden rounded-xl border border-white/80 bg-white/45 px-4">
             {accountFields.map(({ key, label }) => (
-              <div className="grid grid-cols-[105px_minmax(0,1fr)_32px] items-center gap-3 text-[13px]" key={key}>
-                <span>{label}:</span>
+              <div className="grid grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] items-center gap-3 py-3 text-[13px]" key={key}>
+                <span className="font-medium text-[#52677b]">{label}</span>
                 {editing === key ? (
-                  <input
+                  <InputSection
                     autoFocus
-                    className="h-8 min-w-0 rounded border border-[#d1d8db] bg-white/80 px-2 font-semibold outline-none focus:border-[#00a9c4]"
+                    className="min-w-0"
+                    inputClassName="h-9 font-semibold text-[#102d58]"
+                    label=""
                     onChange={(event) => setDetails((current) => ({ ...current, [key]: event.target.value }))}
-                    onKeyDown={(event) => event.key === "Enter" && setEditing(null)}
-                    type={key === "password" ? "password" : key === "email" ? "email" : "text"}
+                    onKeyDown={(event) => event.key === "Enter" && void saveField(key)}
+                    name={`settings-${key}`}
+                    type={key === "email" ? "email" : "text"}
                     value={details[key]}
                   />
                 ) : (
-                  <strong className="truncate text-[13px]">{details[key]}</strong>
+                  <strong className="truncate text-[13px] text-[#102d58]">{details[key]}</strong>
                 )}
-                <button
+                <ButtonSecondary
                   aria-label={`${editing === key ? "Save" : "Edit"} ${label}`}
-                  className="rounded p-1 text-[#09264d] hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-[#00a9c4]"
-                  onClick={() => setEditing(editing === key ? null : key)}
+                  className="h-9 w-9 border-0 bg-transparent p-0 shadow-none"
+                  disabled={isSaving}
+                  icon={editing === key ? "check" : "edit"}
+                  iconOnly
+                  onClick={() => editing === key ? void saveField(key) : setEditing(key)}
                   type="button"
-                >
-                  <Icon className="h-4 w-4" name={editing === key ? "check" : "edit"} />
-                </button>
+                />
               </div>
             ))}
-            <div className="grid grid-cols-[105px_minmax(0,1fr)_32px] items-center gap-3 text-[13px]">
-              <span>Role:</span>
-              <strong>{user?.role === "admin" ? "Admin" : "Doctor"}</strong>
-              <Icon className="h-4 w-4 text-[#aeb8c0]" name="edit" />
+            <div className="grid grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] items-center gap-3 py-3 text-[13px]">
+              <span className="font-medium text-[#52677b]">Role</span>
+              <strong className="text-[#102d58]">{user?.role === "admin" ? "Admin" : "Doctor"}</strong>
+              <ButtonSecondary
+                  aria-label={"Edit role"}
+                  className="h-9 w-9 border-0 bg-transparent p-0 shadow-none"
+                  disabled
+                  icon={"edit"}
+                  iconOnly
+                  onClick={() => showToast("Role cannot be changed.", "error")}
+                  type="button"
+                />
             </div>
           </div>
         </Surface>
-        <Surface className="min-h-[205px]">
+        <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)]">
+          <SectionTitle>Change Password</SectionTitle>
+          <p className="mb-4 text-sm text-[#52677b]">Use a strong password to protect your account.</p>
+          <form className="grid max-w-[480px] gap-4" onSubmit={changePassword}>
+            <InputSection autoComplete="current-password" label="Current password" name="current-password" onChange={(event) => setCurrentPassword(event.target.value)} required type="password" value={currentPassword} />
+            <InputSection autoComplete="new-password" label="New password (at least 12 characters)" minLength={12} name="new-password" onChange={(event) => setNewPassword(event.target.value)} required type="password" value={newPassword} />
+            <ButtonPrimary className="w-fit" disabled={isSaving} type="submit">Change password</ButtonPrimary>
+          </form>
+        </Surface>
+        <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)] lg:col-span-2">
           <SectionTitle>App Settings</SectionTitle>
-          <div className="mt-7 space-y-4">
-            <label className="flex items-center gap-5 text-[13px]">
-              <span className="w-[68px]">Language:</span>
-              <select className="h-8 min-w-[138px] rounded-full bg-white/80 px-3 font-bold text-[#09264d] outline-none focus:ring-2 focus:ring-[#00a9c4]" onChange={(event) => setLanguage(event.target.value)} value={language}>
+          <p className="mb-5 text-sm text-[#52677b]">Personalize how NeuroTrace looks on this device.</p>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <label className="grid max-w-sm gap-2 text-[13px] font-semibold text-[#173456]">
+              Language
+              <select className="h-10 rounded-lg border border-[#d6e1e6] bg-white/85 px-3 font-bold text-[#09264d] outline-none transition focus:border-[#00a9c4] focus:ring-2 focus:ring-[#00b7c8]/15" onChange={(event) => setLanguage(event.target.value)} value={language}>
                 <option>English</option><option>Polski</option>
               </select>
             </label>
-            <label className="flex items-center gap-5 text-[13px]">
-              <span className="w-[68px]">Theme:</span>
-              <select
-                className="h-8 min-w-[138px] rounded-full bg-white/80 px-3 font-bold text-[#09264d] outline-none focus:ring-2 focus:ring-[#00a9c4]"
-                onChange={(event) => {
-                  setTheme(event.target.value);
-                  localStorage.setItem("theme", event.target.value.toLowerCase());
-                  document.documentElement.dataset.theme = event.target.value.toLowerCase();
-                  document.documentElement.classList.toggle(
-                    "dark",
-                    event.target.value === "Dark" ||
-                      (event.target.value === "System" &&
-                        window.matchMedia("(prefers-color-scheme: dark)").matches),
-                  );
-                }}
-                value={theme}
-              >
-                <option>System</option><option>Light</option><option>Dark</option>
-              </select>
-            </label>
+            <fieldset>
+              <legend className="mb-2 text-[13px] font-semibold text-[#173456]">Color theme</legend>
+              <div className="flex flex-wrap gap-2">
+                {["System", "Light", "Dark"].map((option) => (
+                  <ButtonSecondary
+                    aria-pressed={theme === option}
+                    className={theme === option ? "border-[#9adce3] bg-[#e8f8fa] text-[#07516a]" : ""}
+                    key={option}
+                    onClick={() => selectTheme(option)}
+                    type="button"
+                  >
+                    {option}
+                  </ButtonSecondary>
+                ))}
+              </div>
+            </fieldset>
           </div>
         </Surface>
       </div>

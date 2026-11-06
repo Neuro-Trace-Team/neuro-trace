@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom"
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import AppSidebar from "../components/AppSidebar";
 import ellipseUrl from "../assets/deco-ellipse.svg";
 
@@ -20,7 +20,7 @@ function RootLayout() {
           alt=""
         />
       </div>
-      <AppSidebar role={user?.role ?? null} />
+      <AppSidebar role={user?.role ?? "doctor"} />
       <main className="relative z-10 min-w-0 flex-1 px-4 pb-8 pt-6 sm:px-6 md:pb-8 md:pl-[6vw] md:pr-[9vw] md:pt-12">
         <Outlet />
       </main>

@@ -90,12 +90,15 @@ class NeuroTraceClient:
         job_id: str,
         status: Literal["COMPLETED", "FAILED"],
         error_message: str | None = None,
+        *,
+        output_bucket: str | None = None,
+        output_storage_key: str | None = None,
     ) -> dict:
-        payload: dict[str, str] = {
-            "status": status,
-            "output_bucket": "",
-            "output_storage_key": "",
-        }
+        payload: dict[str, str] = {"status": status}
+        if output_bucket is not None:
+            payload["output_bucket"] = output_bucket
+        if output_storage_key is not None:
+            payload["output_storage_key"] = output_storage_key
         if error_message is not None:
             payload["error_message"] = error_message
         return self._request(
@@ -116,11 +119,7 @@ class JobManager:
         self._jobs: dict[str, dict] = {}
         self._lock = threading.Lock()
 
-    def create(self, examination_id: str, job_id: str | None = None, *, analysis_id: str | None = None) -> str:
-        try:
-            analysis_uuid = uuid.UUID(analysis_id)
-        except (ValueError, AttributeError, TypeError) as exc:
-            raise ValueError("analysis_id must be a UUID supplied by the backend") from exc
+    def create(self, examination_id: str, job_id: str | None = None) -> str:
         try:
             examination_uuid = uuid.UUID(examination_id)
         except (ValueError, AttributeError, TypeError) as exc:
@@ -134,7 +133,6 @@ class JobManager:
         with self._lock:
             self._jobs[job_id] = {
                 "job_id": job_id,
-                "analysis_id": str(analysis_uuid),
                 "examination_id": str(examination_uuid),
                 "status": "QUEUED",
                 "pipeline_version": self.settings.pipeline_version,
@@ -164,9 +162,9 @@ class JobManager:
             if self.backend is None:
                 raise RuntimeError("NeuroTrace backend client is not configured")
             backend_job = self.backend.get_job(job_id)
-            analysis_id = self.get(job_id)["analysis_id"]
-            if str(backend_job.get("analysis_id")) != analysis_id:
-                raise ValueError("Backend analysis_id does not match the preprocessing job")
+            examination_id = self.get(job_id)["examination_id"]
+            if str(backend_job.get("examination_id")) != examination_id:
+                raise ValueError("Backend examination_id does not match the preprocessing job")
             if backend_job.get("status") == "CANCELLED":
                 self._update(job_id, status="CANCELLED", finished_at=self._now())
                 self.backend.update_status(job_id, "CANCELLED")
@@ -201,19 +199,34 @@ class JobManager:
             combined_features_path = (
                 output_root / "study" / "subject" / "run" / "combined_features.csv"
             )
+            source_file = examination.get("source_file")
+            output_bucket = source_file.get("bucket") if isinstance(source_file, dict) else None
+            if not isinstance(output_bucket, str) or not output_bucket.strip():
+                raise ValueError("Examination response does not contain a storage bucket")
+            output_storage_key = (
+                f"preprocessing/{examination_id}/{job_id}/combined_features.csv"
+            )
+            self.storage.upload_result(
+                combined_features_path, output_bucket, output_storage_key
+            )
             published_rows = publish_combined_features(
-                self.settings, combined_features_path, analysis_id=analysis_id
+                self.settings, combined_features_path, examination_id=examination_id
+            )
+            self.backend.submit_result(
+                job_id, "COMPLETED",
+                output_bucket=output_bucket, output_storage_key=output_storage_key,
             )
             self._update(
                 job_id,
                 status="COMPLETED",
                 finished_at=self._now(),
                 output_path=str(output_root),
+                output_bucket=output_bucket,
+                output_storage_key=output_storage_key,
                 pipeline_stdout=completed.stdout[-4000:],
                 published_rows=published_rows,
                 rabbitmq_queue=self.settings.rabbitmq_queue,
             )
-            self.backend.submit_result(job_id, "COMPLETED")
         except Exception as exc:
             message = str(exc)
             self._update(job_id, status="FAILED", finished_at=self._now(), error=message)

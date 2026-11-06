@@ -1,13 +1,13 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 function RootRedirect() {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, authError } = useAuth();
 
     if (isLoading) return <div>Loading...</div>;
 
     if (!user) {
-        return <Navigate to="/auth/login" replace />;
+        return <Navigate to="/auth/login" replace state={authError ? { authError } : undefined} />;
     }
     if (user.role === 'doctor') {
         return <Navigate to="/doctor" replace />;

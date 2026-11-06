@@ -2,12 +2,14 @@ from __future__ import annotations
 import csv
 import logging
 import math
+import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
 LOGGER = logging.getLogger(__name__)
-SUPPORTED_EXTENSIONS = {".bdf"}
+SUPPORTED_EXTENSIONS = {".bdf", ".edf"}
 
 @dataclass
 class Recording:
@@ -82,7 +84,20 @@ def load_recording(directory: str | Path, preload: bool = False) -> Recording:
         import mne
     except ImportError as exc:
         raise ImportError("Reading EEG files requires mne (pip install -r requirements.txt)") from exc
-    raw = mne.io.read_raw_bdf(eeg_path, preload=preload, verbose="ERROR")
+    with eeg_path.open("rb") as stream:
+        is_edf = stream.read(8) == b"0       "
+    if is_edf and eeg_path.suffix.lower() != ".edf":
+        # MNE requires an .edf suffix even when the header identifies EDF.
+        # Load all samples before removing the temporary copy so later reads
+        # do not depend on a file that no longer exists.
+        with tempfile.TemporaryDirectory(prefix="eeg-edf-") as temporary_dir:
+            edf_path = Path(temporary_dir) / "eeg_data.edf"
+            shutil.copyfile(eeg_path, edf_path)
+            raw = mne.io.read_raw_edf(edf_path, preload=True, verbose="ERROR")
+    elif eeg_path.suffix.lower() == ".edf":
+        raw = mne.io.read_raw_edf(eeg_path, preload=preload, verbose="ERROR")
+    else:
+        raw = mne.io.read_raw_bdf(eeg_path, preload=preload, verbose="ERROR")
     _validate_bdf_metadata(raw, eeg_path)
     events = _read_event_onsets(directory)
     ratings = None
