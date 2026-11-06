@@ -117,6 +117,7 @@ class JobManager:
         self.storage = storage
         self.backend = backend
         self._jobs: dict[str, dict] = {}
+        self._latest_job_by_examination: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def create(self, examination_id: str, job_id: str | None = None) -> str:
@@ -138,11 +139,18 @@ class JobManager:
                 "pipeline_version": self.settings.pipeline_version,
                 "created_at": self._now(),
             }
+            self._latest_job_by_examination[str(examination_uuid)] = job_id
         return job_id
 
     def get(self, job_id: str) -> dict | None:
         with self._lock:
             job = self._jobs.get(job_id)
+            return dict(job) if job else None
+
+    def get_for_examination(self, examination_id: str) -> dict | None:
+        with self._lock:
+            job_id = self._latest_job_by_examination.get(examination_id)
+            job = self._jobs.get(job_id) if job_id else None
             return dict(job) if job else None
 
     def _update(self, job_id: str, **values) -> None:
