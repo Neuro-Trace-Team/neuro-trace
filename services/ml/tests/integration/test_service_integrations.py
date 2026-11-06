@@ -2,11 +2,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
-from infrastructure.clients.backend_auth_client import BackendAuthClient
-from infrastructure.clients.rest_result_publisher import RestResultPublisher
 from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
-import respx
 
 from core.config import Settings
 
@@ -15,11 +11,13 @@ from core.config import Settings
 def test_rabbitmq_settings_are_mapped_from_service_environment():
     settings = Settings(
         _env_file=None,
+        MODEL_DB_URL="postgresql+asyncpg://test:test@db:5432/test",
         RABBITMQ_HOST="rabbitmq",
         RABBITMQ_PORT="5672",
         RABBITMQ_USER="integration-user",
         RABBITMQ_PASSWORD="integration-password",
-        RABBITMQ_QUEUE="preprocessing.combined_features",
+        PENDING_ANALYSIS_QUEUE_NAME="preprocessing.combined_features",
+        COMPLETED_ANALYSIS_QUEUE_NAME="ml.ready_examinations",
     )
 
     assert settings.queue_url == (
@@ -121,75 +119,17 @@ def test_rabbitmq_consumer_dispatches_mock_message_to_registered_handler():
         message.body = json.dumps(
             {"event_type": "predict_event", "recording_id": "recording-1"}
         ).encode()
-        message.process.return_value = _MessageProcessContext()
+        message.ack = AsyncMock()
+        message.nack = AsyncMock()
+        message.reject = AsyncMock()
 
         await consumer._dispatch_message(message)
 
         handler.handle.assert_awaited_once_with(
             {"event_type": "predict_event", "recording_id": "recording-1"}
         )
+        message.ack.assert_awaited_once()
+        message.nack.assert_not_awaited()
+        message.reject.assert_not_awaited()
 
     asyncio.run(scenario())
-
-
-class _MessageProcessContext:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-def test_backend_authentication_and_result_publication_flow():
-    async def scenario():
-        base_url = "http://mock-backend"
-        analysis_id = "de7b1a8e-c6f0-48e8-b0a9-cac4f75680a3"
-        result_route = respx.post(
-            f"{base_url}/api/v1/internal/analyses/{analysis_id}/result"
-        ).respond(status_code=200)
-
-        auth_client = BackendAuthClient("integration-service-token")
-        publisher = RestResultPublisher(base_url, auth_client)
-        payload = {
-            "result": {"prediction": {"label": "mock-positive"}},
-            "confidence": 0.9,
-        }
-
-        await publisher.publish_result(analysis_id, payload)
-
-        assert result_route.call_count == 1
-        request = result_route.calls.last.request
-        assert request.headers["Authorization"] == "Bearer integration-service-token"
-        assert json.loads(request.content) == payload
-
-    with respx.mock:
-        asyncio.run(scenario())
-
-
-def test_backend_rejects_result_with_401_without_reauthentication():
-    async def scenario():
-        base_url = "http://mock-backend"
-        analysis_id = "de7b1a8e-c6f0-48e8-b0a9-cac4f75680a3"
-        result_route = respx.post(
-            f"{base_url}/api/v1/internal/analyses/{analysis_id}/result"
-        ).respond(status_code=401, text="Unauthorized")
-
-        auth_client = BackendAuthClient("integration-service-token")
-        publisher = RestResultPublisher(base_url, auth_client)
-
-        try:
-            await publisher.publish_result(
-                analysis_id, {"result": {"prediction": [1]}}
-            )
-        except httpx.HTTPStatusError as error:
-            assert error.response.status_code == 401
-        else:
-            raise AssertionError("Backend 401 response should be propagated")
-
-        assert result_route.call_count == 1
-        assert result_route.calls.last.request.headers["Authorization"] == (
-            "Bearer integration-service-token"
-        )
-
-    with respx.mock:
-        asyncio.run(scenario())
