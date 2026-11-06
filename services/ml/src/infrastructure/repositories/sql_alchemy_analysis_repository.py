@@ -25,7 +25,7 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
                 confidence=analysis.confidence,
                 total_analyses_count=analysis.total_analyses_count,
             )
-            .on_conflict_do_nothing(index_elements=["examination_id", "time_stamp"])
+            .on_conflict_do_nothing(index_elements=["examination_id", "event_timestamp"])
             .returning(AnalysisRow)
         )
         row = (await self._session.execute(stmt)).scalar_one_or_none()
