@@ -1,9 +1,9 @@
 import dataclasses
 from uuid import uuid4
 
+from domain.entities.analysis import NewAnalysis
 import pytest
 
-from src.domain.entities.analysis import Analysis, NewAnalysis
 
 
 def test_new_analysis_is_immutable():
