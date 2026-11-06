@@ -9,7 +9,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from src.config import get_settings
-from src.models.medical import Examination, ExaminationEvent, ExaminationStatus
+from src.models.medical import Examination, ExaminationEvent, ExaminationStatus, Patient
 from src.repositories import examinations as repository
 from src.services import patients as patients_service
 from src.services.storage import RustFSStorage
@@ -22,8 +22,7 @@ class ExaminationEventNotFoundError(Exception): pass
 def _now() -> datetime: return datetime.now(UTC)
 def _safe_filename(filename: str) -> str: return re.sub(r"[^A-Za-z0-9._-]", "_", Path(filename).name)[:255]
 
-async def upload_examination(session: Session, *, patient_id: UUID, uploaded_by: UUID, file: UploadFile, examination_date: datetime | None) -> Examination:
-    patients_service.get_patient(session, patient_id)
+async def upload_examination(session: Session, *, patient_id: UUID | None, generate_patient: bool, uploaded_by: UUID, file: UploadFile, examination_date: datetime | None, events: list[dict]) -> tuple[Examination, bool]:
     if not file.filename: raise ExaminationValidationError("A file name is required")
     filename = _safe_filename(file.filename)
     extension = Path(filename).suffix.lower().lstrip(".")
@@ -35,11 +34,31 @@ async def upload_examination(session: Session, *, patient_id: UUID, uploaded_by:
             if total_size > settings.max_upload_size_bytes: raise ExaminationValidationError("The uploaded file exceeds the configured size limit")
             checksum.update(chunk); temporary.write(chunk)
         if not total_size: raise ExaminationValidationError("The uploaded file is empty")
+        created_patient = False
+        if patient_id is None:
+            if not generate_patient:
+                raise ExaminationValidationError("patient_id or generate_patient=true is required")
+            patient = Patient()
+            session.add(patient)
+            session.flush()
+            patient_id = patient.id
+            created_patient = True
+        else:
+            if generate_patient:
+                raise ExaminationValidationError("patient_id and generate_patient cannot be used together")
+            patients_service.get_patient(session, patient_id)
         examination_id = uuid4(); storage_key = f"examinations/{patient_id}/{examination_id}/{filename}"; temporary.seek(0)
-        storage = RustFSStorage(); storage.upload(temporary, key=storage_key, content_type=file.content_type)
+        storage = RustFSStorage()
+        try:
+            storage.upload(temporary, key=storage_key, content_type=file.content_type)
+        except Exception:
+            session.rollback()
+            raise
         try:
             examination = Examination(id=examination_id, patient_id=patient_id, uploaded_by=uploaded_by, original_filename=filename, file_format=extension, file_size_bytes=total_size, storage_bucket=settings.rustfs_bucket, storage_key=storage_key, file_checksum=checksum.hexdigest(), examination_date=examination_date)
-            session.add(examination); session.commit(); session.refresh(examination); return examination
+            session.add(examination)
+            session.add_all(ExaminationEvent(examination_id=examination_id, **event) for event in events)
+            session.commit(); session.refresh(examination); return examination, created_patient
         except Exception:
             session.rollback(); storage.delete(key=storage_key); raise
 

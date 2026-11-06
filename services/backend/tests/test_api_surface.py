@@ -18,13 +18,15 @@ def test_openapi_does_not_reintroduce_removed_resources() -> None:
     paths = app.openapi()["paths"]
     forbidden = ("preprocessing-jobs", "/analyses", "pain-assessments", "/channels", "eeg-channels", "/internal/")
     assert not [path for path in paths if any(fragment in path for fragment in forbidden)]
+    assert "/api/v1/auth/forgot-password" not in paths
+    assert "/api/v1/auth/reset-password" not in paths
 
 
 def test_openapi_contains_exactly_the_supported_backend_operations() -> None:
     operations = {(path, method.upper()) for path, item in app.openapi()["paths"].items() for method in item if method in {"get", "post", "patch", "put", "delete"}}
     expected = {
         ("/health/live", "GET"), ("/health/ready", "GET"),
-        ("/api/v1/auth/login", "POST"), ("/api/v1/auth/refresh", "POST"), ("/api/v1/auth/logout", "POST"), ("/api/v1/auth/me", "GET"), ("/api/v1/auth/forgot-password", "POST"), ("/api/v1/auth/reset-password", "POST"), ("/api/v1/auth/change-password", "POST"),
+        ("/api/v1/auth/login", "POST"), ("/api/v1/auth/refresh", "POST"), ("/api/v1/auth/logout", "POST"), ("/api/v1/auth/me", "GET"), ("/api/v1/auth/change-password", "POST"),
         ("/api/v1/users", "GET"), ("/api/v1/users", "POST"), ("/api/v1/users/me", "GET"), ("/api/v1/users/me", "PATCH"), ("/api/v1/users/{user_id}", "GET"), ("/api/v1/users/{user_id}", "PATCH"),
         ("/api/v1/patients", "POST"), ("/api/v1/patients", "GET"), ("/api/v1/patients/stats", "GET"), ("/api/v1/patients/{patient_id}", "GET"), ("/api/v1/patients/{patient_id}/stats", "GET"), ("/api/v1/patients/{patient_id}/examinations", "GET"),
         ("/api/v1/examinations", "POST"), ("/api/v1/examinations", "GET"), ("/api/v1/examinations/{examination_id}", "GET"), ("/api/v1/examinations/{examination_id}", "PATCH"), ("/api/v1/examinations/{examination_id}", "DELETE"), ("/api/v1/examinations/{examination_id}/preprocessing-status", "GET"), ("/api/v1/examinations/{examination_id}/results", "GET"), ("/api/v1/examinations/{examination_id}/events", "GET"), ("/api/v1/examinations/{examination_id}/events", "POST"), ("/api/v1/examinations/{examination_id}/events/{event_id}", "PATCH"), ("/api/v1/examinations/{examination_id}/events/{event_id}", "DELETE"),

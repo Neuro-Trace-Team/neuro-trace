@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.models.auth import PasswordResetToken, RefreshToken, User
+from src.models.auth import RefreshToken, User
 
 
 def get_user_by_email(session: Session, email: str) -> User | None:
@@ -45,13 +45,6 @@ def get_refresh_token(session: Session, token_hash: str, *, lock: bool = False) 
 def create_refresh_token(session: Session, token: RefreshToken) -> RefreshToken:
     session.add(token)
     return token
-
-
-def get_password_reset_token(session: Session, token_hash: str, *, lock: bool = False) -> PasswordResetToken | None:
-    statement = select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
-    if lock:
-        statement = statement.with_for_update()
-    return session.scalar(statement)
 
 
 def revoke_refresh_tokens_for_user(session: Session, user_id: UUID, revoked_at: datetime) -> None:

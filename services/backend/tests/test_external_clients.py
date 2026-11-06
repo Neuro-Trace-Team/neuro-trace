@@ -55,7 +55,7 @@ def test_ml_results_validates_contract(monkeypatch, examination_id) -> None:
     captured = {}
     def get(url, **kwargs):
         captured["url"] = url
-        return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 1.5, "result": 6.4, "confidence": 0.91}]}, request=httpx.Request("GET", url))
+        return httpx.Response(200, json={"examination_id": str(examination_id), "analyses": [{"analysis_id": 7, "result": 6.4, "confidence": 0.91}]}, request=httpx.Request("GET", url))
     monkeypatch.setattr(ml.httpx, "get", get)
     assert ml.MLClient().results(examination_id)["analyses"][0]["analysis_id"] == 7
     assert captured["url"] == f"http://ml.test/api/v1/examinations/{examination_id}/analyses"
