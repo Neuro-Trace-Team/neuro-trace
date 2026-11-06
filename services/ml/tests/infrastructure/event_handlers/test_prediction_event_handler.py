@@ -86,7 +86,7 @@ async def test_handle_success(mock_predictor, mock_session_factory, mock_event_p
 
     stored = repo.add.await_args.args[0]
     assert stored.examination_id == UUID(payload["examination_id"])
-    assert stored.time_stamp == 10.5
+    assert stored.event_timestamp == 10.5
     assert stored.result == 1.0
     assert stored.confidence == 0.9
     assert stored.total_analyses_count == 3

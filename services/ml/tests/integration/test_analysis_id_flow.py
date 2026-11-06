@@ -54,7 +54,7 @@ async def test_analysis_uuid_is_stored_as_examination_id():
 
     stored = repo.add.await_args.args[0]
     assert stored.examination_id == examination_id
-    assert stored.time_stamp == 12.5
+    assert stored.event_timestamp == 12.5
     assert stored.result == 1.0
     assert stored.confidence == 0.8
     assert stored.total_analyses_count == 3
