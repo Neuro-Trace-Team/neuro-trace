@@ -10,10 +10,8 @@ from infrastructure.db.session import create_engine, create_session_factory
 from infrastructure.event_handlers.ievent_handler import IEventHandler
 from infrastructure.event_handlers.prediction_event_handler import PredictionEventHandler
 from fastapi.responses import JSONResponse
-from infrastructure.clients.backend_auth_client import BackendAuthClient
 from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
 from domain.services.ipredictor import IPredictor
-from infrastructure.clients.rest_result_publisher import RestResultPublisher
 from infrastructure.messaging.rabbit_mq_publisher import RabbitMQPublisher
 from infrastructure.services.sklearn_predictor import SklearnPredictor
 from api.routes.analyses import router as analyses_router
@@ -24,14 +22,6 @@ from sqlalchemy import text
 setup_logging()
 logger = logging.getLogger(__name__)
 
-
-auth_client = BackendAuthClient(
-    service_token=settings.backend_service_token,
-)
-result_publisher = RestResultPublisher(
-    base_url=settings.backend_base_url, 
-    auth_client=auth_client
-)
 
 predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
 
