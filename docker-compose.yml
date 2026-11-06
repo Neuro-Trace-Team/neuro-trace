@@ -302,7 +302,6 @@ volumes:
   model-db-data:
   rustfs-data:
   rabbitmq-data:
-  model-db-data:
 
 
 networks:
