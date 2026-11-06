@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from posixpath import dirname, join
 
 from service.config import Settings
 
@@ -37,6 +38,44 @@ class RustFSStorage:
                 f"{study_id}/{filename}",
                 str(destination / filename),
             )
+
+    def download_object(self, bucket: str, storage_key: str, destination: Path) -> Path:
+        """Download exactly one RustFS object using the supplied S3 coordinates."""
+        if not isinstance(bucket, str) or not bucket.strip():
+            raise ValueError("storage_bucket must not be blank")
+        if not isinstance(storage_key, str) or not storage_key.strip():
+            raise ValueError("storage_key must not be blank")
+        filename = Path(storage_key).name
+        if not filename:
+            raise ValueError("storage_key must identify an object")
+        destination.mkdir(parents=True, exist_ok=True)
+        local_path = destination / filename
+        self._client().download_file(bucket, storage_key, str(local_path))
+        return local_path
+
+    def download_recording_inputs(
+        self, bucket: str, storage_key: str, destination: Path
+    ) -> tuple[Path, Path]:
+        """Download the EEG object and its sibling events.csv from RustFS."""
+        if not isinstance(bucket, str) or not bucket.strip():
+            raise ValueError("storage_bucket must not be blank")
+        if not isinstance(storage_key, str) or not storage_key.strip():
+            raise ValueError("storage_key must not be blank")
+        filename = storage_key.rsplit("/", 1)[-1]
+        if not filename:
+            raise ValueError("storage_key must identify an object")
+
+        event_key = join(dirname(storage_key), "events.csv")
+        if event_key == storage_key:
+            raise ValueError("storage_key must identify the EEG object, not events.csv")
+
+        destination.mkdir(parents=True, exist_ok=True)
+        eeg_path = destination / filename
+        events_path = destination / "events.csv"
+        client = self._client()
+        client.download_file(bucket, storage_key, str(eeg_path))
+        client.download_file(bucket, event_key, str(events_path))
+        return eeg_path, events_path
 
     def upload_result(self, csv_path: Path, bucket: str, storage_key: str) -> None:
         """Upload the pipeline output unchanged to backend-provided storage."""

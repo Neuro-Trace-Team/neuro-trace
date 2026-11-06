@@ -117,10 +117,18 @@ class JobManager:
         self.storage = storage
         self.backend = backend
         self._jobs: dict[str, dict] = {}
+        self._job_storage_coordinates: dict[str, tuple[str | None, str | None]] = {}
         self._latest_job_by_examination: dict[str, str] = {}
         self._lock = threading.Lock()
 
-    def create(self, examination_id: str, job_id: str | None = None) -> str:
+    def create(
+        self,
+        examination_id: str,
+        job_id: str | None = None,
+        *,
+        storage_bucket: str | None = None,
+        storage_key: str | None = None,
+    ) -> str:
         try:
             examination_uuid = uuid.UUID(examination_id)
         except (ValueError, AttributeError, TypeError) as exc:
@@ -131,6 +139,12 @@ class JobManager:
         except (ValueError, AttributeError, TypeError) as exc:
             raise ValueError("job_id must be a UUID") from exc
         job_id = str(requested_job_id)
+        if (storage_bucket is None) != (storage_key is None):
+            raise ValueError("storage_bucket and storage_key must be provided together")
+        if storage_bucket is not None and (
+            not storage_bucket.strip() or not storage_key or not storage_key.strip()
+        ):
+            raise ValueError("storage_bucket and storage_key must not be blank")
         with self._lock:
             self._jobs[job_id] = {
                 "job_id": job_id,
@@ -139,6 +153,7 @@ class JobManager:
                 "pipeline_version": self.settings.pipeline_version,
                 "created_at": self._now(),
             }
+            self._job_storage_coordinates[job_id] = (storage_bucket, storage_key)
             self._latest_job_by_examination[str(examination_uuid)] = job_id
         return job_id
 
@@ -152,6 +167,10 @@ class JobManager:
             job_id = self._latest_job_by_examination.get(examination_id)
             job = self._jobs.get(job_id) if job_id else None
             return dict(job) if job else None
+
+    def _get_storage_coordinates(self, job_id: str) -> tuple[str | None, str | None]:
+        with self._lock:
+            return self._job_storage_coordinates.get(job_id, (None, None))
 
     def _update(self, job_id: str, **values) -> None:
         with self._lock:
@@ -178,8 +197,22 @@ class JobManager:
                 self.backend.update_status(job_id, "CANCELLED")
                 return
             self.backend.update_status(job_id, "RUNNING")
-            examination = self.backend.get_examination(examination_id)
-            self.storage.download_examination(examination, input_recording)
+            storage_bucket, storage_key = self._get_storage_coordinates(job_id)
+            if storage_bucket and storage_key:
+                # The backend's upload request already supplies the exact S3
+                # object coordinates. Download that object directly so the
+                # recording is not inferred from a backend metadata lookup.
+                self.storage.download_recording_inputs(
+                    storage_bucket, storage_key, input_recording
+                )
+                output_bucket = storage_bucket
+            else:
+                # Keep the older preprocessing-jobs endpoint working for
+                # callers that do not provide the upload coordinates.
+                examination = self.backend.get_examination(examination_id)
+                self.storage.download_examination(examination, input_recording)
+                source_file = examination.get("source_file")
+                output_bucket = source_file.get("bucket") if isinstance(source_file, dict) else None
             command = [
                 sys.executable,
                 "-m",
@@ -207,8 +240,6 @@ class JobManager:
             combined_features_path = (
                 output_root / "study" / "subject" / "run" / "combined_features.csv"
             )
-            source_file = examination.get("source_file")
-            output_bucket = source_file.get("bucket") if isinstance(source_file, dict) else None
             if not isinstance(output_bucket, str) or not output_bucket.strip():
                 raise ValueError("Examination response does not contain a storage bucket")
             output_storage_key = (
