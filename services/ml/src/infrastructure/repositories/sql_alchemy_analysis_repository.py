@@ -20,7 +20,7 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
             insert(AnalysisRow)
             .values(
                 examination_id=analysis.examination_id,
-                time_stamp=analysis.time_stamp,
+                time_stamp=analysis.event_timestamp,
                 result=analysis.result,
                 confidence=analysis.confidence,
                 total_analyses_count=analysis.total_analyses_count,
@@ -33,7 +33,7 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
             row = (await self._session.execute(
                 select(AnalysisRow).where(
                     AnalysisRow.examination_id == analysis.examination_id,
-                    AnalysisRow.time_stamp == analysis.time_stamp,
+                    AnalysisRow.time_stamp == analysis.event_timestamp,
                 )
             )).scalar_one()
         return _to_domain(row)

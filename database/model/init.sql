@@ -3,13 +3,13 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS analyses (
     analysis_id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     examination_id       UUID             NOT NULL,
-    time_stamp           DOUBLE PRECISION NOT NULL,
+    event_timestamp           DOUBLE PRECISION NOT NULL,
     result               DOUBLE PRECISION NOT NULL,
     confidence           DOUBLE PRECISION NOT NULL,
     total_analyses_count INTEGER          NOT NULL,
 
     CONSTRAINT ck_analyses_time_stamp_non_negative
-        CHECK (time_stamp >= 0),
+        CHECK (event_timestamp >= 0),
     CONSTRAINT ck_analyses_confidence_range
         CHECK (confidence BETWEEN 0 AND 1),
     CONSTRAINT ck_analyses_total_count_positive
@@ -17,6 +17,6 @@ CREATE TABLE IF NOT EXISTS analyses (
 );
 .
 CREATE UNIQUE INDEX IF NOT EXISTS ux_analyses_examination_time
-    ON analyses (examination_id, time_stamp);
+    ON analyses (examination_id, event_timestamp);
 
 COMMIT;

@@ -51,7 +51,7 @@ class PredictionEventHandler(IEventHandler):
 
             new = NewAnalysis(
                 examination_id=examination_id,
-                time_stamp=time_stamp,
+                event_timestamp=time_stamp,
                 result=self._extract_result(result),
                 confidence=self._extract_confidence(result),
                 total_analyses_count=total,
