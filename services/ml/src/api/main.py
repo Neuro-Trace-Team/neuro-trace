@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
     # 2. Database objects
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
+    app.state.engine = engine
     app.state.session_factory = session_factory
 
     # 3. RabbitMQ Publisher setup
