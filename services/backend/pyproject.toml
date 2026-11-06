@@ -19,7 +19,6 @@ dependencies = [
     "boto3",
     "python-multipart",
     "httpx",
-    "reportlab",
 ]
 
 [project.optional-dependencies]
