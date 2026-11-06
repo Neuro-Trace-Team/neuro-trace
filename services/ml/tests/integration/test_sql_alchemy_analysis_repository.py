@@ -80,7 +80,7 @@ async def test_get_missing_returns_none(repo):
 
 
 async def test_lock_examination_executes_on_postgres(repo):
-    await repo.lock_examination(uuid4())  # smoke test: SQL is valid
+    await repo.lock_examination(uuid4())
 
 
 @pytest.mark.parametrize(
@@ -90,3 +90,9 @@ async def test_lock_examination_executes_on_postgres(repo):
 async def test_add_rejects_values_violating_check_constraints(repo, ts, confidence, count):
     with pytest.raises(IntegrityError):
         await repo.add(NewAnalysis(uuid4(), ts, 0.5, confidence, count))
+
+async def test_add_accepts_missing_confidence(repo):
+    saved = await repo.add(NewAnalysis(uuid4(), 1.0, 0.5, None, 1))
+
+    assert saved.confidence is None
+    assert await repo.get(saved.analysis_id) == saved
