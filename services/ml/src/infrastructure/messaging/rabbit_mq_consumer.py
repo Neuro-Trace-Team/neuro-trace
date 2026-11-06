@@ -1,11 +1,13 @@
 import asyncio
 import json
 import logging
+
 from typing import Dict
+from sqlalchemy.exc import DBAPIError
 
 import aio_pika
 
-from event_handlers.ievent_handler import IEventHandler
+from infrastructure.event_handlers.ievent_handler import IEventHandler
 
 logger = logging.getLogger(__name__)
 
@@ -46,27 +48,23 @@ class RabbitMQConsumer:
 
     async def _dispatch_message(self, message: aio_pika.abc.AbstractIncomingMessage) -> None:
         """Dispatches incoming messages to the appropriate registered handler."""
-        async with message.process():
-            try:
-                body_str = message.body.decode()
-                logger.debug(f"Received raw message: {body_str}")
-
-                payload = json.loads(body_str)
-
-                # TODO: Determine event type (also decide how to determine)
-                event_type = payload.get("event_type", "predict_event")
-                logger.debug(f"Extracted event type: '{event_type}'")
-
-                handler = self.handlers.get(event_type)
-                if not handler:
-                    raise KeyError(f"No handler registered for event type: {event_type}")
-
-                logger.info(f"Dispatching event '{event_type}' to handler.")
-                await handler.handle(payload)
-                logger.info(f"Successfully processed event '{event_type}'.")
-
-            except Exception as e:
-                logger.exception(f"Error handling message dispatch: {e}")
+        try:
+            payload = json.loads(message.body.decode())
+            event_type = payload.get("event_type", "predict_event")
+            handler = self.handlers.get(event_type)
+            if not handler:
+                raise KeyError(f"No handler registered for event type: {event_type}")
+            await handler.handle(payload)
+            await message.ack()
+        except (DBAPIError, OSError, asyncio.TimeoutError, aio_pika.exceptions.AMQPError):
+            # Transient: put it back, but pause so a long outage doesn't spin hot
+            logger.exception("Transient failure, requeueing")
+            await asyncio.sleep(5)               # safe: prefetch=1, nothing else is waiting
+            await message.nack(requeue=True)
+        except Exception:
+            # Permanent (bad JSON, missing fields, unknown event, bad features)
+            logger.exception("Permanent failure, rejecting")
+            await message.reject(requeue=False)  # dropped, or dead-lettered if you configure a DLX
 
     async def close(self) -> None:
         if self.connection and not self.connection.is_closed:

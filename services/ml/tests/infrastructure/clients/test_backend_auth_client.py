@@ -1,6 +1,6 @@
 import pytest
 
-from infrastructure.backend_auth_client import BackendAuthClient
+from infrastructure.clients.backend_auth_client import BackendAuthClient
 
 
 @pytest.mark.asyncio
