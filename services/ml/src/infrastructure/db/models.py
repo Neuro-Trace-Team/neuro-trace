@@ -10,7 +10,7 @@ class AnalysisRow(Base):
 
     analysis_id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     examination_id: Mapped[UUID] = mapped_column(index=True)
-    time_stamp: Mapped[float] = mapped_column(Float)
+    event_timestamp: Mapped[float] = mapped_column(Float)
     result: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
     total_analyses_count: Mapped[int] = mapped_column(Integer)
