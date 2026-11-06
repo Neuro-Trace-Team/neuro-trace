@@ -101,7 +101,7 @@ services:
     container_name: neuro-ml
 
     environment:
-      MODEL_DB_URL: postgresql://postgres:postgres@model-db:5432/model_db
+      MODEL_DB_URL: postgresql://model_db:postgres@model-db:5432/model_db
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
@@ -231,7 +231,7 @@ services:
     container_name: neuro-model-db
 
     environment:
-      POSTGRES_DB: postgres
+      POSTGRES_DB: model_db
       POSTGRES_USER: model_db
       POSTGRES_PASSWORD: postgres
 
