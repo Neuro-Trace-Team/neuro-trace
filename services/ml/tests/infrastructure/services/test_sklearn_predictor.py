@@ -233,6 +233,7 @@ def test_shipped_model_matches_configured_feature_names():
     result = p.predict({name: 0.0 for name in FEATURE_NAMES})
 
     assert len(result["prediction"]) == 1
+    assert hasattr(p.model, "feature_names_in_"), "artifact doesn't record its feature order"
 
 def test_load_rejects_artifact_without_predict():
     with pytest.raises(RuntimeError, match="not an estimator"):

@@ -14,6 +14,7 @@ from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
 from domain.services.ipredictor import IPredictor
 from infrastructure.messaging.rabbit_mq_publisher import RabbitMQPublisher
 from infrastructure.repositories.sql_alchemy_analysis_repository import SqlAlchemyAnalysisRepository
+from infrastructure.services.features import FEATURE_NAMES
 from infrastructure.services.sklearn_predictor import SklearnPredictor
 from api.routes.analyses import router as analyses_router
 from sqlalchemy import text
@@ -24,7 +25,7 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-predictor: IPredictor = SklearnPredictor(model_path=settings.model_path)
+predictor: IPredictor = SklearnPredictor(model_path=settings.model_path, feature_names=FEATURE_NAMES)
 
 consumer_task = None
 rabbit_consumer = None
