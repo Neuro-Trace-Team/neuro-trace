@@ -1,5 +1,7 @@
+from pathlib import Path
 from unittest.mock import patch
 
+from infrastructure.services.features import FEATURE_NAMES
 import numpy as np
 import pytest
 
@@ -143,4 +145,95 @@ def test_invalid_values_raise(predictor, bad):
 def test_real_feature_list_has_no_duplicates_and_expected_length():
     from infrastructure.services.features import FEATURE_NAMES
     assert len(FEATURE_NAMES) == len(set(FEATURE_NAMES))
-    assert len(FEATURE_NAMES) == 129
+    assert len(FEATURE_NAMES) == 107
+
+def load_with(model, **kwargs):
+    p = SklearnPredictor(model_path="m.pkl", **kwargs)
+    with patch("os.path.exists", return_value=True), patch("joblib.load", return_value=model):
+        p.load_model()
+    return p
+
+
+class NamedModel(DummyModelWithProba):
+    def __init__(self, names=None, n=None):
+        if names is not None:
+            self.feature_names_in_ = np.array(names, dtype=object)
+        if n is not None:
+            self.n_features_in_ = n
+
+def test_load_adopts_feature_names_from_model_when_not_configured():
+    p = load_with(NamedModel(names=["a", "b"]))
+    assert p.feature_names == ["a", "b"]
+
+
+def test_load_accepts_matching_configured_names():
+    p = load_with(NamedModel(names=["a", "b"], n=2), feature_names=["a", "b"])
+    assert p.feature_names == ["a", "b"]
+
+
+@pytest.mark.parametrize("configured", [["b", "a"], ["a", "c"], ["a"]])
+def test_load_rejects_names_that_differ_in_order_or_content(configured):
+    with pytest.raises(RuntimeError, match="differ from the model"):
+        load_with(NamedModel(names=["a", "b"]), feature_names=configured)
+
+
+def test_load_rejects_feature_count_mismatch_without_names():
+    with pytest.raises(RuntimeError, match="Model expects 3 features, config has 2"):
+        load_with(NamedModel(n=3), feature_names=["a", "b"])
+
+
+def test_load_without_any_feature_metadata_is_allowed():
+    p = load_with(DummyModelWithProba())
+    assert p.has_model() and p.feature_names is None
+
+
+def test_dict_without_configured_feature_names_raises_validation_error():
+    p = SklearnPredictor()
+    p.model = DummyModelWithProba()
+    with pytest.raises(FeatureValidationError, match="not configured"):
+        p.predict({"a": 1})
+
+
+def test_list_with_wrong_length_raises():
+    p = SklearnPredictor(feature_names=["a", "b", "c"])
+    p.model = DummyModelWithProba()
+    with pytest.raises(FeatureValidationError, match="Expected 3 features, got 2"):
+        p.predict([1.0, 2.0])
+
+
+def test_1d_list_is_reshaped_to_single_row():
+    p = SklearnPredictor()
+    p.model = RecordingModel()
+    p.predict([1.0, 2.0, 3.0])
+    assert p.model.X.shape == (1, 3)
+
+
+def test_numeric_strings_and_bools_are_coerced_to_float():
+    p = SklearnPredictor(feature_names=["a", "b"])
+    p.model = RecordingModel()
+    p.predict({"a": "1.5", "b": True})
+    assert p.model.X.iloc[0].tolist() == [1.5, 1.0]
+
+
+def test_predict_returns_json_friendly_lists():
+    p = SklearnPredictor()
+    p.model = DummyModelWithProba()
+    result = p.predict([1.0, 2.0])
+    assert isinstance(result["prediction"], list)
+    assert isinstance(result["probabilities"], list)
+
+MODEL_PATH = Path(__file__).parents[3] / "models" / "model.joblib"
+
+
+@pytest.mark.skipif(not MODEL_PATH.exists(), reason="model artifact not available")
+def test_shipped_model_matches_configured_feature_names():
+    p = SklearnPredictor(str(MODEL_PATH), FEATURE_NAMES)
+    p.load_model()
+
+    result = p.predict({name: 0.0 for name in FEATURE_NAMES})
+
+    assert len(result["prediction"]) == 1
+
+def test_load_rejects_artifact_without_predict():
+    with pytest.raises(RuntimeError, match="not an estimator"):
+        load_with({"model": object()})

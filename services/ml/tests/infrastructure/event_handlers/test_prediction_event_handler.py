@@ -1,6 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
+from infrastructure.services.sklearn_predictor import SklearnPredictor
+import numpy as np
 import pytest
 
 from domain.entities.analysis import Analysis, NewAnalysis
@@ -41,7 +43,7 @@ def make_saved(total=3):
 @pytest.fixture
 def predictor():
     predictor = MagicMock()
-    predictor.predict.return_value = {"prediction": 1.0, "probabilities": [[0.1, 0.9]]}
+    predictor.predict.return_value = {"prediction": [1.0], "probabilities": [[0.1, 0.9]]}
     return predictor
 
 
@@ -142,7 +144,7 @@ async def test_numeric_fields_are_coerced(handler, repo):
 
 
 async def test_missing_probabilities_store_none_confidence(handler, predictor, repo):
-    predictor.predict.return_value = {"prediction": 2.5}
+    predictor.predict.return_value = {"prediction": [2.5]}
 
     await handler.handle(make_payload())
 
@@ -322,7 +324,7 @@ def test_extract_confidence(result, expected):
 
 
 def test_extract_result_casts_prediction_to_float():
-    assert PredictionEventHandler._extract_result({"prediction": "2"}) == 2.0
+    assert PredictionEventHandler._extract_result({"prediction": ["2"]}) == 2.0
 
 
 def test_extract_result_requires_prediction_key():
@@ -337,3 +339,24 @@ def test_require_returns_value_even_if_falsy():
 def test_require_rejects_none():
     with pytest.raises(ValueError, match="missing k"):
         PredictionEventHandler._require({"k": None}, "k")
+
+@pytest.mark.asyncio
+async def test_handler_works_with_real_sklearn_predictor(
+    session_factory, publisher, repo, repo_factory
+):
+    class Model:
+        def predict(self, X):
+            return np.array([1])
+        def predict_proba(self, X):
+            return np.array([[0.1, 0.9]])
+
+    predictor = SklearnPredictor(feature_names=["feature_1", "feature_2"])
+    predictor.model = Model()
+    handler = PredictionEventHandler(
+        predictor, session_factory, publisher, repo_factory
+    )
+
+    await handler.handle(make_payload())
+
+    stored = repo.add.await_args.args[0]
+    assert (stored.result, stored.confidence) == (1.0, 0.9)

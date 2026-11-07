@@ -98,7 +98,7 @@ class PredictionEventHandler(IEventHandler):
 
     @staticmethod
     def _extract_result(result: Dict[str, Any]) -> float:
-        return float(result["prediction"])
+        return float(result["prediction"][0])
 
     @staticmethod
     def _extract_confidence(result: Dict[str, Any]) -> float | None:

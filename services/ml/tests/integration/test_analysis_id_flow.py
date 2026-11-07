@@ -35,7 +35,7 @@ def make_publisher():
 async def test_analysis_uuid_is_stored_as_examination_id():
     examination_id = uuid4()
     predictor = Mock()
-    predictor.predict.return_value = {"prediction": 1, "probabilities": [[0.2, 0.8]]}
+    predictor.predict.return_value = {"prediction": [1], "probabilities": [[0.2, 0.8]]}
     publisher = make_publisher()
     session_factory = make_session_factory()
     repo_factory, repo = make_repo_factory(received=1, total=3)
