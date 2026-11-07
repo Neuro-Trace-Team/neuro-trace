@@ -66,6 +66,11 @@ class SklearnPredictor(IPredictor):
 
     def _check_model(self):
         """Cross-checks config against what the model was trained on."""
+        if not hasattr(self.model, "predict"):
+            raise RuntimeError(
+                f"Loaded artifact is {type(self.model).__name__}, not an estimator with predict()"
+            )
+
         trained = getattr(self.model, "feature_names_in_", None)
         if trained is not None:
             trained = list(trained)
