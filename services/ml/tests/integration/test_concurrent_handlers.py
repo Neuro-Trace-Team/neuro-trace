@@ -1,4 +1,3 @@
-# tests/integration/test_concurrent_handlers.py
 import asyncio
 from uuid import uuid4
 
