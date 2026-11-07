@@ -8,6 +8,7 @@ pluggy==1.7.0
 pytest==9.1.1
 pytest-asyncio==1.4.1
 pywin32==312
+PyYAML==6.0.3
 requests==2.34.2
 respx==0.23.1
 testcontainers==4.15.0
