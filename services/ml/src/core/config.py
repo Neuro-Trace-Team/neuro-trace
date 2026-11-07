@@ -1,6 +1,6 @@
 from urllib.parse import quote
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -57,5 +57,11 @@ class Settings(BaseSettings):
         if not v.startswith("postgresql+asyncpg://"):
             raise ValueError("MODEL_DB_URL must start with postgresql+asyncpg://")
         return v
+
+    @model_validator(mode="after")
+    def _queues_must_differ(self) -> "Settings":
+        if self.pending_analysis_queue_name == self.completed_queue_name:
+            raise ValueError("pending and completed queue names must differ")
+        return self
 
 settings = Settings()
