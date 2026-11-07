@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from infrastructure.db.session import create_engine, create_session_factory
 
@@ -17,6 +19,18 @@ def find_project_root(marker="database"):
     raise FileNotFoundError(f"Could not find project root containing '{marker}'")
 
 INIT_SQL = find_project_root() / "database" / "model" / "init.sql"
+
+
+@pytest.fixture(scope="session")
+def rabbit_url():
+    container = (
+        DockerContainer("rabbitmq:4")
+        .with_exposed_ports(5672)
+        .waiting_for(LogMessageWaitStrategy("Server startup complete"))
+    )
+    with container:
+        host, port = container.get_container_host_ip(), container.get_exposed_port(5672)
+        yield f"amqp://guest:guest@{host}:{port}/"
 
 
 @pytest.fixture(scope="session")
