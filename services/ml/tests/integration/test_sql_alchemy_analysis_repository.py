@@ -11,6 +11,8 @@ import pytest_asyncio
 from sqlalchemy.exc import IntegrityError
 from testcontainers.community.postgres import PostgresContainer
 
+pytestmark = pytest.mark.integration
+
 def find_project_root(marker="database"):
     current = Path(__file__).resolve()
     for parent in current.parents:
