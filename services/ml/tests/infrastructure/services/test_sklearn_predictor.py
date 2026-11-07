@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from infrastructure.event_handlers.prediction_event_handler import METADATA_KEYS
 from infrastructure.services.features import FEATURE_NAMES
 import numpy as np
 import pytest
@@ -142,10 +143,6 @@ def test_invalid_values_raise(predictor, bad):
     with pytest.raises(FeatureValidationError):
         predictor.predict({"a": 1, "b": 2, "c": bad})
 
-def test_real_feature_list_has_no_duplicates_and_expected_length():
-    from infrastructure.services.features import FEATURE_NAMES
-    assert len(FEATURE_NAMES) == len(set(FEATURE_NAMES))
-    assert len(FEATURE_NAMES) == 107
 
 def load_with(model, **kwargs):
     p = SklearnPredictor(model_path="m.pkl", **kwargs)
@@ -238,3 +235,11 @@ def test_shipped_model_matches_configured_feature_names():
 def test_load_rejects_artifact_without_predict():
     with pytest.raises(RuntimeError, match="not an estimator"):
         load_with({"model": object()})
+
+
+def test_feature_names_are_unique():
+    assert len(FEATURE_NAMES) == len(set(FEATURE_NAMES))
+
+
+def test_no_feature_is_stripped_as_metadata():
+    assert set(FEATURE_NAMES) & METADATA_KEYS == set()
