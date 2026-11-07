@@ -32,9 +32,20 @@ class DelayedAddRepository(SqlAlchemyAnalysisRepository):
         return saved
 
 
-class UnlockedRepository(DelayedAddRepository):
-    async def lock_examination(self, examination_id):
-        pass
+def barrier_repository(parties: int):
+    """No lock; neither writer counts until all have inserted (uncommitted)."""
+    barrier = asyncio.Barrier(parties)
+
+    class BarrierRepository(SqlAlchemyAnalysisRepository):
+        async def lock_examination(self, examination_id):
+            pass
+
+        async def add(self, analysis):
+            saved = await super().add(analysis)
+            await asyncio.wait_for(barrier.wait(), timeout=10)
+            return saved
+
+    return BarrierRepository
 
 
 def make_payload(exam, i, total):
@@ -72,10 +83,10 @@ async def test_without_the_lock_the_completion_event_is_lost(session_factory):
     """Control: shows the race is real, so the test above proves something."""
     exam = uuid4()
 
-    publisher = await run_all(UnlockedRepository, session_factory, exam, total=2)
+    publisher = await run_all(barrier_repository(2), session_factory, exam, total=2)
 
     assert await stored_count(session_factory, exam) == 2
-    assert publisher.events == []        # each writer counted only its own uncommitted row
+    assert publisher.events == []
 
 
 async def test_redelivered_message_is_stored_once(session_factory):
