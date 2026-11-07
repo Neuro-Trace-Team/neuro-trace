@@ -2,6 +2,8 @@ import asyncio
 import json
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
+import aio_pika
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError
 
 import pytest
 
@@ -159,3 +161,58 @@ async def test_close_connection_none_or_closed():
     consumer.connection = None
 
     await consumer.close()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [IntegrityError("stmt", {}, Exception("check violated")),
+     DataError("stmt", {}, Exception("bad value"))],
+)
+async def test_dispatch_message_db_constraint_violation_is_rejected(error, mock_handler):
+    cast(AsyncMock, mock_handler.handle).side_effect = error
+    message = make_message({"event_type": "predict_event"})
+
+    with patch(f"{CONSUMER_MODULE}.asyncio.sleep", new=AsyncMock()) as sleep:
+        await make_consumer(mock_handler)._dispatch_message(message)
+
+    sleep.assert_not_awaited()
+    message.reject.assert_awaited_once_with(requeue=False)
+    message.nack.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [OperationalError("stmt", {}, Exception("conn lost")),
+     aio_pika.exceptions.AMQPError("broker")],
+)
+async def test_dispatch_message_other_transient_errors_are_requeued(error, mock_handler):
+    cast(AsyncMock, mock_handler.handle).side_effect = error
+    message = make_message({"event_type": "predict_event"})
+
+    with patch(f"{CONSUMER_MODULE}.asyncio.sleep", new=AsyncMock()):
+        await make_consumer(mock_handler)._dispatch_message(message)
+
+    message.nack.assert_awaited_once_with(requeue=True)
+    message.reject.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_message_without_event_type_defaults_to_predict_event(mock_handler):
+    payload = {"examination_id": "x"}
+    message = make_message(payload)
+
+    await make_consumer(mock_handler)._dispatch_message(message)
+
+    cast(AsyncMock, mock_handler.handle).assert_awaited_once_with(payload)
+    message.ack.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_message_non_object_json_is_rejected(mock_handler):
+    message = make_message("[1, 2, 3]")   # valid JSON, but .get() fails on a list
+
+    await make_consumer(mock_handler)._dispatch_message(message)
+
+    message.reject.assert_awaited_once_with(requeue=False)
+    cast(AsyncMock, mock_handler.handle).assert_not_awaited()
