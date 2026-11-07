@@ -20,84 +20,79 @@ from api.routes.analyses import router as analyses_router
 from sqlalchemy import text
 
 
+READINESS_DB_TIMEOUT_S = 2
+
+
+def _log_consumer_exit(task: asyncio.Task) -> None:
+    if not task.cancelled() and task.exception():
+        logger.critical("RabbitMQ consumer stopped unexpectedly", exc_info=task.exception())
+
 # Logger setup
 setup_logging()
 logger = logging.getLogger(__name__)
 
-
 predictor: IPredictor = SklearnPredictor(model_path=settings.model_path, feature_names=FEATURE_NAMES)
-
-consumer_task = None
-rabbit_consumer = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global consumer_task, rabbit_consumer
-
     logger.info("Starting up the ML Microservice...")
 
-    # 1. Prediction model loading
     try:
         predictor.load_model()
-    except Exception as e:
-        logger.critical(f"Failed to load the ML model on startup: {e}")
-        raise e
+    except Exception:
+        logger.critical(f"Failed to load the ML model on startup", exc_info=True)
+        raise
 
-    # 2. Database objects
     engine = create_engine(settings.database_url)
-    session_factory = create_session_factory(engine)
-    app.state.engine = engine
-    app.state.session_factory = session_factory
+    publisher = RabbitMQPublisher(settings.queue_url, settings.completed_queue_name)
+    rabbit_consumer = None
+    consumer_task = None
 
-    # 3. RabbitMQ Publisher setup
-    event_publisher = RabbitMQPublisher(
-        settings.queue_url,
-        settings.completed_queue_name
-    )
-    logger.info("Creating RabbitMQ publisher service...")
-    await event_publisher.connect()
+    try:
+        session_factory = create_session_factory(engine)
+        app.state.engine = engine
+        app.state.session_factory = session_factory
 
-    # 4. Handlers definition
-    prediction_handler = PredictionEventHandler(
-        predictor=predictor,
-        session_factory=session_factory,
-        event_publisher=event_publisher,
-        repository_factory=SqlAlchemyAnalysisRepository
-    )
-    handlers_registry: dict[str, IEventHandler] = {
-        "predict_event": prediction_handler
-    }
+        await publisher.connect()
 
-    # 5. RabbitMQ Consumer setup
-    rabbit_consumer = RabbitMQConsumer(
-        queue_url=settings.queue_url,
-        queue_name=settings.pending_analysis_queue_name,
-        handlers=handlers_registry
-    )
+        handler = PredictionEventHandler(
+            predictor=predictor,
+            session_factory=session_factory,
+            event_publisher=publisher,
+            repository_factory=SqlAlchemyAnalysisRepository,
+        )
 
+        rabbit_consumer = RabbitMQConsumer(
+            queue_url=settings.queue_url,
+            queue_name=settings.pending_analysis_queue_name,
+            handlers={"predict_event": handler},
+        )
 
-    logger.info("Creating background RabbitMQ consumer task...")
-    consumer_task = asyncio.create_task(rabbit_consumer.start())
+        consumer_task = asyncio.create_task(rabbit_consumer.start())
+        consumer_task.add_done_callback(_log_consumer_exit)
+        app.state.consumer_task = consumer_task
 
-    yield
-
-    logger.info("Shutting down the ML Microservice...")
+        yield
+    finally:
+        logger.info("Shutting down the ML Microservice...")
     
-    if consumer_task:
-        consumer_task.cancel()
-        try:
-            await consumer_task
-        except asyncio.CancelledError:
-            logger.info("Background consumer task successfully cancelled.")
+        if consumer_task:
+            consumer_task.cancel()
+            try:
+                await consumer_task
+            except asyncio.CancelledError:
+                logger.info("Background consumer task successfully cancelled.")
+            except Exception:
+                logger.exception("Consumer task had already failed.")
             
-    if rabbit_consumer:
-        await rabbit_consumer.close()
+        if rabbit_consumer:
+            await rabbit_consumer.close()
 
-    await event_publisher.close()   
+        await publisher.close()   
 
-    await engine.dispose()
+        await engine.dispose()
 
-    logger.info("Microservice shutdown complete.")
+        logger.info("Microservice shutdown complete.")
 
 app = FastAPI(
     title=settings.app_name,
@@ -105,11 +100,14 @@ app = FastAPI(
 )
 app.include_router(analyses_router)
 
+async def _ping_db(engine) -> None:
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
+
 @app.get("/info")
 async def info():
     return {
         "app_name": settings.app_name, 
-        "model_path": settings.model_path
     }
 
 @app.get("/healthz")
@@ -131,12 +129,27 @@ async def readyz(request: Request):
                 "reason": "model_not_loaded"
             }
         )
+
+    task = getattr(request.app.state, "consumer_task", None)
+    if task is None or task.done():
+        return JSONResponse(
+            status_code=503, 
+            content={
+                "status": "not_ready", 
+                "reason": "consumer_not_running"
+            }
+        )
+    
     try:
-        async with request.app.state.engine.connect() as conn:
-            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=2)
+        await asyncio.wait_for(_ping_db(request.app.state.engine), READINESS_DB_TIMEOUT_S)
     except Exception:
         logger.warning("Readiness check: database unreachable", exc_info=True)
-        return JSONResponse(status_code=503, content={"status": "not_ready", "reason": "database_unavailable"})
-    return {
-        "status": "ready"
-    }
+        return JSONResponse(
+            status_code=503, 
+            content={
+                "status": "not_ready", 
+                "reason": "database_unavailable"
+                }
+            )
+    
+    return {"status": "ready"}
