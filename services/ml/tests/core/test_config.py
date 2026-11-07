@@ -71,3 +71,18 @@ def test_database_url_is_required(make_settings, monkeypatch):
 def test_database_url_must_use_asyncpg(make_settings, url):
     with pytest.raises(ValidationError, match="asyncpg"):
         make_settings(MODEL_DB_URL=url)
+
+
+@pytest.mark.parametrize("var", [
+    "PENDING_ANALYSIS_QUEUE_NAME", "RABBITMQ_PENDING_ANALYSIS_QUEUE",
+    "COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE",
+])
+def test_empty_queue_name_is_rejected(make_settings, var):
+    with pytest.raises(ValidationError):
+        make_settings(**{var: ""})
+
+
+def test_first_alias_wins_when_both_are_set(make_settings):
+    s = make_settings(PENDING_ANALYSIS_QUEUE_NAME="first",
+                      RABBITMQ_PENDING_ANALYSIS_QUEUE="second")
+    assert s.pending_analysis_queue_name == "first"

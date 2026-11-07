@@ -16,11 +16,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("QUEUE_URL", "RABBITMQ_URL"),
     )
     pending_analysis_queue_name: str = Field(
-        default="ml_microservice_pending_queue", min_length=1
+        default="ml_microservice_pending_queue", min_length=1,
         validation_alias=AliasChoices("PENDING_ANALYSIS_QUEUE_NAME", "RABBITMQ_PENDING_ANALYSIS_QUEUE"),
     )
     completed_queue_name: str = Field(
-        default="ml_microservice_completed_queue", min_length=1
+        default="ml_microservice_completed_queue", min_length=1,
         validation_alias=AliasChoices("COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE"),
     )
 
