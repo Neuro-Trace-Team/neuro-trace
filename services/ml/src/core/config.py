@@ -6,9 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "ML Microservice"
 
-    # RabbitMQ settings use the same RABBITMQ_* environment variables as the
-    # other services. QUEUE_URL/QUEUE_NAME remain supported as explicit ML
-    # overrides for local runs.
     rabbitmq_host: str = Field(default="localhost", validation_alias="RABBITMQ_HOST")
     rabbitmq_port: int = Field(default=5672, validation_alias="RABBITMQ_PORT")
     rabbitmq_user: str = Field(default="guest", validation_alias="RABBITMQ_USER")
@@ -19,25 +16,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("QUEUE_URL", "RABBITMQ_URL"),
     )
     pending_analysis_queue_name: str = Field(
-        default="ml_microservice_pending_queue",
+        default="ml_microservice_pending_queue", min_length=1
         validation_alias=AliasChoices("PENDING_ANALYSIS_QUEUE_NAME", "RABBITMQ_PENDING_ANALYSIS_QUEUE"),
     )
     completed_queue_name: str = Field(
-        default="ml_microservice_completed_queue",
+        default="ml_microservice_completed_queue", min_length=1
         validation_alias=AliasChoices("COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE"),
     )
 
     model_path: str = "/app/models/model.joblib"
-
-    backend_base_url: str = Field(
-        default="http://backend:8080",
-        validation_alias=AliasChoices("BACKEND_URL", "BACKEND_BASE_URL"),
-    )
-    backend_service_token: str = Field(
-        default="",
-        validation_alias=AliasChoices("ML_SERVICE_TOKEN", "BACKEND_TOKEN"),
-    )
-
+    
     database_url: str = Field(validation_alias="MODEL_DB_URL")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

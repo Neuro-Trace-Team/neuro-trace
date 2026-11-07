@@ -115,8 +115,6 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-      rustfs:
-        condition: service_healthy
       model-db:
         condition: service_healthy
 
