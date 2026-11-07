@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from infrastructure.messaging.rabbit_mq_consumer import RabbitMQConsumer
 from domain.services.ipredictor import IPredictor
 from infrastructure.messaging.rabbit_mq_publisher import RabbitMQPublisher
+from infrastructure.repositories.sql_alchemy_analysis_repository import SqlAlchemyAnalysisRepository
 from infrastructure.services.sklearn_predictor import SklearnPredictor
 from api.routes.analyses import router as analyses_router
 from sqlalchemy import text
@@ -59,7 +60,8 @@ async def lifespan(app: FastAPI):
     prediction_handler = PredictionEventHandler(
         predictor=predictor,
         session_factory=session_factory,
-        event_publisher=event_publisher
+        event_publisher=event_publisher,
+        repository_factory=SqlAlchemyAnalysisRepository
     )
     handlers_registry: dict[str, IEventHandler] = {
         "predict_event": prediction_handler

@@ -6,6 +6,9 @@ import pytest
 
 from api.main import app, healthz, info, lifespan, readyz
 from core.config import settings
+from infrastructure.repositories.sql_alchemy_analysis_repository import (
+    SqlAlchemyAnalysisRepository,
+)
 
 
 def make_engine(execute_side_effect=None):
@@ -63,7 +66,7 @@ async def test_readyz_endpoint_not_ready_model_not_loaded(mock_predictor):
         "status": "not_ready",
         "reason": "model_not_loaded",
     }
-    engine.connect.assert_not_called()  # no point hitting the DB if the model is missing
+    engine.connect.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -119,16 +122,92 @@ async def test_lifespan_startup_and_shutdown(
         mock_predictor.load_model.assert_called_once()
         mock_create_engine.assert_called_once_with(settings.database_url)
         mock_create_session_factory.assert_called_once_with(mock_engine)
+
+        mock_publisher_class.assert_called_once_with(
+            settings.queue_url, settings.completed_queue_name
+        )
         mock_publisher.connect.assert_awaited_once()
+
         mock_handler_class.assert_called_once_with(
             predictor=mock_predictor,
             session_factory=mock_session_factory,
             event_publisher=mock_publisher,
+            repository_factory=SqlAlchemyAnalysisRepository,
         )
-        mock_consumer_class.assert_called_once()
+
+        mock_consumer_class.assert_called_once_with(
+            queue_url=settings.queue_url,
+            queue_name=settings.pending_analysis_queue_name,
+            handlers={"predict_event": mock_handler_class.return_value},
+        )
+
+        await asyncio.sleep(0)
+        mock_consumer.start.assert_awaited_once()
+
         assert app.state.engine is mock_engine
         assert app.state.session_factory is mock_session_factory
 
     mock_consumer.close.assert_awaited_once()
     mock_publisher.close.assert_awaited_once()
     mock_engine.dispose.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("api.main.RabbitMQPublisher")
+@patch("api.main.create_engine")
+@patch("api.main.predictor")
+async def test_lifespan_aborts_startup_when_model_fails_to_load(
+    mock_predictor, mock_create_engine, mock_publisher_class
+):
+    mock_predictor.load_model.side_effect = RuntimeError("bad model")
+
+    with pytest.raises(RuntimeError, match="bad model"):
+        async with lifespan(app):
+            pytest.fail("the app must not start without a model")
+
+    mock_create_engine.assert_not_called()
+    mock_publisher_class.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("api.main.PredictionEventHandler")
+@patch("api.main.RabbitMQPublisher")
+@patch("api.main.RabbitMQConsumer")
+@patch("api.main.create_session_factory")
+@patch("api.main.create_engine")
+@patch("api.main.predictor")
+async def test_lifespan_cancels_running_consumer_on_shutdown(
+    mock_predictor,
+    mock_create_engine,
+    mock_create_session_factory,
+    mock_consumer_class,
+    mock_publisher_class,
+    mock_handler_class,
+):
+    """A real consumer never returns on its own: shutdown must cancel it, then clean up."""
+    cancelled = asyncio.Event()
+
+    async def run_forever():
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    mock_create_engine.return_value.dispose = AsyncMock()
+    mock_consumer = MagicMock()
+    mock_consumer.start = run_forever
+    mock_consumer.close = AsyncMock()
+    mock_consumer_class.return_value = mock_consumer
+    mock_publisher = MagicMock()
+    mock_publisher.connect = AsyncMock()
+    mock_publisher.close = AsyncMock()
+    mock_publisher_class.return_value = mock_publisher
+
+    async with lifespan(app):
+        await asyncio.sleep(0)
+
+    assert cancelled.is_set()
+    mock_consumer.close.assert_awaited_once()
+    mock_publisher.close.assert_awaited_once()
+    mock_create_engine.return_value.dispose.assert_awaited_once()
