@@ -26,8 +26,14 @@ class SklearnPredictor(IPredictor):
             raise ValueError("Model path is not configured.")
 
         if not os.path.exists(self.model_path):
-            raise FileNotFoundError("Model file not found at %s", self.model_path)
+            raise FileNotFoundError(f"Model file not found at {self.model_path}")
 
+        with open(self.model_path, "rb") as f:
+            if f.read(24).startswith(b"version https://git-lfs"):
+                raise RuntimeError(
+                    f"{self.model_path} is a Git LFS pointer, not the model. Run `git lfs pull`."
+                )
+        
         logger.info("Loading scikit-learn model from %s...", self.model_path)
         self.model = joblib.load(self.model_path)
         logger.info("Scikit-learn model successfully loaded into memory.")

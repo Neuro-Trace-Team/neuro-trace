@@ -42,16 +42,15 @@ def test_load_model_file_not_found(mock_exists):
     with pytest.raises(FileNotFoundError, match="Model file not found at"):
         predictor.load_model()
 
-@patch("os.path.exists", return_value=True)
 @patch("joblib.load")
-def test_load_model_success(mock_joblib_load, mock_exists):
+def test_load_model_success(mock_joblib_load, model_file):
     dummy_model = DummyModelWithProba()
     mock_joblib_load.return_value = dummy_model
 
-    predictor = SklearnPredictor(model_path="model.pkl")
+    predictor = SklearnPredictor(model_path=str(model_file))
     predictor.load_model()
 
-    mock_joblib_load.assert_called_once_with("model.pkl")
+    mock_joblib_load.assert_called_once_with(str(model_file))
     assert predictor.model == dummy_model
     assert predictor.has_model() is True
 
@@ -144,11 +143,21 @@ def test_invalid_values_raise(predictor, bad):
         predictor.predict({"a": 1, "b": 2, "c": bad})
 
 
-def load_with(model, **kwargs):
-    p = SklearnPredictor(model_path="m.pkl", **kwargs)
-    with patch("os.path.exists", return_value=True), patch("joblib.load", return_value=model):
-        p.load_model()
-    return p
+@pytest.fixture
+def model_file(tmp_path):
+    path = tmp_path / "model.pkl"
+    path.write_bytes(b"placeholder, not an LFS pointer")
+    return path
+
+
+@pytest.fixture
+def load_with(model_file):
+    def _load(model, **kwargs):
+        p = SklearnPredictor(model_path=str(model_file), **kwargs)
+        with patch("joblib.load", return_value=model):
+            p.load_model()
+        return p
+    return _load
 
 
 class NamedModel(DummyModelWithProba):
@@ -158,28 +167,28 @@ class NamedModel(DummyModelWithProba):
         if n is not None:
             self.n_features_in_ = n
 
-def test_load_adopts_feature_names_from_model_when_not_configured():
+def test_load_adopts_feature_names_from_model_when_not_configured(load_with):
     p = load_with(NamedModel(names=["a", "b"]))
     assert p.feature_names == ["a", "b"]
 
 
-def test_load_accepts_matching_configured_names():
+def test_load_accepts_matching_configured_names(load_with):
     p = load_with(NamedModel(names=["a", "b"], n=2), feature_names=["a", "b"])
     assert p.feature_names == ["a", "b"]
 
 
 @pytest.mark.parametrize("configured", [["b", "a"], ["a", "c"], ["a"]])
-def test_load_rejects_names_that_differ_in_order_or_content(configured):
+def test_load_rejects_names_that_differ_in_order_or_content(load_with, configured):
     with pytest.raises(RuntimeError, match="differ from the model"):
         load_with(NamedModel(names=["a", "b"]), feature_names=configured)
 
 
-def test_load_rejects_feature_count_mismatch_without_names():
+def test_load_rejects_feature_count_mismatch_without_names(load_with):
     with pytest.raises(RuntimeError, match="Model expects 3 features, config has 2"):
         load_with(NamedModel(n=3), feature_names=["a", "b"])
 
 
-def test_load_without_any_feature_metadata_is_allowed():
+def test_load_without_any_feature_metadata_is_allowed(load_with):
     p = load_with(DummyModelWithProba())
     assert p.has_model() and p.feature_names is None
 
@@ -232,7 +241,7 @@ def test_shipped_model_matches_configured_feature_names():
     assert len(result["prediction"]) == 1
     assert hasattr(p.model, "feature_names_in_"), "artifact doesn't record its feature order"
 
-def test_load_rejects_artifact_without_predict():
+def test_load_rejects_artifact_without_predict(load_with):
     with pytest.raises(RuntimeError, match="not an estimator"):
         load_with({"model": object()})
 
@@ -243,3 +252,18 @@ def test_feature_names_are_unique():
 
 def test_no_feature_is_stripped_as_metadata():
     assert set(FEATURE_NAMES) & METADATA_KEYS == set()
+
+
+def test_model_artifact_is_not_an_lfs_pointer():
+    if not MODEL_PATH.exists():
+        pytest.skip("model artifact not available")
+    assert not MODEL_PATH.read_bytes().startswith(b"version https://git-lfs"), \
+        "model.joblib is an LFS pointer; fetch LFS objects (checkout with lfs: true)"
+
+
+def test_load_model_rejects_lfs_pointer(tmp_path):
+    pointer = tmp_path / "model.joblib"
+    pointer.write_text("version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n")
+
+    with pytest.raises(RuntimeError, match="LFS pointer"):
+        SklearnPredictor(str(pointer)).load_model()
