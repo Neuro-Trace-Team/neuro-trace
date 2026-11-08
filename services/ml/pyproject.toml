@@ -24,4 +24,5 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
     "asyncio: mark test as async",
+    "integration: mark the tests as requiring docker"
 ]
