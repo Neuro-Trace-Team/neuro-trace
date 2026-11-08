@@ -17,6 +17,7 @@ import AdminDatabase from './pages/admin/AdminDatabasePage';
 import AdminUsers from './pages/admin/AdminUsersPage';
 import AdminActivityLog from './pages/admin/AdminActivityLogPage';
 import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
 
 const router = createBrowserRouter([
   {
@@ -79,9 +80,11 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ToastProvider>
   )
 }
 

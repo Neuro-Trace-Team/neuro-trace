@@ -4,7 +4,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid5
 
 import aio_pika
 from aio_pika import DeliveryMode, ExchangeType, Message
