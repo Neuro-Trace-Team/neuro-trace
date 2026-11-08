@@ -56,69 +56,80 @@ application does not require a RustFS-specific library.
 | Method | Endpoint | Action |
 |---|---|---|
 | `GET` | `/health` | Returns `{"status": "ok"}`; used by the container healthcheck |
-| `POST` | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Creates a job and starts preprocessing in the background |
-| `GET` | `/api/v1/preprocessing-jobs/{job_id}` | Returns the current job status |
+| `POST` | `/api/v1/examinations/{examination_id}/preprocessing` | Accepts backend upload coordinates and starts preprocessing |
+| `GET` | `/api/v1/examinations/{examination_id}/preprocessing-status` | Returns the latest local status for an examination |
+| `POST` | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Starts preprocessing when the body includes the examination UUID and nonblank RustFS bucket and key |
 
-Example job submission:
+The backend-compatible submission request contains the same examination UUID in
+the URL and body, plus the exact RustFS object coordinates:
+
+```json
+{
+  "examination_id": "00000000-0000-0000-0000-000000000001",
+  "storage_bucket": "examinations",
+  "storage_key": "examinations/patient/examination/recording.bdf"
+}
+```
+
+The service downloads the EEG object directly from RustFS using the supplied
+`storage_bucket` and `storage_key`, then downloads `events.csv` from the same
+bucket and sibling object directory. For example, a key of
+`examinations/patient/examination/raw_eeg.bdf` results in downloads of that key
+and `examinations/patient/examination/events.csv`.
+
+Example preprocessing submission:
 
 ```bash
 curl -X POST \
-  http://localhost:8001/api/v1/examinations/00000000-0000-0000-0000-000000000001/preprocessing-jobs
+  http://localhost:8001/api/v1/examinations/00000000-0000-0000-0000-000000000001/preprocessing-jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"examination_id":"00000000-0000-0000-0000-000000000001","storage_bucket":"examinations","storage_key":"examinations/patient/examination/recording.bdf"}'
 ```
 
 The response is returned immediately with status `202 Accepted`:
 
 ```json
 {
-  "job_id": "<uuid>",
   "examination_id": "00000000-0000-0000-0000-000000000001",
   "status": "QUEUED"
 }
 ```
 
-The job status can be checked with:
-
-```bash
-curl http://localhost:8001/api/v1/preprocessing-jobs/<job_id>
-```
-
-Both identifiers must be UUIDs. Invalid identifiers are rejected with `422`;
-an unknown `job_id` returns `404`.
+The status can be checked by examination UUID at
+`/api/v1/examinations/{examination_id}/preprocessing-status`.
 
 ### Job flow
 
 The job execution process is as follows:
 
-1. FastAPI receives a `POST` request containing an `examination_id` UUID.
-2. `JobManager.create()` validates the identifier, generates a job UUID, and
-   stores the `QUEUED` state in process memory.
-3. FastAPI adds `JobManager.run()` to `BackgroundTasks` and returns the job
-   identifier to the client.
-4. The job reports `RUNNING` to NeuroTrace and fetches examination data from
-   the internal backend endpoint. `RustFSStorage.download_examination()` then
-   downloads the same two objects as before using the returned storage prefix.
-5. The files are stored locally in the job directory:
+1. FastAPI receives a `POST` request containing `examination_id`,
+   `storage_bucket`, and `storage_key`; it rejects missing or blank coordinates
+   and checks that the body and URL examination UUIDs match.
+2. `JobManager.create()` stores the supplied object coordinates and `QUEUED`
+   state in process memory, keyed by examination UUID.
+3. FastAPI adds `JobManager.run()` to `BackgroundTasks` and returns the
+   examination UUID and current status.
+4. Preprocessing downloads the EEG object and
+   sibling `events.csv` from RustFS using `RustFSStorage.download_recording_inputs`.
+   It does not fetch source-file coordinates from the backend.
+5. Both files are stored in the pipeline's existing local input directory:
 
    ```text
-   /tmp/preprocessing/<job_id>/input/study/subject/run/
-   ├── events.csv
-   └── eeg_data.bdf
+   /tmp/preprocessing/<examination_id>/input/study/subject/run/
+   ├── raw_eeg.bdf
+   └── events.csv
    ```
 
 6. `JobManager` runs `python -m eeg_pipeline.cli` with the `--input`,
    `--output`, and `--all` parameters and the configured log level.
 7. When processing finishes successfully, the service uploads the unchanged
-   `combined_features.csv` to the bucket returned by the backend in
-   `source_file.bucket`, using the object key
-   `preprocessing/<examination_id>/<job_id>/combined_features.csv`.
+   `combined_features.csv` to the supplied `storage_bucket`, using the object key
+   `preprocessing/<examination_id>/combined_features.csv`.
    The configured S3 credentials need write access to that bucket.
-8. Every CSV row is then published to RabbitMQ. After successful upload and
-   publication, the service reports `COMPLETED` to the backend with
-   `output_bucket` and `output_storage_key`. These coordinates are also available
-   in the local job status. Missing output, missing bucket, upload, publication,
-   or callback errors result in `FAILED`. A backend-cancelled job reports
-   `CANCELLED`. If publication or the callback fails after upload, the CSV
-   remains in the bucket.
+8. Every CSV row is then published to RabbitMQ. Successful completion or
+   failure is reflected in the local status endpoint. Missing output, missing
+   bucket, upload, or publication errors result in `FAILED`. If publication
+   fails after upload, the CSV remains in the bucket.
 
 ### RabbitMQ message identifiers
 

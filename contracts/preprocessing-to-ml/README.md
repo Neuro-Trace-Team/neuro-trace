@@ -17,48 +17,47 @@ exchange and binds the configured queue with the configured routing key.
 
 ## Payload
 
-Each message is a UTF-8 JSON object containing exactly one row from
-`combined_features.csv`. The payload is flat: it has no envelope, generated
-message identifier, publication timestamp, or other added metadata. Existing
-fields such as `experiment_id`, `event_id` and `event_timestamp` are retained
-because they already belong to the CSV row; no new fields were added by the
-contract.
-`combined_features.csv`, augmented with `analysis_id`: the backend Analysis
-record UUID returned when the preprocessing job is created. The payload stays
-flat, with all original CSV fields preserved. The UUID is shared by all rows
-of that job and is not a RustFS storage path.
+Each message is a flat UTF-8 JSON object containing one row from
+`combined_features.csv`, augmented with:
 
-The backend creates the job and its queued Analysis in one transaction and
-stores the UUID in the job's `parameters.analysis_id`, also exposed as a
-top-level `analysis_id` in job responses. For service-authenticated creation,
-the examination uploader is recorded as `requested_by`. Model metadata defaults
-to `MockPredictor` / `0.1.0`; job creation accepts `model_name` and
-`model_version` overrides. Existing jobs without an analysis UUID are not
-backfilled.
+- `examination_id`: the examination UUID, shared by all rows;
+- `total_analyses_count`: the total number of rows in that CSV, shared by all
+  messages in the publication.
 
-ML uses this UUID in `POST /api/v1/internal/analyses/{analysis_id}/result`.
-This does not introduce aggregation: multiple CSV rows still generate multiple
-messages, while the backend currently accepts only one completed result per
-analysis.
+`analysis_id` is not generated or transmitted by preprocessing. ML is responsible
+for managing analysis identifiers internally. If the CSV contains `analysis_id`,
+the publisher removes it. CSV values of `examination_id` and
+`total_analyses_count` are replaced with the publication metadata above.
+All other CSV fields are preserved, with no envelope or publication timestamp.
+
+Example (feature fields abbreviated; this is not a complete schema-valid payload):
+
+```json
+{
+  "examination_id": "86b0602a-1452-440b-aeef-6c6c39fdf29b",
+  "total_analyses_count": 2,
+  "experiment_id": "study",
+  "subject_id": "subject",
+  "recording_id": "run",
+  "window_id": 0,
+  "event_id": 1,
+  "baseline_absolute_alpha_power": 0.42
+}
+```
 
 The strict versioned JSON Schema is in
 `combined-features.v1.schema.json`:
 
-- it declares all 207 fields currently present in the payload;
-- all 207 fields are required;
-- it declares 208 fields (207 CSV fields plus `analysis_id`);
-- all 208 fields are required;
-- `analysis_id` is a string with UUID format;
-- it declares 208 fields (207 CSV fields plus `analysis_id`);
-- all 208 fields are required;
-- `analysis_id` is a string with UUID format;
-- `additionalProperties` is `false`, so an unknown field is invalid;
+- it declares 209 required fields (207 CSV fields plus the two metadata fields);
+- `examination_id` is a string with UUID format;
+- `total_analyses_count` is an integer greater than or equal to 1;
+- `additionalProperties` is `false`, so unknown fields, including `analysis_id`,
+  are invalid;
 - numeric fields are JSON `number` values or `null`;
-- identifier fields (`experiment_id`, `subject_id`, `recording_id`) are
-  strings;
-- index and counter fields are integers or `null`;
-- validity/quality flags accept boolean values, numeric `0`/`1` values emitted
-  by the current pandas CSV conversion, or `null`.
+- identifier fields (`experiment_id`, `subject_id`, `recording_id`) are strings;
+- index and counter types are specified individually by the schema;
+- validity/quality flags accept booleans, numbers (including the `0`/`1` values
+  emitted by pandas CSV conversion), or `null`.
 
 The schema contains only the three existing processing windows:
 `baseline_*`, `early_*` and `sustained_*`. It does not define an additional
