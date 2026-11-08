@@ -52,7 +52,7 @@ def make_payload(exam, i, total):
     return {
         "examination_id": str(exam),
         "event_time_s": float(i),
-        "total_events": total,
+        "total_analyses_count": total,
         "feature_1": 0.1,
     }
 
