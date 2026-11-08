@@ -29,7 +29,7 @@ def make_payload(**overrides):
         "cluster_event_time_s": 10.0,
         "cluster_size": 5,
         "overlap_flag": False,
-        "total_events": 3,
+        "total_analyses_count": 3,
         **FEATURES,
     }
     payload.update(overrides)
@@ -92,7 +92,7 @@ def handler(predictor, session_factory, publisher, repo_factory):
 async def test_predictor_receives_only_feature_fields(handler, predictor):
     await handler.handle(make_payload())
 
-    # metadata (incl. examination_id, total_events, cluster_*, ...) is stripped
+    # metadata (incl. examination_id, total_analyses_count, cluster_*, ...) is stripped
     predictor.predict.assert_called_once_with(FEATURES)
 
 
@@ -134,7 +134,7 @@ async def test_locks_before_add_and_count(handler, repo):
 
 async def test_numeric_fields_are_coerced(handler, repo):
     await handler.handle(
-        make_payload(examination_id=str(EXAM), event_time_s="2.5", total_events="4")
+        make_payload(examination_id=str(EXAM), event_time_s="2.5", total_analyses_count="4")
     )
 
     stored = repo.add.await_args.args[0]
@@ -182,7 +182,7 @@ async def test_completion_uses_total_of_stored_row_not_of_current_payload(
     repo.add.return_value = make_saved(total=2)
     repo.count_for_examination.return_value = 2
 
-    await handler.handle(make_payload(total_events=3))
+    await handler.handle(make_payload(total_analyses_count=3))
 
     publisher.publish.assert_awaited_once_with(
         "examination_completed",
@@ -206,7 +206,7 @@ async def test_completion_event_is_published_after_transaction_commits(
 
 
 
-@pytest.mark.parametrize("key", ["examination_id", "event_time_s", "total_events"])
+@pytest.mark.parametrize("key", ["examination_id", "event_time_s", "total_analyses_count"])
 @pytest.mark.parametrize("missing", ["absent", "none"])
 async def test_missing_required_field_raises_and_has_no_side_effects(
     handler, predictor, session_factory, publisher, key, missing
@@ -239,7 +239,7 @@ async def test_invalid_examination_id_raises(
 
 @pytest.mark.parametrize(
     "overrides",
-    [{"event_time_s": "abc"}, {"total_events": "many"}],
+    [{"event_time_s": "abc"}, {"total_analyses_count": "many"}],
 )
 async def test_non_numeric_fields_raise_before_prediction(
     handler, predictor, session_factory, overrides

@@ -16,10 +16,10 @@ from domain.services.ipredictor import IPredictor
 RepositoryFactory = Callable[[AsyncSession], IAnalysisRepository]
 
 METADATA_KEYS = frozenset({
-    "analysis_id", "experiment_id", "subject_id", "recording_id", "window_id",
+    "experiment_id", "subject_id", "recording_id", "window_id",
     "event_id", "event_index", "event_time_s", "event_timestamp",
-    "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag", 
-    "total_events", "examination_id"
+    "cluster_id", "cluster_event_time_s", "cluster_size", "overlap_flag",
+    "total_analyses_count", "examination_id",
 })
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class PredictionEventHandler(IEventHandler):
         try:
             examination_id = UUID(str(self._require(payload, "examination_id")))
             event_timestamp = float(self._require(payload, "event_time_s"))
-            total = int(self._require(payload, "total_events"))
+            total = int(self._require(payload, "total_analyses_count"))
 
             feature_payload = {k: v for k, v in payload.items() if k not in METADATA_KEYS}
             result = await asyncio.to_thread(self.predictor.predict, feature_payload)

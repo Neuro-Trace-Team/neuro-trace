@@ -33,7 +33,7 @@ def make_event(exam, t, total, **overrides):
         "event_type": "predict_event",
         "examination_id": str(exam),
         "event_time_s": float(t),
-        "total_events": total,
+        "total_analyses_count": total,
         "event_id": f"evt-{t}",
         **{name: 0.0 for name in FEATURE_NAMES},
     }
