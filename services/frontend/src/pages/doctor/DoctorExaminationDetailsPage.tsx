@@ -1,6 +1,5 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../context/useAuth";
 import { useParams } from "react-router-dom";
 import PageTitle from "../../components/PageTitle";
 import SectionTitle from "../../components/SectionTitle";
@@ -12,7 +11,6 @@ type Analysis = { analysis_id: number; result: number | string; confidence: numb
 type Results = { examination_id: string; analyses: Analysis[] };
 export default function DoctorExaminationDetailsPage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const [exam, setExam] = useState<Examination | null>(null);
   const [results, setResults] = useState<Results | null>(null);
   const [state, setState] = useState("Loading results...");
@@ -22,17 +20,13 @@ export default function DoctorExaminationDetailsPage() {
     setExam(null); setResults(null); setSelected(null); setState("Loading results...");
     apiClient.get<Examination>(`/examinations/${id}`).then(({data}) => {
       setExam(data);
-      try {
-        const key = "neurotrace.recent." + (user?.id ?? "browser");
-        const history: Examination[] = JSON.parse(localStorage.getItem(key) || "[]");
-        localStorage.setItem(key, JSON.stringify([data, ...history.filter(x => x.id !== data.id)].slice(0, 10)));
-      } catch { /* Storage may be unavailable. */ }
+
     }).catch(e => setState(getApiErrorMessage(e, "Could not load examination.")));
     apiClient.get<Results>(`/examinations/${id}/results`).then(({data}) => {
       setResults(data); setSelected(data.analyses[0]?.analysis_id ?? null);
       setState(data.analyses.length ? "Ready" : "No analyses available.");
     }).catch(e => setState(axios.isAxiosError(e) && e.response?.status === 409 ? "Analysis is being processed or is not ready yet." : getApiErrorMessage(e, "Results unavailable.")));
-  }, [id, user?.id]);
+  }, [id]);
   const analysis = results?.analyses.find(x => x.analysis_id === selected);
   return <div className="mx-auto max-w-[1100px]"><PageTitle>Examination Results</PageTitle><Surface>
     {exam && <><SectionTitle>Examination</SectionTitle><p>Patient ID: {exam.patient_id}</p><p>File: {exam.original_filename}</p><p>Status: {exam.status}</p></>}

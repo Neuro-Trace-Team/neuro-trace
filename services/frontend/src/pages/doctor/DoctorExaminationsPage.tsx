@@ -11,28 +11,9 @@ import type { Examination, PaginatedResponse } from "../../types/api.types";
 import { useAuth } from "../../context/useAuth";
 import { useToast } from "../../context/useToast";
 
-type ExaminationFilters = {
-  patient_id: string;
-  processing_status: string;
-  date_from: string;
-  date_to: string;
-  channel: string;
-  pain_level_min: string;
-  pain_level_max: string;
-  pain_source: "doctor" | "ai";
-};
-
-const emptyFilters: ExaminationFilters = {
-  patient_id: "",
-  processing_status: "",
-  date_from: "",
-  date_to: "",
-  channel: "",
-  pain_level_min: "",
-  pain_level_max: "",
-  pain_source: "doctor",
-};
-type SortField = "created_at" | "examination_date" | "processing_status";
+type ExaminationFilters = { id: string; patient_id: string; uploaded_by: string; status: string; date_from: string; date_to: string };
+const emptyFilters: ExaminationFilters = { id: "", patient_id: "", uploaded_by: "", status: "", date_from: "", date_to: "" };
+type SortField = "created_at" | "examination_date" | "id" | "patient_id";
 type SortOrder = "asc" | "desc";
 
 function toApiDate(value: string) {
@@ -43,6 +24,7 @@ function DoctorExaminationsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const [statuses, setStatuses] = useState<string[]>([]);
   const [examinations, setExaminations] = useState<Examination[]>([]);
   const [total, setTotal] = useState(0);
   const [onlyMine, setOnlyMine] = useState(false);
@@ -61,33 +43,41 @@ function DoctorExaminationsPage() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  const patientSearchId = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(debouncedSearch)
-    ? debouncedSearch
-    : undefined;
+  useEffect(() => {
+    apiClient.get<{ statuses: string[] }>("/examinations/statuses")
+      .then(({ data }) => setStatuses(data.statuses))
+      .catch((error: unknown) => showToast(getApiErrorMessage(error, "Could not load examination statuses."), "error"));
+  }, [showToast]);
 
   useEffect(() => {
+    let active = true;
     apiClient
       .get<PaginatedResponse<Examination>>("/examinations", {
         params: {
           page,
           page_size: 20,
-          ...(onlyMine && user ? { uploaded_by: user.id } : {}),
-          patient_id: patientSearchId || filters.patient_id || undefined,
-          date_from: toApiDate(filters.date_from),
-          date_to: toApiDate(filters.date_to),
+          query: debouncedSearch || undefined,
+          id: filters.id || undefined,
+          uploaded_by: onlyMine && user ? user.id : filters.uploaded_by || undefined,
+          patient_id: filters.patient_id || undefined,
+          status: filters.status || undefined,
+          examination_date_from: toApiDate(filters.date_from),
+          examination_date_to: toApiDate(filters.date_to),
           sort_by: sortBy,
           sort_order: sortOrder,
         },
       })
       .then(({ data }) => {
+        if (!active) return;
         setExaminations(data.items);
         setTotal(data.total);
       })
       .catch((loadError: unknown) => {
-        showToast(getApiErrorMessage(loadError, "Could not load examinations."), "error");
+        if (active) showToast(getApiErrorMessage(loadError, "Could not load examinations."), "error");
       })
-      .finally(() => setIsLoading(false));
-  }, [debouncedSearch, filters, onlyMine, page, patientSearchId, showToast, sortBy, sortOrder, user]);
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [debouncedSearch, filters, onlyMine, page, showToast, sortBy, sortOrder, user]);
 
   const updateDraft = <K extends keyof ExaminationFilters>(key: K, value: ExaminationFilters[K]) => {
     setDraftFilters((current) => ({ ...current, [key]: value }));
@@ -110,7 +100,7 @@ function DoctorExaminationsPage() {
           columns={["Examination ID", "Date", "Patient ID"]}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          sortableColumns={{ Date: "examination_date" }}
+          sortableColumns={{ "Examination ID": "id", Date: "examination_date", "Patient ID": "patient_id" }}
           onSortChange={(nextSortBy, nextSortOrder) => {
             setIsLoading(true);
             setPage(1);
@@ -128,11 +118,10 @@ function DoctorExaminationsPage() {
           pageSize={20}
           rows={rows}
           totalCount={total}
-          searchPlaceholder="Search by patient UUID"
+          searchPlaceholder="Search examination or patient ID"
           searchValue={search}
           onSearchChange={(nextSearch) => {
             setSearch(nextSearch);
-            setIsLoading(true);
             setPage(1);
           }}
           showFilters
@@ -141,16 +130,19 @@ function DoctorExaminationsPage() {
           onApplyFilters={() => {
             setIsLoading(true);
             setPage(1);
-            setFilters(draftFilters);
+            setFilters({ ...draftFilters });
           }}
           onClearFilters={() => {
             setDraftFilters(emptyFilters);
-            setFilters(emptyFilters);
+            setFilters({ ...emptyFilters });
             setIsLoading(true);
             setPage(1);
           }}
           filterContent={(
             <div className="grid gap-4 sm:grid-cols-2">
+              <InputSection label="Examination ID" name="exam-id-filter" value={draftFilters.id} onChange={(event) => updateDraft("id", event.target.value)} />
+              <InputSection label="Uploaded by user ID" name="uploader-filter" value={draftFilters.uploaded_by} onChange={(event) => updateDraft("uploaded_by", event.target.value)} />
+              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">Status<select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3" value={draftFilters.status} onChange={(event) => updateDraft("status", event.target.value)}><option value="">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
               <InputSection label="Patient ID" name="patient-id-filter" onChange={(event) => updateDraft("patient_id", event.target.value)} placeholder="Patient UUID" value={draftFilters.patient_id} />
               <InputSection label="Date from" name="examination-date-from" onChange={(event) => updateDraft("date_from", event.target.value)} type="datetime-local" value={draftFilters.date_from} />
               <InputSection label="Date to" name="examination-date-to" onChange={(event) => updateDraft("date_to", event.target.value)} type="datetime-local" value={draftFilters.date_to} />
@@ -166,7 +158,6 @@ function DoctorExaminationsPage() {
             </div>
           }
         />
-        {search && !patientSearchId && <p className="mt-3 text-sm">Enter a complete patient UUID to filter results.</p>}
         {isLoading && <p className="mt-3 text-sm text-[#52677b]">Loading examinations...</p>}
       </Surface>
     </div>

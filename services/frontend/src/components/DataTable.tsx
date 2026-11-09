@@ -71,7 +71,9 @@ export default function DataTable({
 }: DataTableProps) {
   const [localQuery, setLocalQuery] = useState("");
   const [localPage, setLocalPage] = useState(1);
-  const [pageInput, setPageInput] = useState(String(currentPage ?? localPage));
+  const [pageInputState, setPageInputState] = useState({ page: currentPage ?? 1, value: String(currentPage ?? 1) });
+  const pageInput = pageInputState.page === (currentPage ?? localPage) ? pageInputState.value : String(currentPage ?? localPage);
+  const setPageInput = (value: string) => setPageInputState({ page: currentPage ?? localPage, value });
   const pageInputId = useId();
   const [selected, setSelected] = useState<string[]>([]);
   const [localSort, setLocalSort] = useState<{ columnIndex: number; order: "asc" | "desc" } | null>(null);
@@ -194,7 +196,7 @@ export default function DataTable({
                 </th>
               )}
               {columns.map((column, columnIndex) => {
-                if (!sortable) {
+                if (!sortable || (serverPagination && !sortableColumns?.[column])) {
                   return (
                     <th className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold" key={column}>
                       {column}

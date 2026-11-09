@@ -12,15 +12,20 @@ import { useToast } from "../../context/useToast";
 type LogFilters = {
   event_code: string;
   user_id: string;
-  date_from: string;
-  date_to: string;
+  created_at_from: string;
+  created_at_to: string;
+  id: string;
+  type_id: string;
+  ip_address: string;
+  request_id: string;
+  resource_type: string;
+  resource_id: string;
 };
 
 const emptyFilters: LogFilters = {
   event_code: "",
   user_id: "",
-  date_from: "",
-  date_to: "",
+  created_at_from: "", created_at_to: "", id: "", type_id: "", ip_address: "", request_id: "", resource_type: "", resource_id: "",
 };
 type SortField = "created_at" | "event_code";
 type SortOrder = "asc" | "desc";
@@ -44,18 +49,26 @@ function AdminActivityLogPage() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim().toUpperCase()), 300);
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
 
   useEffect(() => {
+    let active = true;
     const params = {
       page,
       page_size: 20,
-      event_code: debouncedSearch || filters.event_code || undefined,
+      query: debouncedSearch || undefined,
+      event_code: filters.event_code || undefined,
+      id: filters.id || undefined,
+      type_id: filters.type_id || undefined,
+      ip_address: filters.ip_address || undefined,
+      request_id: filters.request_id || undefined,
+      resource_type: filters.resource_type || undefined,
+      resource_id: filters.resource_id || undefined,
       user_id: filters.user_id || undefined,
-      date_from: toApiDate(filters.date_from),
-      date_to: toApiDate(filters.date_to),
+      created_at_from: toApiDate(filters.created_at_from),
+      created_at_to: toApiDate(filters.created_at_to),
       sort_by: sortBy,
       sort_order: sortOrder,
     };
@@ -64,13 +77,15 @@ function AdminActivityLogPage() {
         params,
       })
       .then(({ data }) => {
+        if (!active) return;
         setLogs(data.items);
         setTotal(data.total);
       })
       .catch((loadError: unknown) => {
-        showToast(getApiErrorMessage(loadError, "Could not load the activity log."), "error");
+        if (active) showToast(getApiErrorMessage(loadError, "Could not load the activity log."), "error");
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
   }, [debouncedSearch, filters, page, showToast, sortBy, sortOrder]);
 
   const updateDraft = <K extends keyof LogFilters>(key: K, value: LogFilters[K]) => {
@@ -112,11 +127,10 @@ function AdminActivityLogPage() {
           rows={rows}
           rowIds={logs.map((log) => log.id)}
           totalCount={total}
-          searchPlaceholder="Search event code (exact)"
+          searchPlaceholder="Search log ID, user ID or IP"
           searchValue={search}
           onSearchChange={(nextSearch) => {
             setSearch(nextSearch);
-            setIsLoading(true);
             setPage(1);
           }}
           showFilters
@@ -125,11 +139,11 @@ function AdminActivityLogPage() {
           onApplyFilters={() => {
             setIsLoading(true);
             setPage(1);
-            setFilters(draftFilters);
+            setFilters({ ...draftFilters });
           }}
           onClearFilters={() => {
             setDraftFilters(emptyFilters);
-            setFilters(emptyFilters);
+            setFilters({ ...emptyFilters });
             setPage(1);
             setIsLoading(true);
           }}
@@ -137,8 +151,11 @@ function AdminActivityLogPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <InputSection label="Event code" maxLength={100} name="event-code-filter" onChange={(event) => updateDraft("event_code", event.target.value)} placeholder="e.g. LOGIN" value={draftFilters.event_code} />
               <InputSection label="User ID" name="user-id-filter" onChange={(event) => updateDraft("user_id", event.target.value)} placeholder="UUID" value={draftFilters.user_id} />
-              <InputSection label="From" name="log-date-from" onChange={(event) => updateDraft("date_from", event.target.value)} type="datetime-local" value={draftFilters.date_from} />
-              <InputSection label="To" name="log-date-to" onChange={(event) => updateDraft("date_to", event.target.value)} type="datetime-local" value={draftFilters.date_to} />
+              {([['id', 'Log ID'], ['type_id', 'Event type ID'], ['ip_address', 'IP address'], ['request_id', 'Request ID'], ['resource_type', 'Resource type'], ['resource_id', 'Resource ID']] as const).map(([key, label]) => (
+                <InputSection key={key} label={label} name={`log-filter-${key}`} value={draftFilters[key]} onChange={(event) => updateDraft(key, event.target.value)} />
+              ))}
+              <InputSection label="From" name="log-date-from" onChange={(event) => updateDraft("created_at_from", event.target.value)} type="datetime-local" value={draftFilters.created_at_from} />
+              <InputSection label="To" name="log-date-to" onChange={(event) => updateDraft("created_at_to", event.target.value)} type="datetime-local" value={draftFilters.created_at_to} />
             </div>
           )}
           onRowClick={(_row, rowIndex) => setSelectedLogId(logs[rowIndex]?.id ?? null)}
