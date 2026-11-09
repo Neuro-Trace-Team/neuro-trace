@@ -1,5 +1,4 @@
 from datetime import datetime
-import json
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -8,7 +7,7 @@ from sqlalchemy.orm import Session
 from src.api.deps import get_current_user
 from src.db.sessions import get_audit_db, get_medical_db
 from src.models.auth import User
-from src.models.medical import Examination, ExaminationEvent, ExaminationStatus
+from src.models.medical import Examination, ExaminationStatus
 from src.schemas.examinations import *
 from src.services import audit as audit_service
 from src.services import examinations as service
@@ -24,25 +23,12 @@ def ip(r: Request): return r.client.host if r.client else None
 def exam(v: Examination): return ExaminationResponse.model_validate(v, from_attributes=True)
 def detail(v: Examination, analyses: list[dict] | None = None):
     return ExaminationDetailResponse.model_validate(exam(v).model_dump() | {"analyses": analyses or []})
-def event(v: ExaminationEvent): return ExaminationEventResponse.model_validate(v, from_attributes=True)
-
-def parse_upload_events(raw_events: str | None) -> list[dict]:
-    if raw_events is None:
-        return []
-    try:
-        payload = json.loads(raw_events)
-    except json.JSONDecodeError as error:
-        raise ValueError("events must be a JSON array") from error
-    if not isinstance(payload, list):
-        raise ValueError("events must be a JSON array")
-    return [ExaminationEventCreate.model_validate(event).model_dump() for event in payload]
 
 
 @router.post("", response_model=ExaminationResponse, status_code=201)
-async def upload(request: Request, file: Annotated[UploadFile, File()], user: Annotated[User, Depends(get_current_user)], medical: Annotated[Session, Depends(get_medical_db)], audit: Annotated[Session, Depends(get_audit_db)], patient_id: Annotated[UUID | None, Form()] = None, generate_patient: Annotated[bool, Form()] = False, events: Annotated[str | None, Form()] = None, examination_date: Annotated[datetime | None, Form()] = None):
+async def upload(request: Request, file: Annotated[UploadFile, File()], user: Annotated[User, Depends(get_current_user)], medical: Annotated[Session, Depends(get_medical_db)], audit: Annotated[Session, Depends(get_audit_db)], patient_id: Annotated[UUID | None, Form()] = None, generate_patient: Annotated[bool, Form()] = False, examination_date: Annotated[datetime | None, Form()] = None):
     try:
-        uploaded_events = parse_upload_events(events)
-        value, created_patient = await service.upload_examination(medical, patient_id=patient_id, generate_patient=generate_patient, uploaded_by=user.id, file=file, examination_date=examination_date, events=uploaded_events)
+        value, created_patient = await service.upload_examination(medical, patient_id=patient_id, generate_patient=generate_patient, uploaded_by=user.id, file=file, examination_date=examination_date)
     except ValueError as error: raise HTTPException(422, str(error)) from None
     except patients_service.PatientNotFoundError: raise HTTPException(404, "Patient not found") from None
     except service.ExaminationValidationError as error: raise HTTPException(422, str(error)) from None
@@ -98,7 +84,6 @@ def get_one(examination_id: UUID, medical: Annotated[Session, Depends(get_medica
         return detail(examination, analyses)
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
     except MLServiceError as error: raise HTTPException(502, str(error)) from error
-
 @router.patch("/{examination_id}", response_model=ExaminationResponse)
 def update(examination_id: UUID, payload: ExaminationUpdate, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
     try: return exam(service.update_examination(medical, examination_id=examination_id, updates=payload.model_dump(exclude_unset=True)))
@@ -124,25 +109,3 @@ def results(examination_id: UUID, medical: Annotated[Session, Depends(get_medica
         return ExaminationResultsResponse.model_validate(MLClient().results(examination_id))
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
     except MLServiceError as error: raise HTTPException(502, str(error)) from error
-
-@router.get("/{examination_id}/events", response_model=list[ExaminationEventResponse])
-def events(examination_id: UUID, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
-    try: return [event(v) for v in service.list_events(medical, examination_id)]
-    except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
-
-@router.post("/{examination_id}/events", response_model=ExaminationEventResponse, status_code=201)
-def create_event(examination_id: UUID, payload: ExaminationEventCreate, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
-    try: return event(service.create_event(medical, examination_id=examination_id, event=payload.model_dump()))
-    except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
-
-@router.patch("/{examination_id}/events/{event_id}", response_model=ExaminationEventResponse)
-def patch_event(examination_id: UUID, event_id: UUID, payload: ExaminationEventUpdate, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
-    try: return event(service.update_event(medical, examination_id=examination_id, event_id=event_id, updates=payload.model_dump(exclude_unset=True)))
-    except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
-    except service.ExaminationEventNotFoundError: raise HTTPException(404, "Examination event not found") from None
-
-@router.delete("/{examination_id}/events/{event_id}", status_code=204)
-def remove_event(examination_id: UUID, event_id: UUID, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
-    try: service.delete_event(medical, examination_id=examination_id, event_id=event_id)
-    except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
-    except service.ExaminationEventNotFoundError: raise HTTPException(404, "Examination event not found") from None

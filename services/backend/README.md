@@ -5,9 +5,9 @@ examination metadata, and original EEG objects in RustFS. It has separate
 connections to `auth_db`, `medical_db`, and `audit_db`.
 
 `medical_db` contains only `patients`, `examinations`, and
-`examination_events`, plus the per-doctor navigation tables `recent_patients`
-and `recent_examinations`. It deliberately contains no preprocessing jobs, channel
-catalogue, pain assessments, analyses, or ML results.
+the per-doctor navigation tables `recent_patients` and `recent_examinations`.
+It deliberately contains no event markers, preprocessing jobs, channel catalogue,
+pain assessments, analyses, or ML results.
 
 ## Examination API
 
@@ -19,18 +19,14 @@ All endpoints below require an access token.
 | GET | `/api/v1/examinations` | List active examinations. |
 | GET | `/api/v1/examinations/statuses` | List backend-owned examination lifecycle values for the frontend. |
 | GET/PATCH/DELETE | `/api/v1/examinations/{id}` | Read details with ML analyses when ready, edit the examination date, or soft-delete. |
-| GET/POST | `/api/v1/examinations/{id}/events` | Read or create event segments. |
-| PATCH/DELETE | `/api/v1/examinations/{id}/events/{event_id}` | Edit or remove an event. |
 | GET | `/api/v1/examinations/{id}/preprocessing-status` | Proxy the status maintained by preprocessing. |
 | GET | `/api/v1/examinations/{id}/results` | Read ML results only after the examination is ready. |
 
 The upload request is one `multipart/form-data` transaction. Send `file` and
-exactly one of `patient_id` or `generate_patient=true`; optional `events` is a
-JSON array such as
-`[{"timestamp":"00:01:05:250000","type":"ARTIFACT"}]`. Timestamp format
-is `HH:MM:SS:microseconds`. The backend validates the file and events before it
-creates a generated patient, then commits the patient, examination and events
-together. The backend sends preprocessing:
+exactly one of `patient_id` or `generate_patient=true`. The backend validates
+the file before it creates a generated patient, then commits the patient and
+examination together. Event data belongs to the EEG inputs consumed by
+preprocessing and is not persisted in `medical_db`. The backend sends preprocessing:
 
 ```json
 {"examination_id":"uuid","storage_bucket":"examinations","storage_key":"examinations/..."}
@@ -98,6 +94,8 @@ For an existing `medical_db`, apply
 `database/medical/migrations/003_replace_examination_status_with_enum.sql` and
 `database/medical/migrations/004_rename_finished_status_to_ready.sql`; a
 fresh Compose volume receives the enum and column from `database/medical/init.sql`.
+Apply `database/medical/migrations/005_drop_examination_events.sql` to an
+existing database to remove the retired event-marker table.
 
 ## Recently visited resources
 

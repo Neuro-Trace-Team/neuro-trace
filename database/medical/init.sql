@@ -32,18 +32,6 @@ CREATE INDEX IF NOT EXISTS ix_examinations_created_at ON examinations (created_a
 CREATE INDEX IF NOT EXISTS ix_examinations_examination_date ON examinations (examination_date DESC);
 CREATE INDEX IF NOT EXISTS ix_examinations_active ON examinations (patient_id, created_at DESC) WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS examination_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), examination_id UUID NOT NULL,
-    timestamp NUMERIC(12,6) NOT NULL, type VARCHAR(50) NOT NULL, description TEXT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_examination_events_examination FOREIGN KEY (examination_id) REFERENCES examinations(id) ON DELETE CASCADE,
-    CONSTRAINT chk_examination_events_timestamp_nonnegative CHECK (timestamp >= 0),
-    CONSTRAINT chk_examination_events_type_not_blank CHECK (btrim(type) <> '')
-);
-
-CREATE INDEX IF NOT EXISTS ix_examination_events_examination_timestamp ON examination_events (examination_id, timestamp);
-CREATE INDEX IF NOT EXISTS ix_examination_events_type ON examination_events (type);
-
 -- `doctor_id` deliberately has no foreign key: users live in the separate
 -- auth_db. Composite primary keys prevent duplicate history entries.
 CREATE TABLE IF NOT EXISTS recent_patients (

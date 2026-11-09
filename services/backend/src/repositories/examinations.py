@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
-from src.models.medical import Examination, ExaminationEvent, ExaminationStatus
+from src.models.medical import Examination, ExaminationStatus
 
 
 def get_examination(session: Session, examination_id: UUID, *, include_deleted: bool = False) -> Examination | None:
@@ -52,11 +52,3 @@ def list_examinations(
     total = session.scalar(select(func.count()).select_from(Examination).where(*filters)) or 0
     rows = list(session.scalars(select(Examination).where(*filters).order_by(order, Examination.id.asc()).offset((page - 1) * page_size).limit(page_size)))
     return rows, total
-
-
-def list_events(session: Session, examination_id: UUID) -> list[ExaminationEvent]:
-    return list(session.scalars(select(ExaminationEvent).where(ExaminationEvent.examination_id == examination_id).order_by(ExaminationEvent.timestamp, ExaminationEvent.created_at)))
-
-
-def get_event(session: Session, examination_id: UUID, event_id: UUID) -> ExaminationEvent | None:
-    return session.scalar(select(ExaminationEvent).where(ExaminationEvent.examination_id == examination_id, ExaminationEvent.id == event_id))

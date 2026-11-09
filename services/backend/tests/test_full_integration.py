@@ -19,7 +19,7 @@ from src.services.preprocessing import PreprocessingClient
 
 @pytest.fixture(autouse=True)
 def clean_databases():
-    with sessions.medical_engine.begin() as c: c.execute(text("TRUNCATE recent_examinations, recent_patients, examination_events, examinations, patients CASCADE"))
+    with sessions.medical_engine.begin() as c: c.execute(text("TRUNCATE recent_examinations, recent_patients, examinations, patients CASCADE"))
     with sessions.auth_engine.begin() as c: c.execute(text("TRUNCATE refresh_tokens, users CASCADE"))
     with sessions.audit_engine.begin() as c: c.execute(text("TRUNCATE audit_logs CASCADE"))
     yield
@@ -57,10 +57,8 @@ def test_all_current_business_endpoints(api):
     with sessions.MedicalSession() as medical:
         assert examinations_service.mark_examination_ready(medical, examination_id)
     detail = api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json(); assert detail["status"] == "READY"; assert detail["analyses"] == [{"analysis_id": 1, "result": 6.4, "confidence": 0.91}]
-    for path in ("/api/v1/examinations",f"/api/v1/examinations/{examination_id}",f"/api/v1/patients/{patient_id}/examinations",f"/api/v1/examinations/{examination_id}/events",f"/api/v1/examinations/{examination_id}/preprocessing-status",f"/api/v1/examinations/{examination_id}/results"): assert api.get(path,headers=headers).status_code==200
+    for path in ("/api/v1/examinations",f"/api/v1/examinations/{examination_id}",f"/api/v1/patients/{patient_id}/examinations",f"/api/v1/examinations/{examination_id}/preprocessing-status",f"/api/v1/examinations/{examination_id}/results"): assert api.get(path,headers=headers).status_code==200
     assert api.patch(f"/api/v1/examinations/{examination_id}",headers=headers,json={"examination_date":"2026-11-05T12:00:00Z"}).status_code==200
-    event=api.post(f"/api/v1/examinations/{examination_id}/events",headers=headers,json={"timestamp":1,"type":"stimulus"}); assert event.status_code==201; event_id=event.json()["id"]
-    assert api.patch(f"/api/v1/examinations/{examination_id}/events/{event_id}",headers=headers,json={"description":"updated"}).status_code==200; assert api.delete(f"/api/v1/examinations/{examination_id}/events/{event_id}",headers=headers).status_code==204
     assert api.post("/api/v1/examinations/bulk-export",headers=headers,json={"examination_ids":[examination_id]}).status_code==200
     logs=api.get("/api/v1/admin/audit-logs",headers=headers); assert logs.status_code==200; assert api.get(f"/api/v1/admin/audit-logs/{logs.json()['items'][0]['id']}",headers=headers).status_code==200
     assert api.post("/api/v1/examinations/bulk-delete",headers=headers,json={"examination_ids":[examination_id]}).status_code==200; assert api.delete(f"/api/v1/examinations/{examination_id}",headers=headers).status_code==404
