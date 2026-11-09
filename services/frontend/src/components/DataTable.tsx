@@ -77,6 +77,7 @@ export default function DataTable({
   const pageInput = pageInputState.page === (currentPage ?? localPage) ? pageInputState.value : String(currentPage ?? localPage);
   const setPageInput = (value: string) => setPageInputState({ page: currentPage ?? localPage, value });
   const pageInputId = useId();
+  const filterFormId = useId();
   const [selected, setSelected] = useState<string[]>([]);
   const [localSort, setLocalSort] = useState<{ columnIndex: number; order: "asc" | "desc" } | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -174,7 +175,7 @@ export default function DataTable({
             changePage(1);
           }}
           placeholder={searchPlaceholder}
-          type="text"
+          type="search"
           value={query}
         />
         {showFilters && (
@@ -299,7 +300,6 @@ export default function DataTable({
         </span>
         <div aria-label="Pagination" className="flex items-center gap-1.5">
           <ButtonSecondary aria-label="Previous page" className="!min-h-0 h-9 w-9 rounded-lg px-1 shadow-none" disabled={page <= 1} icon="left" iconOnly onClick={() => changePage(page - 1)} type="button" />
-          <ButtonSecondary aria-label={page > 1 ? `Go to page ${page - 1}` : "No previous page"} className="!min-h-0 h-9 min-w-9 px-2" disabled={page <= 1} onClick={() => changePage(page - 1)} type="button">{Math.max(1, page - 1)}</ButtonSecondary>
           <InputSection
             aria-label={`Current page, ${page} of ${pageCount}`}
             className="w-14"
@@ -323,7 +323,6 @@ export default function DataTable({
             value={pageInput}
             type="number"
           />
-          <ButtonSecondary aria-label={page < pageCount ? `Go to page ${page + 1}` : "No next page"} className="!min-h-0 h-9 min-w-9 px-2" disabled={page >= pageCount} onClick={() => changePage(page + 1)} type="button">{Math.min(pageCount, page + 1)}</ButtonSecondary>
           <ButtonSecondary aria-label="Next page" className="!min-h-0 h-9 w-9 rounded-lg px-1 shadow-none" disabled={page >= pageCount} icon="right" iconOnly onClick={() => changePage(page + 1)} type="button" />
         </div>
       </div>}
@@ -342,20 +341,20 @@ export default function DataTable({
                   Clear filters
                 </ButtonSecondary>
               )}
-              <ButtonPrimary
-                onClick={() => {
-                  onApplyFilters?.();
-                  changePage(1);
-                  closeFilterModal();
-                }}
-                type="button"
-              >
+              <ButtonPrimary form={filterFormId} type="submit">
                 Apply filters
               </ButtonPrimary>
             </>
           )}
         >
-          {filterContent}
+          <form id={filterFormId} onSubmit={(event) => {
+            event.preventDefault();
+            onApplyFilters?.();
+            changePage(1);
+            closeFilterModal();
+          }}>
+            {filterContent}
+          </form>
         </Modal>
       )}
     </div>

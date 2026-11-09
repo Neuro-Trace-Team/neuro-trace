@@ -147,8 +147,8 @@ function DoctorExaminationsPage() {
               <InputSection label="Uploaded by user ID" name="uploader-filter" value={draftFilters.uploaded_by} onChange={(event) => updateDraft("uploaded_by", event.target.value)} />
               <label className="grid gap-1 text-sm font-semibold text-[#102d58]">Status<select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3" value={draftFilters.status} onChange={(event) => updateDraft("status", event.target.value)}><option value="">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
               <InputSection label="Patient ID" name="patient-id-filter" onChange={(event) => updateDraft("patient_id", event.target.value)} placeholder="Patient UUID" value={draftFilters.patient_id} />
-              <InputSection label="Date from" name="examination-date-from" onChange={(event) => updateDraft("date_from", event.target.value)} type="datetime-local" value={draftFilters.date_from} />
-              <InputSection label="Date to" name="examination-date-to" onChange={(event) => updateDraft("date_to", event.target.value)} type="datetime-local" value={draftFilters.date_to} />
+              <InputSection label="Examination date from" name="examination-date-from" onChange={(event) => updateDraft("date_from", event.target.value)} type="datetime-local" value={draftFilters.date_from} />
+              <InputSection label="Examination date to" name="examination-date-to" onChange={(event) => updateDraft("date_to", event.target.value)} type="datetime-local" value={draftFilters.date_to} />
             </div>
           )}
           toolbarEnd={

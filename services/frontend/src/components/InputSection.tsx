@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEventHandler, type InputHTMLAttributes } from "react";
 import ButtonSecondary from "./ButtonSecondary";
+import searchIcon from "../assets/icon-search.svg";
 import Icon, { type IconName } from "./Icon";
 
 type InputSectionProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "className" | "onChange"> & {
@@ -48,11 +49,11 @@ function InputSection({
         <div className={`flex min-w-0 flex-col gap-1 ${className ?? ""}`}>
             {label && <label htmlFor={name} className="text-[14px] font-semibold leading-[18px] text-[#08264c]">{label}</label>}
             <span className="relative block min-w-0">
-                {leadingIcon && <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#718096]" name={leadingIcon} />}
+                {isSearch && !icon ? <img alt="" aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" src={searchIcon} /> : leadingIcon && <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#718096]" name={leadingIcon} />}
                 <input
                     {...inputProps}
                     autoComplete={autoComplete}
-                    className={`h-10 w-full rounded-lg border border-[#d6e1e6] bg-white px-3 text-[13px] text-[#173456] shadow-[inset_0_1px_3px_rgba(8,38,76,0.08)] outline-none transition placeholder:text-[#8997a2] focus:border-[#00a9c4] focus:ring-2 focus:ring-[#00b7c8]/15 disabled:cursor-not-allowed disabled:bg-[#e9eef0] disabled:text-[#84919b] ${leadingIcon ? "pl-10" : ""} ${isPassword || isSearch ? "pr-11" : ""} ${inputClassName}`}
+                    className={`h-10 w-full rounded-lg border border-[#d6e1e6] bg-white px-3 text-[13px] text-[#173456] shadow-[inset_0_1px_3px_rgba(8,38,76,0.08)] outline-none transition placeholder:text-[#8997a2] focus:border-[#00a9c4] focus:ring-2 focus:ring-[#00b7c8]/15 disabled:cursor-not-allowed disabled:bg-[#e9eef0] disabled:text-[#84919b] [&::-webkit-search-cancel-button]:appearance-none ${leadingIcon ? "pl-10" : ""} ${isPassword || isSearch ? "pr-11" : ""} ${inputClassName}`}
                     id={name}
                     name={name}
                     onChange={onChange}
