@@ -13,6 +13,8 @@ from src.schemas.examinations import *
 from src.services import audit as audit_service
 from src.services import examinations as service
 from src.services import patients as patients_service
+from src.services import recent as recent_service
+from src.core.roles import Role
 from src.services.ml import MLClient, MLServiceError
 from src.services.preprocessing import PreprocessingClient, PreprocessingServiceError
 from src.services.storage import ObjectStorageError
@@ -55,14 +57,43 @@ async def upload(request: Request, file: Annotated[UploadFile, File()], user: An
     audit_service.log(audit, event_code="PREPROCESSING_REQUESTED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata=metadata, ip_address=ip(request)); return exam(value)
 
 @router.get("", response_model=ExaminationListResponse)
-def list_all(medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)], page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), patient_id: UUID | None = None, uploaded_by: UUID | None = None, date_from: datetime | None = None, date_to: datetime | None = None, sort_by: Literal["created_at", "examination_date"] = "created_at", sort_order: Literal["asc", "desc"] = "desc"):
-    if date_from and date_to and date_from > date_to: raise HTTPException(400, "date_from must not be after date_to")
-    rows, total = service.list_examinations(medical, page=page, page_size=page_size, patient_id=patient_id, uploaded_by=uploaded_by, date_from=date_from, date_to=date_to, sort_by=sort_by, sort_order=sort_order); return ExaminationListResponse(items=[exam(v) for v in rows], page=page, page_size=page_size, total=total)
+def list_all(
+    medical: Annotated[Session, Depends(get_medical_db)],
+    _: Annotated[User, Depends(get_current_user)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    query: str | None = Query(default=None, min_length=1, max_length=255),
+    id: UUID | None = None,
+    patient_id: UUID | None = None,
+    uploaded_by: UUID | None = None,
+    status: ExaminationStatus | None = None,
+    examination_date_from: datetime | None = None,
+    examination_date_to: datetime | None = None,
+    sort_by: Literal["id", "patient_id", "uploaded_by", "status", "examination_date", "created_at", "updated_at"] = "created_at",
+    sort_order: Literal["asc", "desc"] = "desc",
+):
+    if examination_date_from and examination_date_to and examination_date_from > examination_date_to:
+        raise HTTPException(400, "examination_date_from must not be after examination_date_to")
+    rows, total = service.list_examinations(
+        medical, page=page, page_size=page_size, query=query, examination_id=id,
+        patient_id=patient_id, uploaded_by=uploaded_by, status=status,
+        examination_date_from=examination_date_from, examination_date_to=examination_date_to,
+        sort_by=sort_by, sort_order=sort_order,
+    )
+    return ExaminationListResponse(items=[exam(v) for v in rows], page=page, page_size=page_size, total=total)
+
+
+@router.get("/statuses", response_model=ExaminationStatusesResponse)
+def list_statuses(_: Annotated[User, Depends(get_current_user)]) -> ExaminationStatusesResponse:
+    """Expose backend-owned examination lifecycle values for frontend selectors."""
+    return ExaminationStatusesResponse(statuses=list(ExaminationStatus))
 
 @router.get("/{examination_id}", response_model=ExaminationDetailResponse)
-def get_one(examination_id: UUID, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
+def get_one(examination_id: UUID, medical: Annotated[Session, Depends(get_medical_db)], current_user: Annotated[User, Depends(get_current_user)]):
     try:
         examination = service.get_examination(medical, examination_id)
+        if current_user.role == Role.DOCTOR:
+            recent_service.record_examination_visit(medical, doctor_id=current_user.id, examination_id=examination.id)
         analyses = MLClient().results(examination_id)["analyses"] if examination.status is ExaminationStatus.READY else []
         return detail(examination, analyses)
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None

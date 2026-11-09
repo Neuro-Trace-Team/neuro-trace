@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.models.audit import AuditLog, AuditLogType
@@ -12,27 +12,63 @@ def list_audit_logs(
     *,
     page: int,
     page_size: int,
+    query: str | None = None,
+    log_id: UUID | None = None,
     event_code: str | None = None,
     user_id: UUID | None = None,
-    date_from: datetime | None = None,
-    date_to: datetime | None = None,
+    type_id: int | None = None,
+    created_at_from: datetime | None = None,
+    created_at_to: datetime | None = None,
+    ip_address: str | None = None,
+    request_id: UUID | None = None,
+    resource_type: str | None = None,
+    resource_id: UUID | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ) -> tuple[list[tuple[AuditLog, str]], int]:
     filters = []
+    if query is not None:
+        pattern = f"%{query}%"
+        filters.append(or_(
+            cast(AuditLog.id, String).ilike(pattern),
+            cast(AuditLog.user_id, String).ilike(pattern),
+            cast(AuditLog.ip_address, String).ilike(pattern),
+        ))
+    if log_id is not None:
+        filters.append(AuditLog.id == log_id)
     if event_code is not None:
         filters.append(AuditLogType.code == event_code)
     if user_id is not None:
         filters.append(AuditLog.user_id == user_id)
-    if date_from is not None:
-        filters.append(AuditLog.created_at >= date_from)
-    if date_to is not None:
-        filters.append(AuditLog.created_at <= date_to)
+    if type_id is not None:
+        filters.append(AuditLog.type_id == type_id)
+    if created_at_from is not None:
+        filters.append(AuditLog.created_at >= created_at_from)
+    if created_at_to is not None:
+        filters.append(AuditLog.created_at <= created_at_to)
+    if ip_address is not None:
+        filters.append(AuditLog.ip_address == ip_address)
+    if request_id is not None:
+        filters.append(AuditLog.request_id == request_id)
+    if resource_type is not None:
+        filters.append(AuditLog.resource_type == resource_type)
+    if resource_id is not None:
+        filters.append(AuditLog.resource_id == resource_id)
 
     total = session.scalar(
         select(func.count()).select_from(AuditLog).join(AuditLogType).where(*filters)
     ) or 0
-    sort_columns = {"created_at": AuditLog.created_at, "event_code": AuditLogType.code}
+    sort_columns = {
+        "id": AuditLog.id,
+        "user_id": AuditLog.user_id,
+        "type_id": AuditLog.type_id,
+        "created_at": AuditLog.created_at,
+        "ip_address": AuditLog.ip_address,
+        "request_id": AuditLog.request_id,
+        "resource_type": AuditLog.resource_type,
+        "resource_id": AuditLog.resource_id,
+        "event_code": AuditLogType.code,
+    }
     order_column = sort_columns[sort_by]
     ordering = order_column.asc() if sort_order == "asc" else order_column.desc()
     rows = list(

@@ -2,9 +2,9 @@
 
 from .audit import AuditLog, AuditLogType
 from .auth import RefreshToken, User
-from .medical import Examination, ExaminationEvent, Patient
+from .medical import Examination, ExaminationEvent, Patient, RecentExamination, RecentPatient
 
 __all__ = [
     "AuditLog", "AuditLogType", "Examination", "ExaminationEvent",
-    "Patient", "RefreshToken", "User",
+    "Patient", "RecentExamination", "RecentPatient", "RefreshToken", "User",
 ]

@@ -42,6 +42,10 @@ class ExaminationListResponse(BaseModel):
     total: int
 
 
+class ExaminationStatusesResponse(BaseModel):
+    statuses: list[ExaminationStatus]
+
+
 class ExaminationUpdate(BaseModel):
     examination_date: datetime | None = None
 
