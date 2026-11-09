@@ -113,7 +113,7 @@ function SettingsPage() {
                 )}
                 <ButtonSecondary
                   aria-label={`${editing === key ? "Save" : "Edit"} ${label}`}
-                  className="h-9 w-9 border-0 bg-transparent p-0 shadow-none"
+                  className="!min-h-0 h-9 w-9 border-0 bg-transparent p-0 shadow-none"
                   disabled={isSaving}
                   icon={editing === key ? "check" : "edit"}
                   iconOnly
@@ -127,7 +127,7 @@ function SettingsPage() {
               <strong className="text-[#102d58]">{user?.role === "admin" ? "Admin" : "Doctor"}</strong>
               <ButtonSecondary
                   aria-label={"Edit role"}
-                  className="h-9 w-9 border-0 bg-transparent p-0 shadow-none"
+                  className="!min-h-0 h-9 w-9 border-0 bg-transparent p-0 shadow-none"
                   disabled
                   icon={"edit"}
                   iconOnly

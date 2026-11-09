@@ -111,7 +111,7 @@ function DoctorNewExaminationPage() {
             <Checkbox checked={newPatient} className="mt-3" label="Create a new pseudonymized patient" onChange={setNewPatient} />
             <div className="mt-7">
               <SectionTitle>Examination Artifacts</SectionTitle>
-              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => {
+              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 !min-h-0 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => {
                 setArtifactIds((ids) => [...ids, nextArtifactId]);
                 setNextArtifactId((id) => id + 1);
               }} type="button" />
@@ -162,7 +162,7 @@ function DoctorNewExaminationPage() {
                     })}
                     <ButtonSecondary
                       aria-label={`Remove artifact timestamp ${index + 1}`}
-                      className="h-9 w-9 shrink-0 px-0"
+                      className="!min-h-0 h-9 w-9 shrink-0 px-0"
                       icon="trash"
                       iconOnly
                       onClick={() => setArtifactIds((ids) => ids.filter((id) => id !== artifactId))}

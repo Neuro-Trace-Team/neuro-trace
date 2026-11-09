@@ -298,8 +298,8 @@ export default function DataTable({
           Showing {resultCount ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, resultCount)} of {resultCount} {resultCount === 1 ? itemLabel : itemLabelPlural}
         </span>
         <div aria-label="Pagination" className="flex items-center gap-1.5">
-          <ButtonSecondary aria-label="Previous page" className="h-9 w-9 rounded-lg px-1 shadow-none" disabled={page <= 1} icon="left" iconOnly onClick={() => changePage(page - 1)} type="button" />
-          <ButtonSecondary aria-label={page > 1 ? `Go to page ${page - 1}` : "No previous page"} className="h-9 min-w-9 px-2" disabled={page <= 1} onClick={() => changePage(page - 1)} type="button">{Math.max(1, page - 1)}</ButtonSecondary>
+          <ButtonSecondary aria-label="Previous page" className="!min-h-0 h-9 w-9 rounded-lg px-1 shadow-none" disabled={page <= 1} icon="left" iconOnly onClick={() => changePage(page - 1)} type="button" />
+          <ButtonSecondary aria-label={page > 1 ? `Go to page ${page - 1}` : "No previous page"} className="!min-h-0 h-9 min-w-9 px-2" disabled={page <= 1} onClick={() => changePage(page - 1)} type="button">{Math.max(1, page - 1)}</ButtonSecondary>
           <InputSection
             aria-label={`Current page, ${page} of ${pageCount}`}
             className="w-14"
@@ -323,8 +323,8 @@ export default function DataTable({
             value={pageInput}
             type="number"
           />
-          <ButtonSecondary aria-label={page < pageCount ? `Go to page ${page + 1}` : "No next page"} className="h-9 min-w-9 px-2" disabled={page >= pageCount} onClick={() => changePage(page + 1)} type="button">{Math.min(pageCount, page + 1)}</ButtonSecondary>
-          <ButtonSecondary aria-label="Next page" className="h-9 w-9 rounded-lg px-1 shadow-none" disabled={page >= pageCount} icon="right" iconOnly onClick={() => changePage(page + 1)} type="button" />
+          <ButtonSecondary aria-label={page < pageCount ? `Go to page ${page + 1}` : "No next page"} className="!min-h-0 h-9 min-w-9 px-2" disabled={page >= pageCount} onClick={() => changePage(page + 1)} type="button">{Math.min(pageCount, page + 1)}</ButtonSecondary>
+          <ButtonSecondary aria-label="Next page" className="!min-h-0 h-9 w-9 rounded-lg px-1 shadow-none" disabled={page >= pageCount} icon="right" iconOnly onClick={() => changePage(page + 1)} type="button" />
         </div>
       </div>}
       {isFilterModalOpen && filterContent && (

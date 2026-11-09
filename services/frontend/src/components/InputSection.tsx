@@ -65,7 +65,7 @@ function InputSection({
                 {isPassword && (
                     <ButtonSecondary
                         aria-label={passwordVisible ? "Hide password" : "Show password"}
-                        className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none"
+                        className="absolute right-1 top-1/2 !min-h-0 h-8 w-8 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none"
                         icon={passwordVisible ? "eyeOff" : "eye"}
                         iconOnly
                         onClick={() => setPasswordVisible((visible) => !visible)}
@@ -75,7 +75,7 @@ function InputSection({
                 {isSearch && Boolean(value) && (
                     <ButtonSecondary
                         aria-label="Clear search"
-                        className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none"
+                        className="absolute right-1 top-1/2 !min-h-0 h-8 w-8 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none"
                         icon="close"
                         iconOnly
                         onClick={clearSearch}

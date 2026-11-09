@@ -39,7 +39,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <p className="min-w-0 flex-1 text-sm leading-5 text-[#173456]">{message}</p>
             <ButtonSecondary
               aria-label="Dismiss notification"
-              className="h-7 w-7 shrink-0 border-0 bg-transparent p-0 shadow-none"
+              className="!min-h-0 h-7 w-7 shrink-0 border-0 bg-transparent p-0 shadow-none"
               icon="close"
               iconOnly
               onClick={() => setToasts((current) => current.filter((toast) => toast.id !== id))}

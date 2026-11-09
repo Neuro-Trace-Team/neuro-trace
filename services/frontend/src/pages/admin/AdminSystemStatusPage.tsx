@@ -1,4 +1,5 @@
 ﻿import PageTitle from "../../components/PageTitle";
+import SectionTitle from "../../components/SectionTitle";
 import Surface from "../../components/Surface";
 
 type Connection = { from: string; to: string; label: string; path: string; connected: boolean };
@@ -33,16 +34,31 @@ const connections: Connection[] = [
   { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337", connected: true },
 ];
 
+const exampleStorageUsage = 74;
+
 function AdminSystemStatusPage() {
   return (
     <div className="mx-auto max-w-[1100px]">
       <PageTitle>System Status</PageTitle>
+      <Surface className="mb-4 border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)]">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <SectionTitle>Storage usage</SectionTitle>
+          <span className="rounded-lg border border-white/80 bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#52677b]">Example data</span>
+        </div>
+        <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold text-[#173456]">
+          <span>RustFS</span>
+          <span>{exampleStorageUsage}%</span>
+        </div>
+        <div aria-label="RustFS storage usage (example data)" aria-valuemin={0} aria-valuemax={100} aria-valuenow={exampleStorageUsage} className="h-3.5 overflow-hidden rounded-full bg-[#d7e1e3]" role="progressbar">
+          <div className="h-full rounded-full bg-gradient-to-r from-[#00bdc9] to-[#0069b1]" style={{ width: `${exampleStorageUsage}%` }} />
+        </div>
+        <div aria-hidden="true" className="mt-1 flex justify-between text-xs text-[#718096]"><span>0%</span><span>50%</span><span>100%</span></div>
+      </Surface>
       <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 p-4 shadow-[0_6px_18px_rgba(8,38,76,0.09)] sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="font-heading text-xl font-bold text-[#102d58]">System connections</h2>
-            <p className="mt-1 text-sm text-[#52677b]">How the application services and data stores connect.</p>
-          </div>
+            <SectionTitle>System connections</SectionTitle>
+            </div>
           <span className="rounded-lg border border-white/80 bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#52677b]">Example data</span>
         </div>
         <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/35">
