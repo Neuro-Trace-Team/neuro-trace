@@ -186,19 +186,19 @@ export default function DataTable({
         </ButtonSecondary>
       </div>}
 
-      <div className="overflow-x-auto rounded-xl border border-[#dce5e9] bg-white shadow-[0_4px_14px_rgba(8,38,76,0.07)]">
+      <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/45 shadow-[0_6px_18px_rgba(8,38,76,0.06)]">
         <table className="w-full min-w-[680px] border-separate border-spacing-0 text-left text-[13px] leading-5 text-[#334b63]">
-          <thead className="bg-[#f1f6f8] text-[11px] font-bold uppercase tracking-[0.07em] text-[#52677b]">
+          <thead className="bg-white/60 text-[11px] font-bold uppercase tracking-[0.07em] text-[#52677b]">
             <tr>
               {selectable && (
-                <th className="w-12 border-b border-[#dce5e9] px-4 py-3.5">
+                <th className="w-12 border-b border-white/90 px-4 py-3.5">
                   <Checkbox checked={allSelected} label="Select all rows" onChange={toggleAll} showLabel={false} />
                 </th>
               )}
               {columns.map((column, columnIndex) => {
                 if (!sortable || (serverPagination && !sortableColumns?.[column])) {
                   return (
-                    <th className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold" key={column}>
+                    <th className="whitespace-nowrap border-b border-white/90 px-4 py-3.5 font-bold" key={column}>
                       {column}
                     </th>
                   );
@@ -210,7 +210,7 @@ export default function DataTable({
                 return (
                   <th
                     aria-sort={activeOrder ? (activeOrder === "asc" ? "ascending" : "descending") : "none"}
-                    className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold"
+                    className="whitespace-nowrap border-b border-white/90 px-4 py-3.5 font-bold"
                     key={column}
                   >
                     <button
@@ -233,12 +233,12 @@ export default function DataTable({
                 <tr
                   className={`group items-center transition-[background-color,box-shadow] duration-150 ease-out ${
                     onRowClick
-                      ? "cursor-pointer hover:bg-[#eaf8fa] active:bg-[#ddf3f5] motion-reduce:transition-none"
+                      ? "cursor-pointer hover:bg-white/45 active:bg-white/60 focus-visible:bg-white/45 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#009bb4] motion-reduce:transition-none"
                       : ""
                   } ${
                     selected.includes(rowId(row))
-                      ? "bg-[#eaf8fa] even:bg-[#eaf8fa]"
-                      : "bg-white even:bg-[#f7fafb]"
+                      ? "bg-[#d7f2f4]/75"
+                      : "bg-transparent"
                   }`}
                   key={`${row.join("-")}-${rowIndex}`}
                   onClick={() => onRowClick?.(row, rowIndex)}
@@ -251,7 +251,7 @@ export default function DataTable({
                   tabIndex={onRowClick ? 0 : undefined}
                 >
                   {selectable && (
-                    <td className="border-b border-[#edf1f3] px-4 py-2.5 group-last:border-0">
+                    <td className="border-b border-white/90 px-4 py-2.5 group-last:border-0">
                       <div onClick={(event) => event.stopPropagation()}>
                         <Checkbox
                           checked={selected.includes(rowId(row))}
@@ -264,7 +264,7 @@ export default function DataTable({
                   )}
                   {row.map((cell, index) => (
                     <td
-                      className={`max-w-[420px] truncate border-b border-[#edf1f3] px-4 py-3.5 group-last:border-0 ${
+                      className={`max-w-[420px] truncate border-b border-white/90 px-4 py-3.5 group-last:border-0 ${
                         index === 0 ? "font-semibold text-[#102d58]" : ""
                       }`}
                       key={`${columns[index]}-${index}`}
@@ -291,7 +291,7 @@ export default function DataTable({
         </table>
       </div>
 
-      {showPagination && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#e5ecef] pt-3 text-[12px] text-[#62768a]">
+      {showPagination && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/80 pt-3 text-[12px] text-[#62768a]">
         <span>
           Showing {resultCount ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, resultCount)} of {resultCount} {resultCount === 1 ? itemLabel : itemLabelPlural}
         </span>
