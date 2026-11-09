@@ -9,6 +9,7 @@ import Modal from "./Modal";
 type DataTableProps = {
   columns: string[];
   rows: string[][];
+  rowIds?: string[];
   totalCount?: number;
   selectable?: boolean;
   searchPlaceholder?: string;
@@ -40,6 +41,7 @@ type DataTableProps = {
 export default function DataTable({
   columns,
   rows,
+  rowIds,
   totalCount,
   selectable = true,
   searchPlaceholder = "Search",
@@ -71,7 +73,7 @@ export default function DataTable({
   const [localPage, setLocalPage] = useState(1);
   const [pageInput, setPageInput] = useState(String(currentPage ?? localPage));
   const pageInputId = useId();
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [localSort, setLocalSort] = useState<{ columnIndex: number; order: "asc" | "desc" } | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const closeFilterModal = useCallback(() => setIsFilterModalOpen(false), []);
@@ -116,10 +118,11 @@ export default function DataTable({
     ? localSort ? sortedRows : filteredRows
     : sortedRows.slice((page - 1) * pageSize, page * pageSize);
   const resultCount = serverPagination ? totalCount ?? rows.length : sortedRows.length;
-  const allSelected = visibleRows.length > 0 && visibleRows.every((row) => selected.includes(rows.indexOf(row)));
+  const rowId = (row: string[]) => rowIds?.[rows.indexOf(row)] ?? row[0];
+  const allSelected = visibleRows.length > 0 && visibleRows.every((row) => selected.includes(rowId(row)));
 
   const toggleAll = () => {
-    const visibleIndexes = visibleRows.map((row) => rows.indexOf(row));
+    const visibleIndexes = visibleRows.map((row) => rowId(row));
     setSelected(allSelected ? selected.filter((index) => !visibleIndexes.includes(index)) : [...new Set([...selected, ...visibleIndexes])]);
   };
 
@@ -139,7 +142,7 @@ export default function DataTable({
   };
 
   const exportRows = () => {
-    const selectedRows = selected.length ? rows.filter((_, index) => selected.includes(index)) : visibleRows;
+    const selectedRows = selected.length ? rows.filter((row) => selected.includes(rowId(row))) : visibleRows;
     const csv = [columns, ...selectedRows].map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
@@ -167,7 +170,7 @@ export default function DataTable({
             changePage(1);
           }}
           placeholder={searchPlaceholder}
-          type="search"
+          type="text"
           value={query}
         />
         {showFilters && (
@@ -231,7 +234,7 @@ export default function DataTable({
                       ? "cursor-pointer hover:bg-[#eaf8fa] active:bg-[#ddf3f5] motion-reduce:transition-none"
                       : ""
                   } ${
-                    selected.includes(rowIndex)
+                    selected.includes(rowId(row))
                       ? "bg-[#eaf8fa] even:bg-[#eaf8fa]"
                       : "bg-white even:bg-[#f7fafb]"
                   }`}
@@ -249,9 +252,9 @@ export default function DataTable({
                     <td className="border-b border-[#edf1f3] px-4 py-2.5 group-last:border-0">
                       <div onClick={(event) => event.stopPropagation()}>
                         <Checkbox
-                          checked={selected.includes(rowIndex)}
+                          checked={selected.includes(rowId(row))}
                           label={`Select row ${visibleIndex + 1}`}
-                          onChange={() => setSelected((items) => items.includes(rowIndex) ? items.filter((item) => item !== rowIndex) : [...items, rowIndex])}
+                          onChange={() => setSelected((items) => items.includes(rowId(row)) ? items.filter((item) => item !== rowId(row)) : [...items, rowId(row)])}
                           showLabel={false}
                         />
                       </div>

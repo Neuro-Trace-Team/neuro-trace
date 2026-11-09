@@ -1,7 +1,9 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { backendClient, getApiErrorMessage } from "../../services/apiClient";
-import { PageTitle, SectionTitle, Surface } from "../../components/PageUI";
+import PageTitle from "../../components/PageTitle";
+import SectionTitle from "../../components/SectionTitle";
+import Surface from "../../components/Surface";
 import type { BackendReadiness } from "../../types/api.types";
 import { useToast } from "../../context/useToast";
 

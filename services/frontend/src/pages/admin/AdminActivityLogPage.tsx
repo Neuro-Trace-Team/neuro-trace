@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import AuditLogDetailsModal from "../../components/AuditLogDetailsModal";
 import DataTable from "../../components/DataTable";
 import InputSection from "../../components/InputSection";
-import { PageTitle, Surface } from "../../components/PageUI";
+import PageTitle from "../../components/PageTitle";
+import Surface from "../../components/Surface";
 import { apiClient, getApiErrorMessage } from "../../services/apiClient";
 import { formatDate } from "../../services/api";
 import type { AuditLog, PaginatedResponse } from "../../types/api.types";
@@ -87,7 +88,7 @@ function AdminActivityLogPage() {
 
   return (
     <div className="mx-auto max-w-[1100px]">
-      <PageTitle>App Activity Log</PageTitle>
+      <PageTitle>Audit Log</PageTitle>
       <Surface className="p-3">
         <DataTable
           columns={["Date", "Event", "Resource / User"]}
@@ -109,6 +110,7 @@ function AdminActivityLogPage() {
           }}
           pageSize={20}
           rows={rows}
+          rowIds={logs.map((log) => log.id)}
           totalCount={total}
           searchPlaceholder="Search event code (exact)"
           searchValue={search}

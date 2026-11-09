@@ -3,7 +3,8 @@ import AdminCreateUserModal, { type CreateUserInput } from "../../components/Adm
 import AdminUserDetailsModal from "../../components/AdminUserDetailsModal";
 import DataTable from "../../components/DataTable";
 import ButtonPrimary from "../../components/ButtonPrimary";
-import { PageTitle, Surface } from "../../components/PageUI";
+import PageTitle from "../../components/PageTitle";
+import Surface from "../../components/Surface";
 import { apiClient, getApiErrorMessage } from "../../services/apiClient";
 import { formatDate, mapApiUser } from "../../services/api";
 import type { ApiUser, PaginatedResponse } from "../../types/api.types";
@@ -68,7 +69,7 @@ function AdminUsersPage() {
 
   useEffect(() => {
     void Promise.resolve().then(loadUsers);
-  }, [activeFilter, debouncedSearch, loadUsers, roleFilter]);
+  }, [loadUsers]);
 
   const createUser = async (input: CreateUserInput) => {
     await apiClient.post<ApiUser>("/users", input);
@@ -97,6 +98,7 @@ function AdminUsersPage() {
     <div className="mx-auto max-w-[1100px]">
       <PageTitle>User Management</PageTitle>
       <Surface className="p-3">
+        <p className="mb-3 text-sm">Search and filters run locally after all user pages are downloaded. Large lists may take time to load.</p>
         <DataTable
           columns={["User", "Email", "Role", "Created"]}
           sortBy={sortBy}
@@ -110,6 +112,7 @@ function AdminUsersPage() {
           itemLabel="user"
           itemLabelPlural="users"
           rows={rows}
+          rowIds={filteredUsers.map((user) => user.id)}
           totalCount={filteredUsers.length}
           pageSize={20}
           showPagination

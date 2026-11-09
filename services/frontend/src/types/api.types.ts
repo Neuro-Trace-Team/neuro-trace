@@ -32,9 +32,7 @@ export interface Examination {
   examination_date: string | null;
   created_at: string;
   updated_at: string;
-  sampling_frequency: number;
-  duration_seconds: number | string | null;
-  processing_status: string;
+  status: string;
 }
 
 export interface DoctorDashboard {

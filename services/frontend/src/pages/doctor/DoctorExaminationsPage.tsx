@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DataTable from "../../components/DataTable";
 import Checkbox from "../../components/Checkbox";
 import InputSection from "../../components/InputSection";
-import { PageTitle, Surface } from "../../components/PageUI";
+import PageTitle from "../../components/PageTitle";
+import Surface from "../../components/Surface";
 import { apiClient, getApiErrorMessage } from "../../services/apiClient";
 import { formatDate } from "../../services/api";
 import type { Examination, PaginatedResponse } from "../../types/api.types";
@@ -40,6 +41,7 @@ function toApiDate(value: string) {
 
 function DoctorExaminationsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [examinations, setExaminations] = useState<Examination[]>([]);
   const [total, setTotal] = useState(0);
@@ -50,8 +52,8 @@ function DoctorExaminationsPage() {
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
   const [sortBy, setSortBy] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("patient_id") ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get("patient_id") ?? "");
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -71,13 +73,8 @@ function DoctorExaminationsPage() {
           page_size: 20,
           ...(onlyMine && user ? { uploaded_by: user.id } : {}),
           patient_id: patientSearchId || filters.patient_id || undefined,
-          processing_status: filters.processing_status || undefined,
           date_from: toApiDate(filters.date_from),
           date_to: toApiDate(filters.date_to),
-          channel: filters.channel || undefined,
-          pain_level_min: filters.pain_level_min || undefined,
-          pain_level_max: filters.pain_level_max || undefined,
-          pain_source: filters.pain_source,
           sort_by: sortBy,
           sort_order: sortOrder,
         },
@@ -155,30 +152,8 @@ function DoctorExaminationsPage() {
           filterContent={(
             <div className="grid gap-4 sm:grid-cols-2">
               <InputSection label="Patient ID" name="patient-id-filter" onChange={(event) => updateDraft("patient_id", event.target.value)} placeholder="Patient UUID" value={draftFilters.patient_id} />
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Processing status
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("processing_status", event.target.value)} value={draftFilters.processing_status}>
-                  <option value="">All statuses</option>
-                  <option value="UPLOADED">Uploaded</option>
-                  <option value="PREPROCESSING">Preprocessing</option>
-                  <option value="READY">Ready</option>
-                  <option value="FAILED">Failed</option>
-                </select>
-              </label>
               <InputSection label="Date from" name="examination-date-from" onChange={(event) => updateDraft("date_from", event.target.value)} type="datetime-local" value={draftFilters.date_from} />
               <InputSection label="Date to" name="examination-date-to" onChange={(event) => updateDraft("date_to", event.target.value)} type="datetime-local" value={draftFilters.date_to} />
-              <InputSection label="EEG channel" maxLength={50} name="eeg-channel-filter" onChange={(event) => updateDraft("channel", event.target.value)} placeholder="e.g. C3" value={draftFilters.channel} />
-              <div className="grid grid-cols-2 gap-3">
-                <InputSection label="Pain from" inputClassName="min-w-0" min="0" name="pain-level-min" onChange={(event) => updateDraft("pain_level_min", event.target.value)} type="number" value={draftFilters.pain_level_min} />
-                <InputSection label="Pain to" inputClassName="min-w-0" min="0" name="pain-level-max" onChange={(event) => updateDraft("pain_level_max", event.target.value)} type="number" value={draftFilters.pain_level_max} />
-              </div>
-              <label className="grid gap-1 text-sm font-semibold text-[#102d58]">
-                Pain assessment source
-                <select className="h-10 rounded-md border border-[#d6dfe3] bg-white px-3 outline-none focus:border-[#009bb4]" onChange={(event) => updateDraft("pain_source", event.target.value as ExaminationFilters["pain_source"])} value={draftFilters.pain_source}>
-                  <option value="doctor">Doctor</option>
-                  <option value="ai">AI</option>
-                </select>
-              </label>
             </div>
           )}
           toolbarEnd={
@@ -191,6 +166,7 @@ function DoctorExaminationsPage() {
             </div>
           }
         />
+        {search && !patientSearchId && <p className="mt-3 text-sm">Enter a complete patient UUID to filter results.</p>}
         {isLoading && <p className="mt-3 text-sm text-[#52677b]">Loading examinations...</p>}
       </Surface>
     </div>

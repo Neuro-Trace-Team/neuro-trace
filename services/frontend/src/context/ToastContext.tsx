@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+      <div aria-live="polite" className="pointer-events-none fixed left-1/2 top-4 -translate-x-1/2 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
         {toasts.map(({ id, message, kind }) => (
           <div
             className={`pointer-events-auto flex items-start gap-3 rounded-xl border bg-white px-4 py-3 shadow-[0_8px_24px_rgba(8,38,76,0.2)] ${

@@ -52,7 +52,7 @@ function InputSection({
                 <input
                     {...inputProps}
                     autoComplete={autoComplete}
-                    className={`h-10 w-full rounded-lg border border-[#d6e1e6] bg-white/80 px-3 text-[13px] text-[#173456] shadow-[inset_0_1px_3px_rgba(8,38,76,0.08)] outline-none transition placeholder:text-[#8997a2] focus:border-[#00a9c4] focus:ring-2 focus:ring-[#00b7c8]/15 disabled:cursor-not-allowed disabled:bg-[#e9eef0] disabled:text-[#84919b] ${leadingIcon ? "pl-10" : ""} ${isPassword || isSearch ? "pr-11" : ""} ${inputClassName}`}
+                    className={`h-10 w-full rounded-lg border border-[#d6e1e6] bg-white px-3 text-[13px] text-[#173456] shadow-[inset_0_1px_3px_rgba(8,38,76,0.08)] outline-none transition placeholder:text-[#8997a2] focus:border-[#00a9c4] focus:ring-2 focus:ring-[#00b7c8]/15 disabled:cursor-not-allowed disabled:bg-[#e9eef0] disabled:text-[#84919b] ${leadingIcon ? "pl-10" : ""} ${isPassword || isSearch ? "pr-11" : ""} ${inputClassName}`}
                     id={name}
                     name={name}
                     onChange={onChange}
