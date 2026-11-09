@@ -10,6 +10,7 @@ type DataTableProps = {
   columns: string[];
   rows: string[][];
   rowIds?: string[];
+  renderCell?: (value: string, columnIndex: number) => React.ReactNode;
   totalCount?: number;
   selectable?: boolean;
   searchPlaceholder?: string;
@@ -42,6 +43,7 @@ export default function DataTable({
   columns,
   rows,
   rowIds,
+  renderCell,
   totalCount,
   selectable = true,
   searchPlaceholder = "Search",
@@ -219,7 +221,7 @@ export default function DataTable({
                       type="button"
                     >
                       {column}
-                      <Icon className={`h-3.5 w-3.5 ${activeOrder ? "text-[#0876b5]" : "opacity-40"}`} name={activeOrder === "asc" ? "sortAsc" : activeOrder === "desc" ? "sortDesc" : "sort"} />
+                      <Icon className={`h-3.5 w-3.5 ${activeOrder ? "text-[#0876b5]" : "opacity-40"}`} name={activeOrder === "asc" ? "sortDesc" : activeOrder === "desc" ? "sortAsc" : "sort"} />
                     </button>
                   </th>
                 );
@@ -270,7 +272,7 @@ export default function DataTable({
                       key={`${columns[index]}-${index}`}
                       title={cell}
                     >
-                      {cell}
+                      {renderCell ? renderCell(cell, index) : cell}
                     </td>
                   ))}
                 </tr>

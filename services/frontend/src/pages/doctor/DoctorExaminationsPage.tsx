@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import DataTable from "../../components/DataTable";
+import ExaminationStatus from "../../components/ExaminationStatus";
 import Checkbox from "../../components/Checkbox";
 import InputSection from "../../components/InputSection";
 import PageTitle from "../../components/PageTitle";
 import Surface from "../../components/Surface";
 import { apiClient, getApiErrorMessage } from "../../services/apiClient";
-import { formatDate } from "../../services/api";
+import { formatExaminationDate } from "../../services/api";
 import type { Examination, PaginatedResponse } from "../../types/api.types";
 import { useAuth } from "../../context/useAuth";
 import { useToast } from "../../context/useToast";
 
 type ExaminationFilters = { id: string; patient_id: string; uploaded_by: string; status: string; date_from: string; date_to: string };
 const emptyFilters: ExaminationFilters = { id: "", patient_id: "", uploaded_by: "", status: "", date_from: "", date_to: "" };
-type SortField = "created_at" | "examination_date" | "id" | "patient_id";
+type SortField = "created_at" | "examination_date" | "id" | "patient_id" | "status";
 type SortOrder = "asc" | "desc";
 
 function toApiDate(value: string) {
@@ -88,8 +89,9 @@ function DoctorExaminationsPage() {
 
   const rows = examinations.map((examination) => [
     examination.id,
-    formatDate(examination.examination_date ?? examination.created_at),
     examination.patient_id,
+    formatExaminationDate(examination.examination_date),
+    examination.status,
   ]);
 
   return (
@@ -97,10 +99,11 @@ function DoctorExaminationsPage() {
       <PageTitle>Browse Examinations</PageTitle>
       <Surface>
         <DataTable
-          columns={["Examination ID", "Date", "Patient ID"]}
+          columns={["Examination ID", "Patient ID", "Examination date", "Status"]}
+          renderCell={(value, index) => index === 3 ? <ExaminationStatus status={value} /> : value}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          sortableColumns={{ "Examination ID": "id", Date: "examination_date", "Patient ID": "patient_id" }}
+          sortableColumns={{ "Examination ID": "id", "Patient ID": "patient_id", "Examination date": "examination_date", Status: "status" }}
           onSortChange={(nextSortBy, nextSortOrder) => {
             setIsLoading(true);
             setPage(1);

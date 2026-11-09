@@ -24,3 +24,9 @@ export function formatDate(value: string | null | undefined): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
+
+export function formatExaminationDate(value: string | null | undefined): string {
+  if (!value) return "?";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" });
+}

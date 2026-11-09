@@ -1,11 +1,12 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DataTable from "../../components/DataTable";
+import ExaminationStatus from "../../components/ExaminationStatus";
 import PageTitle from "../../components/PageTitle";
 import SectionTitle from "../../components/SectionTitle";
 import Surface from "../../components/Surface";
 import { useAuth } from "../../context/useAuth";
-import { formatDate } from "../../services/api";
+import { formatExaminationDate } from "../../services/api";
 import { apiClient, getApiErrorMessage } from "../../services/apiClient";
 import type { Examination, Patient } from "../../types/api.types";
 
@@ -39,7 +40,7 @@ export default function DoctorDashboardPage() {
         <Surface>
           <SectionTitle>Recently Viewed Examinations</SectionTitle>
           {examinationsLoading ? <p role="status">Loading recent examinations...</p> : examinationsError ? <p role="alert">{examinationsError}</p> : (
-            <DataTable columns={["Examination ID", "Date", "Patient ID"]} rows={history.map((item) => [item.id, formatDate(item.examination_date ?? item.created_at), item.patient_id])} onRowClick={(row) => navigate(`/doctor/examinations/${row[0]}`)} sortable={false} selectable={false} showPagination={false} showToolbar={false} />
+            <DataTable columns={["Examination ID", "Patient ID", "Examination date", "Status"]} rows={history.map((item) => [item.id, item.patient_id, formatExaminationDate(item.examination_date), item.status])} renderCell={(value, index) => index === 3 ? <ExaminationStatus status={value} /> : value} onRowClick={(row) => navigate(`/doctor/examinations/${row[0]}`)} sortable={false} selectable={false} showPagination={false} showToolbar={false} />
           )}
         </Surface>
         <Surface>
