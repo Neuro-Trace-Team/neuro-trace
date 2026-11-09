@@ -34,7 +34,7 @@ function toApiDate(value: string) {
   return value ? new Date(value).toISOString() : undefined;
 }
 
-function AdminActivityLogPage() {
+function AdminAuditLogPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -82,7 +82,7 @@ function AdminActivityLogPage() {
         setTotal(data.total);
       })
       .catch((loadError: unknown) => {
-        if (active) showToast(getApiErrorMessage(loadError, "Could not load the activity log."), "error");
+        if (active) showToast(getApiErrorMessage(loadError, "Could not load the audit log."), "error");
       })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
@@ -135,7 +135,7 @@ function AdminActivityLogPage() {
           }}
           showFilters
           filtersActive={filtersActive}
-          filterTitle="Filter activity logs"
+          filterTitle="Filter audit logs"
           onApplyFilters={() => {
             setIsLoading(true);
             setPage(1);
@@ -160,7 +160,7 @@ function AdminActivityLogPage() {
           )}
           onRowClick={(_row, rowIndex) => setSelectedLogId(logs[rowIndex]?.id ?? null)}
         />
-        {isLoading && <p className="mt-3 text-sm text-[#52677b]">Loading activity...</p>}
+        {isLoading && <p className="mt-3 text-sm text-[#52677b]">Loading audit logs...</p>}
       </Surface>
       {selectedLogId && (
         <AuditLogDetailsModal
@@ -172,4 +172,4 @@ function AdminActivityLogPage() {
   );
 }
 
-export default AdminActivityLogPage;
+export default AdminAuditLogPage;

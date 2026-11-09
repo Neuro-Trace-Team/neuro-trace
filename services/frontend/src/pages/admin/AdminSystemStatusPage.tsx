@@ -9,7 +9,7 @@ const services: Service[] = [
   { name: "Backend", description: "API & ORCHESTRATION", x: 215, y: 265, width: 160, kind: "app" },
   { name: "Auth DB", description: "ACCOUNTS", x: 20, y: 45, width: 135, kind: "data" },
   { name: "Medical DB", description: "PATIENTS & EXAMS", x: 175, y: 45, width: 145, kind: "data" },
-  { name: "Audit DB", description: "ACTIVITY LOGS", x: 340, y: 45, width: 135, kind: "data" },
+  { name: "Audit DB", description: "AUDIT LOGS", x: 340, y: 45, width: 135, kind: "data" },
   { name: "RustFS", description: "FILE STORAGE", x: 460, y: 246, width: 145, kind: "data" },
   { name: "Preprocessing", description: "EEG PROCESSING", x: 460, y: 385, width: 155, kind: "service" },
   { name: "RabbitMQ", description: "MESSAGE BROKER", x: 665, y: 385, width: 145, kind: "service" },
@@ -33,7 +33,7 @@ const connections: Connection[] = [
   { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337", connected: true },
 ];
 
-function AdminDatabasePage() {
+function AdminSystemStatusPage() {
   return (
     <div className="mx-auto max-w-[1100px]">
       <PageTitle>System Status</PageTitle>
@@ -81,4 +81,4 @@ function AdminDatabasePage() {
   );
 }
 
-export default AdminDatabasePage;
+export default AdminSystemStatusPage;

@@ -15,9 +15,9 @@ const doctorLinks = [
 
 const adminLinks = [
   { label: "Home", path: "/admin", icon: "home" },
-  { label: "Database", path: "/admin/database", icon: "database" },
+  { label: "System", path: "/admin/system", icon: "system" },
   { label: "Users", path: "/admin/users", icon: "users" },
-  { label: "Activity log", path: "/admin/activity-log", icon: "activity" },
+  { label: "Audit log", path: "/admin/audit-log", icon: "audit" },
 ] as const;
 
 export default function AppSidebar({ role }: { role: UserRole }) {
