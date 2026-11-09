@@ -246,7 +246,7 @@ export default function DataTable({
                   key={`${row.join("-")}-${rowIndex}`}
                   onClick={() => onRowClick?.(row, rowIndex)}
                   onKeyDown={(event) => {
-                    if (onRowClick && (event.key === "Enter" || event.key === " ")) {
+                    if (event.target === event.currentTarget && onRowClick && (event.key === "Enter" || event.key === " ")) {
                       event.preventDefault();
                       onRowClick(row, rowIndex);
                     }
@@ -254,15 +254,14 @@ export default function DataTable({
                   tabIndex={onRowClick ? 0 : undefined}
                 >
                   {selectable && (
-                    <td className="border-b border-white/90 px-4 py-2.5 group-last:border-0">
-                      <div onClick={(event) => event.stopPropagation()}>
+                    <td className="relative border-b border-white/90 group-last:border-0" onClick={(event) => event.stopPropagation()}>
                         <Checkbox
+                          className="absolute inset-0 px-4"
                           checked={selected.includes(rowId(row))}
                           label={`Select row ${visibleIndex + 1}`}
                           onChange={() => setSelected((items) => items.includes(rowId(row)) ? items.filter((item) => item !== rowId(row)) : [...items, rowId(row)])}
                           showLabel={false}
                         />
-                      </div>
                     </td>
                   )}
                   {row.map((cell, index) => (
