@@ -28,7 +28,13 @@ class SklearnPredictor(IPredictor):
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"Model file not found at {self.model_path}")
 
-        logger.info(f"Loading scikit-learn model from {self.model_path}...")
+        with open(self.model_path, "rb") as f:
+            if f.read(24).startswith(b"version https://git-lfs"):
+                raise RuntimeError(
+                    f"{self.model_path} is a Git LFS pointer, not the model. Run `git lfs pull`."
+                )
+        
+        logger.info("Loading scikit-learn model from %s...", self.model_path)
         self.model = joblib.load(self.model_path)
         logger.info("Scikit-learn model successfully loaded into memory.")
 
@@ -39,6 +45,8 @@ class SklearnPredictor(IPredictor):
             raise RuntimeError("Model has not been loaded. Call load_model() first.")
 
         if isinstance(features, dict):
+            if not self.feature_names:
+                raise FeatureValidationError("feature_names are not configured; cannot build a frame from a dict")
             X = self._build_frame(features)
         else:
             X = np.array(features, dtype=float)
@@ -46,7 +54,7 @@ class SklearnPredictor(IPredictor):
                 X = X.reshape(1, -1)
             if self.feature_names and X.shape[1] != len(self.feature_names):
                 raise FeatureValidationError(
-                    f"Expected {len(self.feature_names)} features, got {X.shape[1]}"
+                    "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
                 )
 
         prediction = self.model.predict(X)
@@ -59,11 +67,16 @@ class SklearnPredictor(IPredictor):
             "probabilities": probabilities
         }
         
-    def has_model(self):
+    def has_model(self) -> bool:
         return self.model is not None
 
     def _check_model(self):
         """Cross-checks config against what the model was trained on."""
+        if not hasattr(self.model, "predict"):
+            raise RuntimeError(
+                f"Loaded artifact is {type(self.model).__name__}, not an estimator with predict()"
+            )
+
         trained = getattr(self.model, "feature_names_in_", None)
         if trained is not None:
             trained = list(trained)
@@ -72,14 +85,14 @@ class SklearnPredictor(IPredictor):
             elif trained != self.feature_names:
                 raise RuntimeError(
                     "Configured FEATURE_NAMES differ from the model's feature_names_in_ "
-                    f"(order or content). Model expects {len(trained)}, "
-                    f"config has {len(self.feature_names)}."
+                    "(order or content). Model expects %d, "
+                    "config has %d." % (len(trained), len(self.feature_names))
                 )
         n_expected = getattr(self.model, "n_features_in_", None)
         if n_expected is not None and self.feature_names is not None \
                 and n_expected != len(self.feature_names):
             raise RuntimeError(
-                f"Model expects {n_expected} features, config has {len(self.feature_names)}."
+                "Model expects %d features, config has %d." % (n_expected, len(self.feature_names))
             )
         logger.info("Model loaded with %d expected features.", len(self.feature_names or []))
 
@@ -87,7 +100,7 @@ class SklearnPredictor(IPredictor):
         names = self.feature_names
         missing = [n for n in names if n not in features]
         if missing:
-            raise FeatureValidationError(f"Missing {len(missing)} features: {missing}")
+            raise FeatureValidationError("Missing %d features: %s" % (len(missing), missing))
 
         extra = set(features) - set(names)
         if extra:
@@ -106,6 +119,6 @@ class SklearnPredictor(IPredictor):
                 bad.append(k)
             row[k] = f
         if bad:
-            raise FeatureValidationError(f"Non-numeric/NaN/inf values for: {bad}")
+            raise FeatureValidationError("Non-numeric/NaN/inf values for: %s" % bad)
 
         return pd.DataFrame([row], columns=names)

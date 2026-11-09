@@ -2,15 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurotrace.local/contracts/preprocessing-to-ml/combined-features.v1.schema.json",
   "title": "NeuroTrace combined EEG features message",
-  "description": "Exactly one JSON object produced from one row of combined_features.csv.",
+  "description": "One row of combined_features.csv with examination UUID and total row count. Analysis IDs are managed by ML and are not transmitted.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-  "description": "One row of combined_features.csv augmented with the backend analysis UUID.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "analysis_id",
+    "examination_id",
+    "total_analyses_count",
     "experiment_id",
     "subject_id",
     "recording_id",
@@ -220,10 +217,15 @@
     "theta_local_efficiency"
   ],
   "properties": {
-    "analysis_id": {
+    "examination_id": {
       "type": "string",
       "format": "uuid",
-      "description": "UUID of the backend analysis created with the preprocessing job."
+      "description": "UUID of the examination shared by all rows in this publication."
+    },
+    "total_analyses_count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of CSV rows published for this examination."
     },
     "experiment_id": {
       "type": "string"
@@ -1497,4 +1499,3 @@
     }
   }
 }
-

@@ -3,7 +3,7 @@ import json
 import logging
 
 from typing import Dict
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, DataError, DBAPIError, IntegrityError
 
 import aio_pika
 
@@ -56,6 +56,9 @@ class RabbitMQConsumer:
                 raise KeyError(f"No handler registered for event type: {event_type}")
             await handler.handle(payload)
             await message.ack()
+        except (IntegrityError, DataError):
+            logger.exception("Data rejected by the database, rejecting")
+            await message.reject(requeue=False)
         except (DBAPIError, OSError, asyncio.TimeoutError, aio_pika.exceptions.AMQPError):
             # Transient: put it back, but pause so a long outage doesn't spin hot
             logger.exception("Transient failure, requeueing")

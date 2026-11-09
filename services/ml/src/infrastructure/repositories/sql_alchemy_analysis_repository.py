@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 
 def _to_domain(r: AnalysisRow) -> Analysis:
-    return Analysis(r.analysis_id, r.examination_id, r.time_stamp,
+    return Analysis(r.analysis_id, r.examination_id, r.event_timestamp,
                     r.result, r.confidence, r.total_analyses_count)
 
 class SqlAlchemyAnalysisRepository(IAnalysisRepository):
@@ -20,12 +20,12 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
             insert(AnalysisRow)
             .values(
                 examination_id=analysis.examination_id,
-                time_stamp=analysis.time_stamp,
+                event_timestamp=analysis.event_timestamp,
                 result=analysis.result,
                 confidence=analysis.confidence,
                 total_analyses_count=analysis.total_analyses_count,
             )
-            .on_conflict_do_nothing(index_elements=["examination_id", "time_stamp"])
+            .on_conflict_do_nothing(index_elements=["examination_id", "event_timestamp"])
             .returning(AnalysisRow)
         )
         row = (await self._session.execute(stmt)).scalar_one_or_none()
@@ -33,7 +33,7 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
             row = (await self._session.execute(
                 select(AnalysisRow).where(
                     AnalysisRow.examination_id == analysis.examination_id,
-                    AnalysisRow.time_stamp == analysis.time_stamp,
+                    AnalysisRow.event_timestamp == analysis.event_timestamp,
                 )
             )).scalar_one()
         return _to_domain(row)
@@ -46,7 +46,7 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
         rows = await self._session.scalars(
             select(AnalysisRow)
             .where(AnalysisRow.examination_id == examination_id)
-            .order_by(AnalysisRow.time_stamp)
+            .order_by(AnalysisRow.event_timestamp)
         )
         return [_to_domain(r) for r in rows]
 

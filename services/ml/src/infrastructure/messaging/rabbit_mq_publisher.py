@@ -16,10 +16,11 @@ class RabbitMQPublisher:
         self._channel: AbstractRobustChannel | None = None
 
     async def connect(self) -> None:
+        logger.info("Attempting to create RabbitMQ publisher connection...")
         self._connection = await aio_pika.connect_robust(self.queue_url)
         self._channel = await self._connection.channel()
         await self._channel.declare_queue(self.queue_name, durable=True)
-        logger.info(f"RabbitMQ publisher ready for queue '{self.queue_name}'")
+        logger.info("RabbitMQ publisher ready for queue '%s'", self.queue_name)
 
     async def publish(self, event_type: str, payload: dict[str, Any]) -> None:
         if self._channel is None:
@@ -35,7 +36,7 @@ class RabbitMQPublisher:
         await self._channel.default_exchange.publish(
             message, routing_key=self.queue_name, timeout=5
         )
-        logger.info(f"Published '{event_type}' to '{self.queue_name}'")
+        logger.info("Published '%s' to '%s'.", event_type, self.queue_name)
 
     async def close(self) -> None:
         if self._connection and not self._connection.is_closed:

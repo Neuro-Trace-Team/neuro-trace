@@ -8,6 +8,8 @@ from uuid import UUID
 
 import pytest
 
+import pytest
+
 from service.config import Settings
 from service.rabbitmq import publish_combined_features
 
@@ -74,12 +76,11 @@ def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: 
     assert exchange.publish.await_count == 2
     messages = [json.loads(call.args[0].body) for call in exchange.publish.await_args_list]
     for message in messages:
-        assert list(message)[:2] == ["examination_id", "analysis_id"]
+        assert list(message)[:2] == ["examination_id", "total_analyses_count"]
         assert message["examination_id"] == examination_id
-        assert UUID(message["analysis_id"]).version == 5
+        assert "analysis_id" not in message
         assert message["total_analyses_count"] == 2
         assert type(message["total_analyses_count"]) is int
-    assert messages[0]["analysis_id"] != messages[1]["analysis_id"]
     assert messages[0]["event_index"] == 1
     assert messages[0]["alpha_power"] == 0.42
     assert messages[1]["event_index"] == 2
@@ -94,4 +95,7 @@ def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: 
     exchange.publish.reset_mock()
     publish_combined_features(settings, csv_path, examination_id="13b5b2e5-078b-447d-a6d8-6e18330d105a")
     other_messages = [json.loads(call.args[0].body) for call in exchange.publish.await_args_list]
-    assert {m["analysis_id"] for m in messages}.isdisjoint(m["analysis_id"] for m in other_messages)
+    assert other_messages == [
+        {**message, "examination_id": "13b5b2e5-078b-447d-a6d8-6e18330d105a"}
+        for message in messages
+    ]
