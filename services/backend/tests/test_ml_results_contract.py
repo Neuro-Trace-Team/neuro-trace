@@ -10,7 +10,7 @@ def test_ml_results_contract_preserves_timestamp_count_and_null_confidence() -> 
         "examination_id": str(examination_id),
         "total_analyses_count": 2,
         "analyses": [
-            {"analysis_id": 7, "time_stamp": 12.5, "result": 6.4, "confidence": None},
+            {"analysis_id": 7, "time_stamp": "00:00:12:500", "result": 6.4, "confidence": None},
         ],
     })
 
@@ -18,7 +18,7 @@ def test_ml_results_contract_preserves_timestamp_count_and_null_confidence() -> 
         "examination_id": str(examination_id),
         "total_analyses_count": 2,
         "analyses": [
-            {"analysis_id": 7, "time_stamp": 12.5, "result": 6.4, "confidence": None},
+            {"analysis_id": 7, "time_stamp": "00:00:12:500", "result": 6.4, "confidence": None},
         ],
     }
 

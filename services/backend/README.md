@@ -22,11 +22,15 @@ All endpoints below require an access token.
 | GET | `/api/v1/examinations/{id}/preprocessing-status` | Proxy the status maintained by preprocessing. |
 | GET | `/api/v1/examinations/{id}/results` | Read ML results only after the examination is ready. |
 
-The upload request is one `multipart/form-data` transaction. Send `file` and
-exactly one of `patient_id` or `generate_patient=true`. The backend validates
-the file before it creates a generated patient, then commits the patient and
-examination together. Event data belongs to the EEG inputs consumed by
-preprocessing and is not persisted in `medical_db`. The backend sends preprocessing:
+The upload request is one `multipart/form-data` transaction. Send `file`,
+`timestamps`, and exactly one of `patient_id` or `generate_patient=true`. The
+backend validates the file before it creates a generated patient, then commits
+the patient and examination together. It stores two RustFS objects under the
+same examination prefix: the original EEG/BDF file and `timestamps.json` in
+the form `{"timestamps":[0,83456]}`. The frontend's `HH:MM:SS:mmm` values are
+converted to integer milliseconds before this JSON is written. Timestamps are not persisted in
+`medical_db` and are not included in the preprocessing request. The backend
+sends preprocessing only:
 
 ```json
 {"examination_id":"uuid","storage_bucket":"examinations","storage_key":"examinations/..."}
@@ -86,11 +90,11 @@ For a ready examination, results are read from
 frontend by both the examination detail and results endpoints:
 
 ```json
-{"examination_id":"uuid","total_analyses_count":1,"analyses":[{"analysis_id":7,"time_stamp":12.5,"result":6.4,"confidence":0.91}]}
+{"examination_id":"uuid","total_analyses_count":1,"analyses":[{"analysis_id":7,"time_stamp":"00:00:12:500","result":6.4,"confidence":0.91}]}
 ```
 
-`time_stamp` is the analysis timestamp supplied by ML. The backend does not
-rename or calculate it, so it remains aligned with the ML contract.
+ML returns `time_stamp` as an integral number of milliseconds. The backend
+converts it to `HH:MM:SS:mmm` before returning analyses to the frontend.
 
 The backend persists only the examination readiness status, not ML analyses.
 
@@ -100,8 +104,10 @@ The backend persists only the examination readiness status, not ML analyses.
 either `patient_id` or `generate_patient=true`, and `timestamps` as a
 JSON array of `HH:MM:SS:mmm` strings. It must not send `examination_date`.
 For EDF/BDF files the backend reads `examination_date` from the recording
-header, stores it in `medical_db`, and forwards the timestamp array in JSON to
-preprocessing with the RustFS object reference.
+header, stores it in `medical_db`, and writes the timestamp array to the
+companion `timestamps.json` RustFS object. Preprocessing receives the bucket
+and EEG/BDF `storage_key`, then can resolve the companion JSON under the same
+examination prefix.
 For an existing `medical_db`, apply
 `database/medical/migrations/001_add_examination_status.sql` followed by
 `database/medical/migrations/003_replace_examination_status_with_enum.sql` and

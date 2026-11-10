@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from uuid import UUID, uuid4
@@ -24,17 +25,45 @@ class ExaminationValidationError(Exception): pass
 def _now() -> datetime: return datetime.now(UTC)
 def _safe_filename(filename: str) -> str: return re.sub(r"[^A-Za-z0-9._-]", "_", Path(filename).name)[:255]
 
-def parse_timestamps(value: str) -> list[str]:
-    """Validate and preserve frontend timestamps for the preprocessing request."""
+def timestamp_to_milliseconds(timestamp: str) -> int:
+    """Convert the frontend's HH:MM:SS:mmm representation to milliseconds."""
+    if not _TIMESTAMP_PATTERN.fullmatch(timestamp):
+        raise ExaminationValidationError("timestamps must use HH:MM:SS:mmm format")
+    hours, minutes, seconds, milliseconds = (int(part) for part in timestamp.split(":"))
+    return (((hours * 60) + minutes) * 60 + seconds) * 1000 + milliseconds
+
+
+def milliseconds_to_timestamp(milliseconds: int | float) -> str:
+    """Convert an integral ML timestamp in milliseconds to HH:MM:SS:mmm."""
+    if isinstance(milliseconds, bool) or not isinstance(milliseconds, (int, float)):
+        raise ValueError("timestamp must be a number of milliseconds")
+    if isinstance(milliseconds, float) and not milliseconds.is_integer():
+        raise ValueError("timestamp must be an integral number of milliseconds")
+    value = int(milliseconds)
+    if value < 0 or value >= 100 * 60 * 60 * 1000:
+        raise ValueError("timestamp is outside the supported HH:MM:SS:mmm range")
+    hours, remainder = divmod(value, 60 * 60 * 1000)
+    minutes, remainder = divmod(remainder, 60 * 1000)
+    seconds, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{millis:03d}"
+
+
+def parse_timestamps(value: str) -> list[int]:
+    """Validate frontend timestamps and prepare milliseconds for RustFS JSON."""
     try:
         timestamps = json.loads(value)
     except json.JSONDecodeError as error:
         raise ExaminationValidationError("timestamps must be a JSON array") from error
     if not isinstance(timestamps, list):
         raise ExaminationValidationError("timestamps must be a JSON array")
-    if not all(isinstance(timestamp, str) and _TIMESTAMP_PATTERN.fullmatch(timestamp) for timestamp in timestamps):
+    if not all(isinstance(timestamp, str) for timestamp in timestamps):
         raise ExaminationValidationError("timestamps must use HH:MM:SS:mmm format")
-    return timestamps
+    return [timestamp_to_milliseconds(timestamp) for timestamp in timestamps]
+
+
+def timestamps_storage_key(storage_key: str) -> str:
+    """Use a deterministic companion object next to the EEG/BDF recording."""
+    return f"{storage_key.rsplit('/', 1)[0]}/timestamps.json"
 
 
 def _extract_recording_datetime(file: SpooledTemporaryFile[bytes], extension: str) -> datetime | None:
@@ -58,7 +87,15 @@ def _extract_recording_datetime(file: SpooledTemporaryFile[bytes], extension: st
         raise ExaminationValidationError("EDF/BDF header has an invalid recording date") from error
 
 
-async def upload_examination(session: Session, *, patient_id: UUID | None, generate_patient: bool, uploaded_by: UUID, file: UploadFile) -> tuple[Examination, bool]:
+async def upload_examination(
+    session: Session,
+    *,
+    patient_id: UUID | None,
+    generate_patient: bool,
+    uploaded_by: UUID,
+    file: UploadFile,
+    timestamps: list[int],
+) -> tuple[Examination, bool]:
     if not file.filename: raise ExaminationValidationError("A file name is required")
     filename = _safe_filename(file.filename)
     extension = Path(filename).suffix.lower().lstrip(".")
@@ -85,18 +122,26 @@ async def upload_examination(session: Session, *, patient_id: UUID | None, gener
                 raise ExaminationValidationError("patient_id and generate_patient cannot be used together")
             patients_service.get_patient(session, patient_id)
         examination_id = uuid4(); storage_key = f"examinations/{patient_id}/{examination_id}/{filename}"; temporary.seek(0)
+        timestamp_key = timestamps_storage_key(storage_key)
         storage = RustFSStorage()
         try:
             storage.upload(temporary, key=storage_key, content_type=file.content_type)
+            storage.upload(
+                BytesIO(json.dumps({"timestamps": timestamps}, ensure_ascii=False).encode("utf-8")),
+                key=timestamp_key,
+                content_type="application/json",
+            )
         except Exception:
             session.rollback()
+            storage.delete(key=timestamp_key)
+            storage.delete(key=storage_key)
             raise
         try:
             examination = Examination(id=examination_id, patient_id=patient_id, uploaded_by=uploaded_by, original_filename=filename, file_format=extension, file_size_bytes=total_size, storage_bucket=settings.rustfs_bucket, storage_key=storage_key, file_checksum=checksum.hexdigest(), examination_date=examination_date)
             session.add(examination)
             session.commit(); session.refresh(examination); return examination, created_patient
         except Exception:
-            session.rollback(); storage.delete(key=storage_key); raise
+            session.rollback(); storage.delete(key=timestamp_key); storage.delete(key=storage_key); raise
 
 def get_examination(session: Session, examination_id: UUID) -> Examination:
     record = repository.get_examination(session, examination_id)
