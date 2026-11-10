@@ -72,10 +72,10 @@ the URL and body, plus the exact RustFS object coordinates:
 ```
 
 The service downloads the EEG object directly from RustFS using the supplied
-`storage_bucket` and `storage_key`, then downloads `events.csv` from the same
+`storage_bucket` and `storage_key`, then downloads `events.json` from the same
 bucket and sibling object directory. For example, a key of
 `examinations/patient/examination/raw_eeg.bdf` results in downloads of that key
-and `examinations/patient/examination/events.csv`.
+and `examinations/patient/examination/events.json`.
 
 Example preprocessing submission:
 
@@ -110,14 +110,14 @@ The job execution process is as follows:
 3. FastAPI adds `JobManager.run()` to `BackgroundTasks` and returns the
    examination UUID and current status.
 4. Preprocessing downloads the EEG object and
-   sibling `events.csv` from RustFS using `RustFSStorage.download_recording_inputs`.
+   sibling `events.json` from RustFS using `RustFSStorage.download_recording_inputs`.
    It does not fetch source-file coordinates from the backend.
 5. Both files are stored in the pipeline's existing local input directory:
 
    ```text
    /tmp/preprocessing/<examination_id>/input/study/subject/run/
    ├── raw_eeg.bdf
-   └── events.csv
+   └── events.json
    ```
 
 6. `JobManager` runs `python -m eeg_pipeline.cli` with the `--input`,
@@ -178,11 +178,11 @@ should look like this:
 eeg-data/
 └── study-001/
     ├── eeg_data.bdf
-    └── events.csv
+    └── events.json
 ```
 
-`eeg_data.bdf` must be a BioSemi BDF file, and `events.csv` must contain an
-`onset` column, as required by the pipeline contract described below. Connecting
+`eeg_data.bdf` must be a BioSemi BDF file, and `events.json` must contain a
+JSON list of timestamps in milliseconds, as required by the pipeline contract described below. Connecting
 to RustFS only requires a valid endpoint, credentials, bucket name, and S3 read
 permissions for the objects.
 
@@ -216,7 +216,7 @@ are marked invalid/contaminated instead of being silently shortened.
 Preprocessing requires two files:
 
 - one EEG file in BioSemi `.bdf` format;
-- an `events.csv` file containing event timestamps.
+- an `events.json` file containing event timestamps.
 
 The files should be located in one recording directory. The pipeline does not
 require additional parent directories such as `experiment`, `subject`, or
@@ -225,23 +225,21 @@ require additional parent directories such as `experiment`, `subject`, or
 ```text
 recording/
 ├── eeg_data.bdf
-└── events.csv
+└── events.json
 ```
 
-`events.csv` must contain an `onset` column. Its values are event times in
-seconds from the beginning of the recording. Other columns are ignored. Row
-order determines `event_index` in the output; empty onset values are skipped,
-while invalid or negative values cause a recording-loading error.
+`events.json` must contain a JSON list of numeric event timestamps in
+milliseconds from the beginning of the recording. The loader converts them to
+seconds for preprocessing. List order determines `event_index` in the output;
+invalid, non-finite, or negative values cause a recording-loading error.
 
-```csv
-onset,event_type
-7.8,stimulus
-121.9,stimulus
+```json
+[7800, 121900]
 ```
 
-If `events.csv` or its `onset` column is missing, no substitute events are
-created. `configuration.json` is no longer a source of events or metadata
-required for analysis.
+If `events.json` is missing, no substitute events are created.
+`configuration.json` is no longer a source of events or metadata required for
+analysis.
 
 ## How the pipeline works
 
@@ -249,7 +247,7 @@ The main stages are implemented in the following files:
 
 1. `eeg_pipeline/data_loader.py` searches for `.bdf` files, opens them with
    MNE, and reads the sampling frequency, channel names, and channel types from
-   the BDF header. It also reads event onsets from `events.csv`. Files such as
+   the BDF header. It also reads event onsets from `events.json`. Files such as
    `*_channels.tsv` are not used; channels must be described unambiguously in
    the BDF header.
 2. `eeg_pipeline/preprocessing.py` selects the required 19 channels, applies
@@ -313,5 +311,4 @@ rejection reasons, warnings, and errors.
 Randomized clustering operations use fixed seeds. Missing or incomplete data
 required for preprocessing causes an error, and channels are not filled in.
 Connectivity may contain `NaN` values when an epoch contains too little data.
-The event type in additional `events.csv` columns is not interpreted and is not
-automatically mapped to pain ratings.
+The timestamp list does not specify event types or map them to pain ratings.

@@ -31,7 +31,7 @@ class RustFSStorage:
         destination.mkdir(parents=True, exist_ok=True)
         client = self._client()
         source_bucket = bucket or self.settings.rustfs_bucket
-        for filename in ("events.csv", "eeg_data.bdf"):
+        for filename in ("events.json", "eeg_data.bdf"):
             # The public contract is bucket/{study_id}/{filename}.
             client.download_file(
                 source_bucket,
@@ -56,7 +56,7 @@ class RustFSStorage:
     def download_recording_inputs(
         self, bucket: str, storage_key: str, destination: Path
     ) -> tuple[Path, Path]:
-        """Download the EEG object and its sibling events.csv from RustFS."""
+        """Download the EEG object and its sibling events.json from RustFS."""
         if not isinstance(bucket, str) or not bucket.strip():
             raise ValueError("storage_bucket must not be blank")
         if not isinstance(storage_key, str) or not storage_key.strip():
@@ -65,13 +65,13 @@ class RustFSStorage:
         if not filename:
             raise ValueError("storage_key must identify an object")
 
-        event_key = join(dirname(storage_key), "events.csv")
+        event_key = join(dirname(storage_key), "events.json")
         if event_key == storage_key:
-            raise ValueError("storage_key must identify the EEG object, not events.csv")
+            raise ValueError("storage_key must identify the EEG object, not events.json")
 
         destination.mkdir(parents=True, exist_ok=True)
         eeg_path = destination / filename
-        events_path = destination / "events.csv"
+        events_path = destination / "events.json"
         client = self._client()
         client.download_file(bucket, storage_key, str(eeg_path))
         client.download_file(bucket, event_key, str(events_path))

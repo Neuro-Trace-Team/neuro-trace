@@ -39,7 +39,7 @@ def test_load_real_recording(tmp_path, file_format, filename, preload):
     source = run / filename
     expected = write_recording(source, file_format)
     original = source.read_bytes()
-    (run / "events.csv").write_text("onset\n0.5\n")
+    (run / "events.json").write_text("[500]")
 
     assert list(iter_recording_dirs(tmp_path)) == [("experiment_01", "subject", "run", run)]
     recording = load_recording(run, preload=preload)
@@ -51,4 +51,4 @@ def test_load_real_recording(tmp_path, file_format, filename, preload):
     assert recording.events_seconds == [0.5]
     assert recording.path == source
     assert source.read_bytes() == original
-    assert sorted(p.name for p in run.iterdir()) == sorted([filename, "events.csv"])
+    assert sorted(p.name for p in run.iterdir()) == sorted([filename, "events.json"])

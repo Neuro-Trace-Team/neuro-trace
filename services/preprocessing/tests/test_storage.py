@@ -47,7 +47,7 @@ def test_download_object_uses_exactly_the_supplied_rustfs_coordinates(tmp_path):
     assert result == tmp_path / "run" / "recording.bdf"
 
 
-def test_download_recording_inputs_fetches_eeg_and_sibling_events_csv(tmp_path):
+def test_download_recording_inputs_fetches_eeg_and_sibling_events_json(tmp_path):
     storage = RustFSStorage(Mock())
     client = Mock()
     storage._client = Mock(return_value=client)
@@ -59,7 +59,7 @@ def test_download_recording_inputs_fetches_eeg_and_sibling_events_csv(tmp_path):
         destination,
     )
 
-    assert result == (destination / "raw_eeg.bdf", destination / "events.csv")
+    assert result == (destination / "raw_eeg.bdf", destination / "events.json")
     assert client.download_file.call_args_list == [
         call(
             "backend-bucket",
@@ -68,8 +68,8 @@ def test_download_recording_inputs_fetches_eeg_and_sibling_events_csv(tmp_path):
         ),
         call(
             "backend-bucket",
-            "examinations/patient/exam/events.csv",
-            str(destination / "events.csv"),
+            "examinations/patient/exam/events.json",
+            str(destination / "events.json"),
         ),
     ]
 
