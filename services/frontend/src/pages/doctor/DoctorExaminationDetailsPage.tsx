@@ -10,8 +10,8 @@ import { apiClient, getApiErrorMessage } from "../../services/apiClient";
 import { formatExaminationDate } from "../../services/api";
 import type { Examination, PaginatedResponse } from "../../types/api.types";
 
-type Analysis = { analysis_id: number; result: number | string; confidence: number | string };
-type Results = { examination_id: string; analyses: Analysis[] };
+type Analysis = { analysis_id: number; time_stamp: string; result: number | string; confidence: number | string | null };
+type Results = { examination_id: string; total_analyses_count: number | null; analyses: Analysis[] };
 type HistoryItem = { id: string; examination_date: string | null };
 
 function ModelEvaluation({ id }: { id: string }) {
@@ -98,14 +98,14 @@ function ModelEvaluation({ id }: { id: string }) {
           <ButtonSecondary disabled icon="download" title="Report export is not available" type="button">Export Report</ButtonSecondary>
         </div>
         <div className="mt-4 rounded-xl border border-white/80 bg-white/45 p-4 shadow-[0_4px_14px_rgba(8,38,76,0.06)]">
-          <h3 className="mb-3 text-lg font-semibold text-[#102d58]">Detected Pain Levels</h3>
+          <h3 className="mb-3 text-lg font-semibold text-[#102d58]">Detected Pain Levels{results?.total_analyses_count != null && ` (${results.total_analyses_count})`}</h3>
           {resultsMessage && <p className="py-6 text-sm text-[#52677b]" role="status">{resultsMessage}</p>}
           {results && results.analyses.length > 0 && (
             <div className="grid gap-5 md:grid-cols-[minmax(180px,0.65fr)_minmax(0,1.35fr)] md:gap-10">
               <div aria-label="Analyses" className="max-h-56 space-y-1 overflow-y-auto pr-1">
                 {results.analyses.map((item) => (
                   <button aria-pressed={item.analysis_id === selected} className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm text-[#102d58] transition-colors focus-visible:outline-2 focus-visible:outline-[#00a9c4] ${item.analysis_id === selected ? "border-white bg-white/80 shadow-md" : "border-white bg-white/20 hover:bg-white/60"}`} key={item.analysis_id} onClick={() => setSelected(item.analysis_id)} type="button">
-                    <span>Analysis {item.analysis_id}</span><strong>{item.result}</strong>
+                    <span>{item.time_stamp}</span><strong>{item.result}</strong>
                   </button>
                 ))}
               </div>

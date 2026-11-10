@@ -1,10 +1,11 @@
-﻿import PageTitle from "../../components/PageTitle";
+import PageTitle from "../../components/PageTitle";
 import SectionTitle from "../../components/SectionTitle";
 import Surface from "../../components/Surface";
 import { useStorageUsage } from "../../hooks/useStorageUsage";
 import { formatBytes } from "../../services/api";
 
-type Connection = { from: string; to: string; label: string; path: string; connected: boolean };
+type ConnectionStatus = "connected" | "disconnected" | "unknown";
+type Connection = { from: string; to: string; label: string; path: string; status: ConnectionStatus };
 type Service = { name: string; description: string; x: number; y: number; width: number; kind: "app" | "service" | "data" };
 
 const services: Service[] = [
@@ -22,22 +23,23 @@ const services: Service[] = [
 
 // Placeholder data until connection monitoring is available.
 const connections: Connection[] = [
-  { from: "Frontend", to: "Backend", label: "API", path: "M164 301 H215", connected: true },
-  { from: "Backend", to: "Auth DB", label: "Accounts", path: "M235 265 V225 H87 V117", connected: true },
-  { from: "Backend", to: "Medical DB", label: "Examinations", path: "M295 265 V195 H247 V117", connected: true },
-  { from: "Backend", to: "Audit DB", label: "Audit logs", path: "M335 265 V145 H407 V117", connected: true },
-  { from: "Backend", to: "RustFS", label: "Examination files", path: "M375 282 H460", connected: true },
-  { from: "Backend", to: "Preprocessing", label: "Processing requests", path: "M375 320 H415 V421 H460", connected: true },
-  { from: "Preprocessing", to: "RustFS", label: "Recording and output files", path: "M535 385 V318", connected: true },
-  { from: "Preprocessing", to: "RabbitMQ", label: "Analysis tasks", path: "M615 421 H665", connected: true },
-  { from: "RabbitMQ", to: "ML service", label: "Analysis tasks and completion events", path: "M810 421 H880 V267", connected: true },
-  { from: "ML service", to: "Model DB", label: "Analysis results", path: "M880 195 V117", connected: false },
-  { from: "Backend", to: "ML service", label: "Results API", path: "M375 275 H405 V170 H780 V231 H805", connected: true },
-  { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337", connected: true },
+  { from: "Frontend", to: "Backend", label: "API", path: "M164 301 H215", status: "connected" },
+  { from: "Backend", to: "Auth DB", label: "Accounts", path: "M235 265 V225 H87 V117", status: "connected" },
+  { from: "Backend", to: "Medical DB", label: "Examinations", path: "M295 265 V195 H247 V117", status: "connected" },
+  { from: "Backend", to: "Audit DB", label: "Audit logs", path: "M335 265 V145 H407 V117", status: "connected" },
+  { from: "Backend", to: "RustFS", label: "Examination files", path: "M375 282 H460", status: "connected" },
+  { from: "Backend", to: "Preprocessing", label: "Processing requests", path: "M375 320 H415 V421 H460", status: "connected" },
+  { from: "Preprocessing", to: "RustFS", label: "Recording and output files", path: "M535 385 V318", status: "connected" },
+  { from: "Preprocessing", to: "RabbitMQ", label: "Analysis tasks", path: "M615 421 H665", status: "connected" },
+  { from: "RabbitMQ", to: "ML service", label: "Analysis tasks and completion events", path: "M810 421 H880 V267", status: "connected" },
+  { from: "ML service", to: "Model DB", label: "Analysis results", path: "M880 195 V117", status: "disconnected" },
+  { from: "Backend", to: "ML service", label: "Results API", path: "M375 275 H405 V170 H780 V231 H805", status: "unknown" },
+  { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337", status: "connected" },
 ];
 
 function AdminSystemStatusPage() {
   const storage = useStorageUsage();
+  const disconnected = connections.filter((connection) => connection.status === "disconnected");
   return (
     <div className="mx-auto max-w-[1100px]">
       <PageTitle>System Status</PageTitle>
@@ -79,12 +81,13 @@ function AdminSystemStatusPage() {
               <filter id="node-shadow" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="#123c51" floodOpacity="0.1" /></filter>
             </defs>
             {connections.map((connection) => (
-              <path key={`${connection.from}-${connection.to}`} d={connection.path} fill="none" stroke={connection.connected ? "#47a984" : "#cf6c6c"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <title>{`${connection.from} to ${connection.to}: ${connection.label} — ${connection.connected ? "connected" : "disconnected"} (example)`}</title>
+              <path key={`${connection.from}-${connection.to}`} d={connection.path} fill="none" stroke={connection.status === "connected" ? "#47a984" : connection.status === "disconnected" ? "#b42332" : "#687783"} strokeWidth={connection.status === "disconnected" ? 5 : 2.5} strokeDasharray={connection.status === "connected" ? undefined : connection.status === "disconnected" ? "8 4" : "2 5"} strokeLinecap="round" strokeLinejoin="round">
+                <title>{`${connection.from} to ${connection.to}: ${connection.label} — ${connection.status} (example)`}</title>
               </path>
             ))}
             {services.map((service) => (
               <g key={service.name} transform={`translate(${service.x} ${service.y})`}>
+                <rect width={service.width} height="72" rx="12" fill="#f2f9fa" />
                 <rect width={service.width} height="72" rx="12" fill={service.kind === "app" ? "url(#node-primary)" : "url(#node-glass)"} stroke="white" strokeWidth="1.5" filter="url(#node-shadow)" />
                 <text x="16" y="30" fill="#102d58" fontSize="15" fontWeight="700">{service.name}</text>
                 <text x="16" y="51" fill="#62798a" fontSize="9" fontWeight="700" letterSpacing="0.07em">{service.description}</text>
@@ -94,11 +97,20 @@ function AdminSystemStatusPage() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-[#52677b]">
           <span className="flex items-center gap-2"><span className="h-0.5 w-6 rounded-full bg-[#47a984]" /> Connected</span>
-          <span className="flex items-center gap-2"><span className="h-0.5 w-6 rounded-full bg-[#cf6c6c]" /> Disconnected</span>
+          <span className="flex items-center gap-2 font-bold text-[#a51d2b]"><span className="w-6 border-t-4 border-dashed border-[#b42332]" /> Disconnected</span>
+          <span className="flex items-center gap-2"><span className="w-6 border-t-2 border-dotted border-[#687783]" /> Unknown</span>
           <span className="sm:ml-auto">Connection statuses are simulated.</span>
         </div>
+        {disconnected.length > 0 && (
+          <div className="mt-4 rounded-lg border border-[#e6a5aa] bg-[#fff1f1] px-4 py-3 text-sm text-[#8d1d29]">
+            <p className="font-bold">Disconnected connections ({disconnected.length})</p>
+            <ul className="mt-1 list-inside list-disc">
+              {disconnected.map((connection) => <li key={`${connection.from}-${connection.to}`}>{connection.from} → {connection.to} ({connection.label})</li>)}
+            </ul>
+          </div>
+        )}
         <ul className="sr-only" aria-label="Example connection statuses">
-          {connections.map((connection) => <li key={`${connection.from}-${connection.to}`}>{connection.from} to {connection.to}, {connection.label}: {connection.connected ? "connected" : "disconnected"}.</li>)}
+          {connections.map((connection) => <li key={`${connection.from}-${connection.to}`}>{connection.from} to {connection.to}, {connection.label}: {connection.status}.</li>)}
         </ul>
       </Surface>
     </div>
