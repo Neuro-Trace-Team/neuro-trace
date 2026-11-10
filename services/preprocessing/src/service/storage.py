@@ -65,7 +65,7 @@ class RustFSStorage:
         if not filename:
             raise ValueError("storage_key must identify an object")
 
-        event_key = join(dirname(storage_key), "events.json")
+        event_key = join(dirname(storage_key), "timestamps.json")
         if event_key == storage_key:
             raise ValueError("storage_key must identify the EEG object, not events.json")
 

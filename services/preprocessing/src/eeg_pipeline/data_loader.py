@@ -34,6 +34,8 @@ def _read_event_onsets(directory: Path) -> list[float]:
             values = json.load(stream)
     except OSError as exc:
         raise OSError(f"Could not read {path}: {exc}") from exc
+    if isinstance(values, dict):
+        values = values.get("timestamps")
     if not isinstance(values, list):
         raise ValueError(f"events.json must contain a list of timestamps: {path}")
     onsets = []

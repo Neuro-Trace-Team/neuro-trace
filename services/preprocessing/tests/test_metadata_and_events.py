@@ -21,14 +21,17 @@ class FakeRaw:
         return rng.normal(size=(len(picks), 100)) * 1e-7
 
 
-def test_json_timestamps_convert_milliseconds_preserving_order_and_duplicates(tmp_path):
-    (tmp_path / "events.json").write_text("[2500, 0, 500.5, 2500]")
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_json_timestamps_convert_milliseconds_preserving_order_and_duplicates(tmp_path, wrapped):
+    values = [2500, 0, 500.5, 2500]
+    (tmp_path / "events.json").write_text(json.dumps({"timestamps": values} if wrapped else values))
 
     assert _read_event_onsets(tmp_path) == [2.5, 0.0, 0.5005, 2.5]
 
 
-def test_empty_json_timestamp_list(tmp_path):
-    (tmp_path / "events.json").write_text("[]")
+@pytest.mark.parametrize("content", ["[]", '{"timestamps": []}'])
+def test_empty_json_timestamp_list(tmp_path, content):
+    (tmp_path / "events.json").write_text(content)
 
     assert _read_event_onsets(tmp_path) == []
 
@@ -36,6 +39,10 @@ def test_empty_json_timestamp_list(tmp_path):
 @pytest.mark.parametrize("content", [
     '{"onset": [500]}', "null", "500", "[true]", '["500"]',
     "[null]", "[-1]", "[NaN]", "[Infinity]", "[1e400]", "[[]]", "[500,",
+    '{"timestamps": null}', '{"timestamps": 500}', '{"timestamps": "500"}',
+    '{"timestamps": [true]}', '{"timestamps": ["500"]}',
+    '{"timestamps": [-1]}', '{"timestamps": [NaN]}',
+    '{"timestamps": [Infinity]}', '{"timestamps": [null]}',
 ])
 def test_invalid_json_timestamps_are_rejected(tmp_path, content):
     (tmp_path / "events.json").write_text(content)
@@ -51,8 +58,9 @@ def test_csv_is_not_used_as_fallback(tmp_path):
         _read_event_onsets(tmp_path)
 
 
-def test_json_timestamps_produce_same_preprocessing_as_seconds(monkeypatch, tmp_path):
-    (tmp_path / "events.json").write_text("[500]")
+@pytest.mark.parametrize("content", ["[500]", '{"timestamps": [500]}'])
+def test_json_timestamps_produce_same_preprocessing_as_seconds(monkeypatch, tmp_path, content):
+    (tmp_path / "events.json").write_text(content)
     monkeypatch.setattr("eeg_pipeline.preprocessing._filter", lambda data, sfreq, cfg: data)
     cfg = PipelineConfig(mode="event", tmin=0, tmax=0.1, target_sfreq=None)
 
