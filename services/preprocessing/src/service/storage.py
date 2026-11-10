@@ -56,7 +56,7 @@ class RustFSStorage:
     def download_recording_inputs(
         self, bucket: str, storage_key: str, destination: Path
     ) -> tuple[Path, Path]:
-        """Download the EEG object and its sibling events.json from RustFS."""
+        """Download EEG and sibling timestamps.json, saved locally as events.json."""
         if not isinstance(bucket, str) or not bucket.strip():
             raise ValueError("storage_bucket must not be blank")
         if not isinstance(storage_key, str) or not storage_key.strip():
@@ -66,8 +66,8 @@ class RustFSStorage:
             raise ValueError("storage_key must identify an object")
 
         event_key = join(dirname(storage_key), "timestamps.json")
-        if event_key == storage_key:
-            raise ValueError("storage_key must identify the EEG object, not events.json")
+        if filename in {"timestamps.json", "events.json"}:
+            raise ValueError("storage_key must identify the EEG object, not a timestamps file")
 
         destination.mkdir(parents=True, exist_ok=True)
         eeg_path = destination / filename

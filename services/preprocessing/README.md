@@ -72,10 +72,12 @@ the URL and body, plus the exact RustFS object coordinates:
 ```
 
 The service downloads the EEG object directly from RustFS using the supplied
-`storage_bucket` and `storage_key`, then downloads `events.json` from the same
+`storage_bucket` and `storage_key`, then downloads `timestamps.json` from the same
 bucket and sibling object directory. For example, a key of
 `examinations/patient/examination/raw_eeg.bdf` results in downloads of that key
-and `examinations/patient/examination/events.json`.
+and `examinations/patient/examination/timestamps.json`. The timestamps file is
+saved locally as `events.json` for the pipeline. Backend uploads use the JSON
+shape `{"timestamps": [0, 83456]}` (milliseconds).
 
 Example preprocessing submission:
 
@@ -110,7 +112,8 @@ The job execution process is as follows:
 3. FastAPI adds `JobManager.run()` to `BackgroundTasks` and returns the
    examination UUID and current status.
 4. Preprocessing downloads the EEG object and
-   sibling `events.json` from RustFS using `RustFSStorage.download_recording_inputs`.
+   sibling `timestamps.json` from RustFS using `RustFSStorage.download_recording_inputs`,
+   saving the latter locally as `events.json`.
    It does not fetch source-file coordinates from the backend.
 5. Both files are stored in the pipeline's existing local input directory:
 
@@ -178,11 +181,13 @@ should look like this:
 eeg-data/
 └── study-001/
     ├── eeg_data.bdf
-    └── events.json
+    └── timestamps.json
 ```
 
-`eeg_data.bdf` must be a BioSemi BDF file, and `events.json` must contain a
-JSON list of timestamps in milliseconds, as required by the pipeline contract described below. Connecting
+`eeg_data.bdf` must be a BioSemi BDF file, and `timestamps.json` must contain a
+JSON list of timestamps in milliseconds or an object wrapping that list under
+`timestamps`. It is downloaded as `events.json`, as required by the pipeline
+contract described below. Connecting
 to RustFS only requires a valid endpoint, credentials, bucket name, and S3 read
 permissions for the objects.
 
@@ -228,7 +233,8 @@ recording/
 └── events.json
 ```
 
-`events.json` must contain a JSON list of numeric event timestamps in
+`events.json` must contain a JSON list (or an object with a `timestamps` list)
+of numeric event timestamps in
 milliseconds from the beginning of the recording. The loader converts them to
 seconds for preprocessing. List order determines `event_index` in the output;
 invalid, non-finite, or negative values cause a recording-loading error.
