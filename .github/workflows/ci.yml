@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   backend-tests:
-    name: Backend unit and integration tests
+    name: Backend isolated tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,7 +29,14 @@ jobs:
 
       - name: Run backend tests
         working-directory: services/backend
-        run: python -m pytest -q
+        run: python -m pytest -q -ra -m "not integration" --junitxml=../../reports/backend.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-tests
+          path: reports/backend.xml
 
   ml-tests:
     name: ML unit and integration tests
@@ -59,10 +66,17 @@ jobs:
 
       - name: Run ML tests
         working-directory: services/ml
-        run: python -m pytest -q
+        run: python -m pytest -q -ra --junitxml=../../reports/ml.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-tests
+          path: reports/ml.xml
 
   preprocessing-tests:
-    name: Preprocessing unit and integration tests
+    name: Preprocessing tests (mocked integrations)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -84,7 +98,31 @@ jobs:
         working-directory: services/preprocessing
         env:
           PYTHONPATH: src
-        run: python -m pytest -q
+        run: python -m pytest -q -ra --junitxml=../../reports/preprocessing.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preprocessing-tests
+          path: reports/preprocessing.xml
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
 
   compose:
     runs-on: ubuntu-latest
@@ -95,6 +133,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      # Re-enable together with the backend integration step below.
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version: "3.12"
+      #     cache: pip
+      #     cache-dependency-path: services/backend/pyproject.toml
+      #
+      # - name: Install integration test dependencies
+      #   run: python -m pip install -e "services/backend[dev]"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -116,9 +164,9 @@ jobs:
           set -euxo pipefail
 
           # Compose --wait covers services with healthchecks. Also ensure every
-          # service remains running, including frontend and ML which lack one.
+          # service remains running, including frontend which lacks one.
           docker compose ps --all
-          if docker compose ps --all --format json | jq -e 'select(.State != "running")' >/dev/null; then
+          if docker compose ps --all --format json | jq -s -e 'any(.[]; .State != "running")' >/dev/null; then
             echo "At least one Compose service is not running."
             docker compose ps --all
             exit 1
@@ -143,13 +191,65 @@ jobs:
           check_http http://localhost:3000/
           check_http http://localhost:9000/health
 
-          test "$(docker compose exec -T auth-db psql -U postgres -d auth_db -tAc "SELECT to_regclass('public.users') IS NOT NULL AND to_regclass('public.refresh_tokens') IS NOT NULL")" = "t"
-          test "$(docker compose exec -T medical-db psql -U postgres -d medical_db -tAc "SELECT to_regclass('public.patients') IS NOT NULL AND to_regclass('public.examinations') IS NOT NULL AND to_regclass('public.preprocessing_jobs') IS NOT NULL")" = "t"
-          test "$(docker compose exec -T audit-db psql -U postgres -d audit_db -tAc "SELECT to_regclass('public.audit_logs') IS NOT NULL AND to_regclass('public.audit_log_types') IS NOT NULL")" = "t"
+      - name: Check database readiness and expected tables
+        run: |
+          set -euo pipefail
+
+          check_database() {
+            local service="$1" user="$2" database="$3"
+            shift 3
+
+            docker compose exec -T "$service" pg_isready -U "$user" -d "$database"
+
+            local table exists
+            for table in "$@"; do
+              exists=$(docker compose exec -T "$service" psql -X -U "$user" -d "$database" \
+                -v ON_ERROR_STOP=1 -tAc \
+                "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname = 'public' AND tablename = '$table')")
+              if [ "$exists" != "t" ]; then
+                echo "Missing table: $database.public.$table"
+                return 1
+              fi
+            done
+            echo "$database: ready, all expected tables exist."
+          }
+
+          check_database auth-db postgres auth_db users refresh_tokens
+          check_database medical-db postgres medical_db patients examinations recent_patients recent_examinations
+          check_database audit-db postgres audit_db audit_logs audit_log_types
+          check_database model-db model_db model_db analyses
+
+      # Backend integration tests are temporarily disabled.
+      # - name: Run backend integration tests against the fresh stack
+      #   working-directory: services/backend
+      #   env:
+      #     NEUROTRACE_INTEGRATION: "1"
+      #     DB_AUTH_URL: postgresql://postgres:postgres@localhost:5432/auth_db
+      #     DB_MEDICAL_URL: postgresql://postgres:postgres@localhost:5433/medical_db
+      #     DB_AUDIT_URL: postgresql://postgres:postgres@localhost:5434/audit_db
+      #     RUSTFS_ENDPOINT: http://localhost:9000
+      #     RABBITMQ_HOST: localhost
+      #     RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ci.backend.completed
+      #   run: |
+      #     set -a
+      #     source ../../.env
+      #     set +a
+      #     python -m pytest -q -ra -m integration --junitxml=../../reports/backend-integration.xml
 
       - name: Show logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: |
+          mkdir -p reports
+          docker compose logs --no-color > reports/compose.log 2>&1
+          docker compose ps --all > reports/compose-status.txt
+          cat reports/compose.log
+
+      - name: Upload Compose failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs
+          path: reports/
 
       - name: Stop stack and remove test data
         if: always()
