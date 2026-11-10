@@ -33,5 +33,5 @@ async def get_analyses(
     return AnalysesResponse(
         examination_id=examination_id,
         total_analyses_count=results.expected,
-        analyses=[AnalysisDto.model_validate(a) for a in results.analyses],
+        analyses=[AnalysisDto.from_domain(a) for a in results.analyses],
     )
