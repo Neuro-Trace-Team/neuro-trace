@@ -1,6 +1,8 @@
 ﻿import PageTitle from "../../components/PageTitle";
 import SectionTitle from "../../components/SectionTitle";
 import Surface from "../../components/Surface";
+import { useStorageUsage } from "../../hooks/useStorageUsage";
+import { formatBytes } from "../../services/api";
 
 type Connection = { from: string; to: string; label: string; path: string; connected: boolean };
 type Service = { name: string; description: string; x: number; y: number; width: number; kind: "app" | "service" | "data" };
@@ -34,25 +36,31 @@ const connections: Connection[] = [
   { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337", connected: true },
 ];
 
-const exampleStorageUsage = 74;
-
 function AdminSystemStatusPage() {
+  const storage = useStorageUsage();
   return (
     <div className="mx-auto max-w-[1100px]">
       <PageTitle>System Status</PageTitle>
       <Surface className="mb-4 border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)]">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <SectionTitle>Storage usage</SectionTitle>
-          <span className="rounded-lg border border-white/80 bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#52677b]">Example data</span>
-        </div>
-        <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold text-[#173456]">
-          <span>RustFS</span>
-          <span>{exampleStorageUsage}%</span>
-        </div>
-        <div aria-label="RustFS storage usage (example data)" aria-valuemin={0} aria-valuemax={100} aria-valuenow={exampleStorageUsage} className="h-3.5 overflow-hidden rounded-full bg-[#d7e1e3]" role="progressbar">
-          <div className="h-full rounded-full bg-gradient-to-r from-[#00bdc9] to-[#0069b1]" style={{ width: `${exampleStorageUsage}%` }} />
-        </div>
-        <div aria-hidden="true" className="mt-1 flex justify-between text-xs text-[#718096]"><span>0%</span><span>50%</span><span>100%</span></div>
+        <SectionTitle>Storage usage</SectionTitle>
+        {storage === "loading" ? <p className="rounded-xl border border-white/80 bg-white/40 px-4 py-5 text-sm text-[#52677b]" role="status">Loading storage usage...</p> : storage === "unavailable" ? <p className="rounded-xl border border-white/80 bg-white/40 px-4 py-5 text-sm text-[#52677b]" role="alert">Storage usage is unavailable.</p> : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="flex items-center gap-4 rounded-xl border border-white/80 bg-gradient-to-br from-white/75 to-[#d9f2f4]/65 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_3px_10px_rgba(8,38,76,0.06)]">
+              
+              <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[#62798a]">RustFS bucket</p><p className="mt-1 break-all text-base font-bold text-[#102d58]">{storage.bucket}</p><p className="mt-1 text-xs text-[#62798a]">{storage.bucket_exists ? "Available" : "Not created yet"}</p></div>
+            </div>
+            <div className="rounded-xl border border-white/80 bg-white/45 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_3px_10px_rgba(8,38,76,0.06)]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#62798a]">Used space</p>
+              <p className="mt-3 font-heading text-2xl font-extrabold text-[#102d58]">{storage.bucket_exists ? formatBytes(storage.used_bytes) : "—"}</p>
+              <p className="mt-1 text-xs text-[#62798a]">Stored in this bucket</p>
+            </div>
+            <div className="rounded-xl border border-white/80 bg-white/45 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_3px_10px_rgba(8,38,76,0.06)]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#62798a]">Objects</p>
+              <p className="mt-3 font-heading text-2xl font-extrabold text-[#102d58]">{storage.bucket_exists ? storage.object_count.toLocaleString() : "—"}</p>
+              <p className="mt-1 text-xs text-[#62798a]">Objects in this bucket</p>
+            </div>
+          </div>
+        )}
       </Surface>
       <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 p-4 shadow-[0_6px_18px_rgba(8,38,76,0.09)] sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
