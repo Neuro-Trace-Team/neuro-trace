@@ -30,3 +30,10 @@ export function formatExaminationDate(value: string | null | undefined): string 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+  const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** unit).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${units[unit]}`;
+}

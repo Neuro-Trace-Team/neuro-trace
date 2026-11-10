@@ -47,7 +47,7 @@ function DoctorNewExaminationPage() {
     }
 
     const form = new FormData(event.currentTarget);
-    const artifactEvents: Array<{ timestamp: number; type: string }> = [];
+    const timestamps: string[] = [];
     for (let index = 0; index < artifactIds.length; index += 1) {
       const artifactId = artifactIds[index];
       const digits = Array.from({ length: 9 }, (_, digitIndex) =>
@@ -59,18 +59,13 @@ function DoctorNewExaminationPage() {
         return;
       }
 
-      const hours = Number(digits.slice(0, 2).join(""));
       const minutes = Number(digits.slice(2, 4).join(""));
       const seconds = Number(digits.slice(4, 6).join(""));
-      const milliseconds = Number(digits.slice(6, 9).join(""));
       if (minutes > 59 || seconds > 59) {
         showToast(`Artifact ${index + 1} has an invalid time.`, "error");
         return;
       }
-      artifactEvents.push({
-        timestamp: hours * 3600 + minutes * 60 + seconds + milliseconds / 1000,
-        type: "ARTIFACT",
-      });
+      timestamps.push(`${digits.slice(0, 2).join("")}:${digits.slice(2, 4).join("")}:${digits.slice(4, 6).join("")}:${digits.slice(6, 9).join("")}`);
     }
 
     setIsSubmitting(true);
@@ -83,7 +78,7 @@ function DoctorNewExaminationPage() {
       const upload = new FormData();
       if (newPatient) upload.append("generate_patient", "true");
       else upload.append("patient_id", patientId);
-      upload.append("events", JSON.stringify(artifactEvents));
+      upload.append("timestamps", JSON.stringify(timestamps));
       upload.append("file", file);
       const { data: examination } = await apiClient.post<Examination>("/examinations", upload);
       setFile(null);

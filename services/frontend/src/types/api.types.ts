@@ -22,6 +22,14 @@ export interface Patient {
   updated_at: string;
 }
 
+export interface RecentPatient extends Patient {
+  patient_id: string;
+  last_visited_at: string;
+  examination_count: number;
+  first_examination_date: string | null;
+  last_examination_date: string | null;
+}
+
 export interface Examination {
   id: string;
   patient_id: string;
@@ -55,6 +63,22 @@ export interface PatientStatistics {
   examination_count: number;
   first_examination_at: string | null;
   last_examination_at: string | null;
+}
+
+export interface StorageUsage {
+  status: "available";
+  bucket: string;
+  bucket_exists: boolean;
+  object_count: number;
+  used_bytes: number;
+}
+
+export interface AppActivity {
+  period_started_at: string;
+  active_users_last_24h: number;
+  failed_login_attempts_last_24h: number;
+  examinations_uploaded_last_24h: number;
+  storage: StorageUsage | { status: "unavailable"; bucket: string };
 }
 
 export interface AdminDashboard {
