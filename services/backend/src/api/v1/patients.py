@@ -19,8 +19,6 @@ from src.schemas.patients import (
 )
 from src.services import audit as audit_service
 from src.services import patients as patients_service
-from src.services import recent as recent_service
-from src.core.roles import Role
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
@@ -110,8 +108,6 @@ def get_patient(
         patient = patients_service.get_patient(medical_db, patient_id)
     except patients_service.PatientNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found") from None
-    if current_user.role == Role.DOCTOR:
-        recent_service.record_patient_visit(medical_db, doctor_id=current_user.id, patient_id=patient.id)
     audit_service.log(
         audit_db,
         event_code="PATIENT_ACCESSED",

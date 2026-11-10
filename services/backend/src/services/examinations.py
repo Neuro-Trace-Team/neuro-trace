@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,12 +17,48 @@ from src.services.storage import RustFSStorage
 
 _ALLOWED_EEG_EXTENSIONS = frozenset({"edf", "bdf", "set", "fif", "vhdr", "eeg"})
 _CHUNK_SIZE = 1024 * 1024
+_EDF_HEADER_SIZE = 256
+_TIMESTAMP_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d:\d{6}$")
 class ExaminationNotFoundError(Exception): pass
 class ExaminationValidationError(Exception): pass
 def _now() -> datetime: return datetime.now(UTC)
 def _safe_filename(filename: str) -> str: return re.sub(r"[^A-Za-z0-9._-]", "_", Path(filename).name)[:255]
 
-async def upload_examination(session: Session, *, patient_id: UUID | None, generate_patient: bool, uploaded_by: UUID, file: UploadFile, examination_date: datetime | None) -> tuple[Examination, bool]:
+def parse_timestamps(value: str) -> list[str]:
+    """Validate and preserve frontend timestamps for the preprocessing request."""
+    try:
+        timestamps = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise ExaminationValidationError("timestamps must be a JSON array") from error
+    if not isinstance(timestamps, list) or not timestamps:
+        raise ExaminationValidationError("timestamps must be a non-empty JSON array")
+    if not all(isinstance(timestamp, str) and _TIMESTAMP_PATTERN.fullmatch(timestamp) for timestamp in timestamps):
+        raise ExaminationValidationError("timestamps must use HH:MM:SS:ffffff format")
+    return timestamps
+
+
+def _extract_recording_datetime(file: SpooledTemporaryFile[bytes], extension: str) -> datetime | None:
+    """Read the start date/time stored in the fixed EDF/BDF header.
+
+    EDF/BDF headers do not encode a timezone. The backend stores this source
+    timestamp as UTC so its value remains explicit in a TIMESTAMPTZ column.
+    """
+    if extension not in {"edf", "bdf"}:
+        return None
+    file.seek(0)
+    header = file.read(_EDF_HEADER_SIZE)
+    file.seek(0)
+    if len(header) < _EDF_HEADER_SIZE:
+        raise ExaminationValidationError("EDF/BDF file is too short to contain its header")
+    try:
+        date = header[168:176].decode("ascii").strip()
+        time = header[176:184].decode("ascii").strip()
+        return datetime.strptime(f"{date} {time}", "%d.%m.%y %H.%M.%S").replace(tzinfo=UTC)
+    except (UnicodeDecodeError, ValueError) as error:
+        raise ExaminationValidationError("EDF/BDF header has an invalid recording date") from error
+
+
+async def upload_examination(session: Session, *, patient_id: UUID | None, generate_patient: bool, uploaded_by: UUID, file: UploadFile) -> tuple[Examination, bool]:
     if not file.filename: raise ExaminationValidationError("A file name is required")
     filename = _safe_filename(file.filename)
     extension = Path(filename).suffix.lower().lstrip(".")
@@ -33,6 +70,7 @@ async def upload_examination(session: Session, *, patient_id: UUID | None, gener
             if total_size > settings.max_upload_size_bytes: raise ExaminationValidationError("The uploaded file exceeds the configured size limit")
             checksum.update(chunk); temporary.write(chunk)
         if not total_size: raise ExaminationValidationError("The uploaded file is empty")
+        examination_date = _extract_recording_datetime(temporary, extension)
         created_patient = False
         if patient_id is None:
             if not generate_patient:

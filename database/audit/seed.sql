@@ -23,6 +23,7 @@ INSERT INTO audit_log_types (code, name, description) VALUES
     ('ANALYSIS_FAILED', 'Błąd analizy', 'Analiza AI/ML zakończyła się błędem.'),
     ('DATA_EXPORTED', 'Eksport danych', 'Wyeksportowanie danych z systemu.'),
     ('ACCESS_DENIED', 'Odmowa dostępu', 'Próba wykonania operacji bez wymaganych uprawnień.')
+    , ('ACCOUNT_ACTIVATED', 'Account activation', 'Account was enabled by an administrator.')
 ON CONFLICT (code) DO UPDATE
 SET
     name = EXCLUDED.name,

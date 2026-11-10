@@ -59,7 +59,7 @@ def create_user(session: Session, payload: UserCreate) -> User:
     return user
 
 
-def update_user(session: Session, *, actor: User, user_id: UUID, payload: UserUpdate) -> tuple[User, bool, bool]:
+def update_user(session: Session, *, actor: User, user_id: UUID, payload: UserUpdate) -> tuple[User, bool, bool, bool]:
     user = get_user(session, user_id)
     updates = payload.model_dump(exclude_unset=True)
     if user.id == actor.id and ("role" in updates or "is_active" in updates):
@@ -78,6 +78,7 @@ def update_user(session: Session, *, actor: User, user_id: UUID, payload: UserUp
 
     role_changed = "role" in updates and updates["role"] != Role(user.role)
     deactivated = "is_active" in updates and not updates["is_active"] and user.is_active
+    activated = "is_active" in updates and updates["is_active"] and not user.is_active
     if "role" in updates:
         user.role = updates["role"].value
     if "is_active" in updates:
@@ -85,7 +86,7 @@ def update_user(session: Session, *, actor: User, user_id: UUID, payload: UserUp
     user.updated_at = _now()
     session.commit()
     session.refresh(user)
-    return user, role_changed, deactivated
+    return user, role_changed, deactivated, activated
 
 
 def update_current_user(session: Session, *, user: User, payload: CurrentUserUpdate) -> User:

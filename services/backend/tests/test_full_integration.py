@@ -26,9 +26,9 @@ def clean_databases():
 
 @pytest.fixture
 def api(monkeypatch):
-    monkeypatch.setattr(PreprocessingClient, "request", lambda self, examination_id, storage_bucket, storage_key: None)
+    monkeypatch.setattr(PreprocessingClient, "request", lambda self, examination_id, storage_bucket, storage_key, timestamps: None)
     monkeypatch.setattr(PreprocessingClient, "status", lambda self, examination_id: {"examination_id": str(examination_id), "status": "COMPLETED"})
-    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"examination_id": str(examination_id), "analyses": [{"analysis_id": 1, "result": 6.4, "confidence": 0.91}]})
+    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 1, "time_stamp": 12.5, "result": 6.4, "confidence": 0.91}]})
     with sessions.AuthSession() as db:
         db.add_all([User(email="admin@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Admin", last_name="User", role="ADMIN", is_active=True), User(email="doctor@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Doctor", last_name="User", role="DOCTOR", is_active=True)]); db.commit()
     with TestClient(app) as client: yield client
@@ -47,20 +47,23 @@ def test_all_current_business_endpoints(api):
     headers = h(login(api, "admin@integration.local", "ChangedPassword123!"))
     assert api.patch("/api/v1/users/me", headers=headers, json={"first_name":"Changed"}).status_code == 200
     created = api.post("/api/v1/users", headers=headers, json={"email":"new@integration.local","password":"CreatedPassword123!","first_name":"New","last_name":"User","role":"DOCTOR"}); assert created.status_code == 201; user_id=created.json()["id"]
-    assert api.get("/api/v1/users", headers=headers).status_code == 200; assert api.get(f"/api/v1/users/{user_id}", headers=headers).status_code == 200; assert api.patch(f"/api/v1/users/{user_id}", headers=headers, json={"last_name":"Updated","is_active":False}).status_code == 200
+    assert api.get("/api/v1/users", headers=headers).status_code == 200; assert api.get(f"/api/v1/users/{user_id}", headers=headers).status_code == 200; assert api.patch(f"/api/v1/users/{user_id}", headers=headers, json={"last_name":"Updated","is_active":False}).status_code == 200; assert api.patch(f"/api/v1/users/{user_id}", headers=headers, json={"is_active":True}).status_code == 200
+    with sessions.AuditSession() as audit:
+        activated_event = audit.execute(text("SELECT 1 FROM audit_logs logs JOIN audit_log_types types ON types.id = logs.type_id WHERE types.code = 'ACCOUNT_ACTIVATED' AND logs.resource_id = :user_id"), {"user_id": user_id}).scalar()
+        assert activated_event == 1
     assert api.get("/api/v1/users", headers=h(login(api,"doctor@integration.local"))).status_code == 403
     patient=api.post("/api/v1/patients",headers=headers); assert patient.status_code==201; patient_id=patient.json()["id"]
     for path in ("/api/v1/patients", "/api/v1/patients/stats", f"/api/v1/patients/{patient_id}", f"/api/v1/patients/{patient_id}/stats"): assert api.get(path,headers=headers).status_code==200
-    upload=api.post("/api/v1/examinations",headers=headers,data={"patient_id":patient_id},files={"file":("integration.eeg",b"eeg","application/octet-stream")}); assert upload.status_code==201,upload.text; examination_id=upload.json()["id"]; assert upload.json()["status"] == "PREPROCESSING"
+    upload=api.post("/api/v1/examinations",headers=headers,data={"patient_id":patient_id,"timestamps":"[\"00:00:00:000000\"]"},files={"file":("integration.eeg",b"eeg","application/octet-stream")}); assert upload.status_code==201,upload.text; examination_id=upload.json()["id"]; assert upload.json()["status"] == "PREPROCESSING"
     assert api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json()["analyses"] == []
     assert api.get(f"/api/v1/examinations/{examination_id}/results", headers=headers).status_code == 409
     with sessions.MedicalSession() as medical:
         assert examinations_service.mark_examination_ready(medical, examination_id)
-    detail = api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json(); assert detail["status"] == "READY"; assert detail["analyses"] == [{"analysis_id": 1, "result": 6.4, "confidence": 0.91}]
+    detail = api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json(); assert detail["status"] == "READY"; assert detail["total_analyses_count"] == 1; assert detail["analyses"] == [{"analysis_id": 1, "time_stamp": 12.5, "result": 6.4, "confidence": 0.91}]
     for path in ("/api/v1/examinations",f"/api/v1/examinations/{examination_id}",f"/api/v1/patients/{patient_id}/examinations",f"/api/v1/examinations/{examination_id}/preprocessing-status",f"/api/v1/examinations/{examination_id}/results"): assert api.get(path,headers=headers).status_code==200
     assert api.patch(f"/api/v1/examinations/{examination_id}",headers=headers,json={"examination_date":"2026-11-05T12:00:00Z"}).status_code==200
     assert api.post("/api/v1/examinations/bulk-export",headers=headers,json={"examination_ids":[examination_id]}).status_code==200
-    logs=api.get("/api/v1/admin/audit-logs",headers=headers); assert logs.status_code==200; assert api.get(f"/api/v1/admin/audit-logs/{logs.json()['items'][0]['id']}",headers=headers).status_code==200
+    logs=api.get("/api/v1/admin/audit-logs",headers=headers); assert logs.status_code==200; assert api.get(f"/api/v1/admin/audit-logs/{logs.json()['items'][0]['id']}",headers=headers).status_code==200; activity=api.get("/api/v1/admin/app-activity",headers=headers); assert activity.status_code==200; assert {"active_users_last_24h","failed_login_attempts_last_24h","examinations_uploaded_last_24h","storage"} <= activity.json().keys()
     assert api.post("/api/v1/examinations/bulk-delete",headers=headers,json={"examination_ids":[examination_id]}).status_code==200; assert api.delete(f"/api/v1/examinations/{examination_id}",headers=headers).status_code==404
     assert api.post("/api/v1/auth/logout",headers=headers,json={"refresh_token":tokens["refresh_token"]}).status_code==204
 
@@ -70,14 +73,32 @@ def test_doctor_recent_resources_are_unique_ordered_and_capped(api):
     doctor_headers = h(login(api, "doctor@integration.local"))
     patient_ids = [api.post("/api/v1/patients", headers=admin_headers).json()["id"] for _ in range(11)]
 
-    for patient_id in patient_ids:
-        assert api.get(f"/api/v1/patients/{patient_id}", headers=doctor_headers).status_code == 200
+    # Viewing a patient alone must not create recent history.
+    assert api.get(f"/api/v1/patients/{patient_ids[0]}", headers=doctor_headers).status_code == 200
+    assert api.get("/api/v1/me/recent/patients", headers=doctor_headers).json() == []
+
+    patient_examination_ids = []
+    for index, patient_id in enumerate(patient_ids):
+        upload = api.post(
+            "/api/v1/examinations",
+            headers=admin_headers,
+            data={"patient_id": patient_id, "timestamps": "[\"00:00:00:000000\"]"},
+            files={"file": (f"patient-{index}.eeg", b"eeg", "application/octet-stream")},
+        )
+        assert upload.status_code == 201, upload.text
+        patient_examination_ids.append(upload.json()["id"])
+
+    for examination_id in patient_examination_ids:
+        assert api.get(f"/api/v1/examinations/{examination_id}", headers=doctor_headers).status_code == 200
     recent_patients = api.get("/api/v1/me/recent/patients", headers=doctor_headers)
     assert recent_patients.status_code == 200
     assert [item["id"] for item in recent_patients.json()] == list(reversed(patient_ids[1:]))
     assert all(item["last_visited_at"] for item in recent_patients.json())
+    assert all(item["id"] == item["patient_id"] for item in recent_patients.json())
+    assert all(item["examination_count"] == 1 for item in recent_patients.json())
+    assert all(item["first_examination_date"] == item["last_examination_date"] for item in recent_patients.json())
 
-    assert api.get(f"/api/v1/patients/{patient_ids[0]}", headers=doctor_headers).status_code == 200
+    assert api.get(f"/api/v1/examinations/{patient_examination_ids[0]}", headers=doctor_headers).status_code == 200
     recent_patients = api.get("/api/v1/me/recent/patients", headers=doctor_headers)
     assert [item["id"] for item in recent_patients.json()] == [patient_ids[0], *reversed(patient_ids[2:])]
     assert api.get("/api/v1/me/recent/patients", headers=admin_headers).status_code == 403
@@ -87,7 +108,7 @@ def test_doctor_recent_resources_are_unique_ordered_and_capped(api):
         upload = api.post(
             "/api/v1/examinations",
             headers=admin_headers,
-            data={"patient_id": patient_ids[0]},
+            data={"patient_id": patient_ids[0], "timestamps": "[\"00:00:00:000000\"]"},
             files={"file": (f"recent-{index}.eeg", b"eeg", "application/octet-stream")},
         )
         assert upload.status_code == 201, upload.text

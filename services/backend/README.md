@@ -78,17 +78,26 @@ combined with `AND`; `query` is a case-insensitive partial search.
   `resource_id`. The legacy exact `event_code` filter remains supported.
 
 For a ready examination, results are read from
-`GET {ML_URL}/api/v1/examinations/{examination_id}/analyses` and must be:
+`GET {ML_URL}/examinations/{examination_id}/analyses` and are forwarded to the
+frontend by both the examination detail and results endpoints:
 
 ```json
-{"examination_id":"uuid","analyses":[{"analysis_id":7,"result":6.4,"confidence":0.91}]}
+{"examination_id":"uuid","total_analyses_count":1,"analyses":[{"analysis_id":7,"time_stamp":12.5,"result":6.4,"confidence":0.91}]}
 ```
 
-The ML contract currently has no timestamp field. The backend therefore does
-not invent one; add `timestamp` to every ML analysis before the frontend needs
-time-axis rendering.
+`time_stamp` is the analysis timestamp supplied by ML. The backend does not
+rename or calculate it, so it remains aligned with the ML contract.
 
 The backend persists only the examination readiness status, not ML analyses.
+
+## Examination upload
+
+`POST /api/v1/examinations` is multipart/form-data. The frontend sends `file`,
+either `patient_id` or `generate_patient=true`, and `timestamps` as a non-empty
+JSON array of `HH:MM:SS:ffffff` strings. It must not send `examination_date`.
+For EDF/BDF files the backend reads `examination_date` from the recording
+header, stores it in `medical_db`, and forwards the timestamp array in JSON to
+preprocessing with the RustFS object reference.
 For an existing `medical_db`, apply
 `database/medical/migrations/001_add_examination_status.sql` followed by
 `database/medical/migrations/003_replace_examination_status_with_enum.sql` and
@@ -99,10 +108,10 @@ existing database to remove the retired event-marker table.
 
 ## Recently visited resources
 
-For a doctor, `GET /api/v1/patients/{id}` and
-`GET /api/v1/examinations/{id}` record a visit. The backend stores at most ten
-unique patient entries and ten unique examination entries per doctor. Revisiting
-a resource moves it to the beginning. Doctors can read their own history with:
+For a doctor, `GET /api/v1/examinations/{id}` records both the examination and
+its patient as visited. The backend stores at most ten unique patient entries
+and ten unique examination entries per doctor. Revisiting a resource moves it
+to the beginning. Doctors can read their own history with:
 
 | Method | Endpoint |
 | --- | --- |
@@ -110,8 +119,32 @@ a resource moves it to the beginning. Doctors can read their own history with:
 | GET | `/api/v1/me/recent/examinations` |
 
 These endpoints are restricted to the `DOCTOR` role and return resources in
-descending `last_visited_at` order. Existing medical databases require
-`database/medical/migrations/002_add_recent_resources.sql`.
+descending `last_visited_at` order. A recent patient includes `patient_id`,
+`first_examination_date`, `last_examination_date`, and `examination_count`
+for non-deleted examinations. Existing medical databases require
+`database/medical/migrations/002_add_recent_resources.sql` and
+`database/medical/migrations/007_add_recent_patient_examination_summary_index.sql`.
+
+Administrators changing a user from inactive to active create the
+`ACCOUNT_ACTIVATED` audit event. Existing audit databases require
+`database/audit/migrations/001_add_account_activated_audit_type.sql`.
+
+## RustFS usage
+
+`GET /api/v1/storage/usage` is restricted to the `ADMIN` role and returns the
+live RustFS state for the backend-owned bucket: `bucket_exists`,
+`object_count`, and `used_bytes`. The S3-compatible API does not provide the
+RustFS host filesystem capacity, so this endpoint intentionally does not
+invent a total capacity or percentage value.
+
+## Administrator app activity
+
+`GET /api/v1/admin/app-activity` is restricted to the `ADMIN` role and is the
+dashboard endpoint for the last 24 hours. It returns unique users with a
+successful `LOGIN` audit event, `FAILED_LOGIN_ATTEMPT` count,
+`EXAMINATION_UPLOADED` count, and the same live RustFS bucket usage payload as
+the storage endpoint. Audit events are used as the source of truth; no metrics
+are duplicated into another database table.
 
 ## Tests
 

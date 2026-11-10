@@ -33,6 +33,14 @@ def test_recent_resource_history_schema_is_bounded_by_doctor_and_resource() -> N
         assert "ix_recent_examinations_doctor_visited" in source
 
 
+def test_recent_patient_summary_query_has_an_active_examination_index() -> None:
+    schema = (ROOT / "database" / "medical" / "init.sql").read_text(encoding="utf-8")
+    migration = (ROOT / "database" / "medical" / "migrations" / "007_add_recent_patient_examination_summary_index.sql").read_text(encoding="utf-8")
+    for source in (schema, migration):
+        assert "ix_examinations_active_patient_examination_date" in source
+        assert "(patient_id, examination_date) WHERE deleted_at IS NULL" in source
+
+
 def test_examination_status_is_a_database_enum_with_a_data_migration() -> None:
     schema = (ROOT / "database" / "medical" / "init.sql").read_text(encoding="utf-8")
     migration = (ROOT / "database" / "medical" / "migrations" / "003_replace_examination_status_with_enum.sql").read_text(encoding="utf-8")

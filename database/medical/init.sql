@@ -31,6 +31,8 @@ CREATE INDEX IF NOT EXISTS ix_examinations_uploaded_by ON examinations (uploaded
 CREATE INDEX IF NOT EXISTS ix_examinations_created_at ON examinations (created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_examinations_examination_date ON examinations (examination_date DESC);
 CREATE INDEX IF NOT EXISTS ix_examinations_active ON examinations (patient_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_examinations_active_patient_examination_date
+    ON examinations (patient_id, examination_date) WHERE deleted_at IS NULL;
 
 -- `doctor_id` deliberately has no foreign key: users live in the separate
 -- auth_db. Composite primary keys prevent duplicate history entries.

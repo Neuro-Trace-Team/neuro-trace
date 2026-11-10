@@ -108,7 +108,7 @@ def update_user(
     audit_db: Annotated[Session, Depends(get_audit_db)],
 ) -> User:
     try:
-        user, role_changed, deactivated = users_service.update_user(
+        user, role_changed, deactivated, activated = users_service.update_user(
             auth_db, actor=actor, user_id=user_id, payload=payload
         )
     except users_service.UserNotFoundError:
@@ -132,6 +132,15 @@ def update_user(
         audit_service.log(
             audit_db,
             event_code="ACCOUNT_DEACTIVATED",
+            user_id=actor.id,
+            resource_type="USER",
+            resource_id=user.id,
+            ip_address=_client_ip(request),
+        )
+    if activated:
+        audit_service.log(
+            audit_db,
+            event_code="ACCOUNT_ACTIVATED",
             user_id=actor.id,
             resource_type="USER",
             resource_id=user.id,

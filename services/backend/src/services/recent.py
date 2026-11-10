@@ -17,7 +17,9 @@ def record_examination_visit(session: Session, *, doctor_id: UUID, examination_i
     repository.record_recent_examination(session, doctor_id=doctor_id, examination_id=examination_id)
 
 
-def list_recent_patients(session: Session, *, doctor_id: UUID) -> list[tuple[Patient, datetime]]:
+def list_recent_patients(
+    session: Session, *, doctor_id: UUID
+) -> list[tuple[Patient, datetime, datetime | None, datetime | None, int]]:
     return repository.list_recent_patients(session, doctor_id=doctor_id)
 
 

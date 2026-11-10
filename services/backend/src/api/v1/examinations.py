@@ -21,14 +21,18 @@ from src.services.storage import ObjectStorageError
 router = APIRouter(prefix="/examinations", tags=["examinations"])
 def ip(r: Request): return r.client.host if r.client else None
 def exam(v: Examination): return ExaminationResponse.model_validate(v, from_attributes=True)
-def detail(v: Examination, analyses: list[dict] | None = None):
-    return ExaminationDetailResponse.model_validate(exam(v).model_dump() | {"analyses": analyses or []})
+def detail(v: Examination, ml_results: dict | None = None):
+    return ExaminationDetailResponse.model_validate(exam(v).model_dump() | {
+        "total_analyses_count": ml_results["total_analyses_count"] if ml_results else None,
+        "analyses": ml_results["analyses"] if ml_results else [],
+    })
 
 
 @router.post("", response_model=ExaminationResponse, status_code=201)
-async def upload(request: Request, file: Annotated[UploadFile, File()], user: Annotated[User, Depends(get_current_user)], medical: Annotated[Session, Depends(get_medical_db)], audit: Annotated[Session, Depends(get_audit_db)], patient_id: Annotated[UUID | None, Form()] = None, generate_patient: Annotated[bool, Form()] = False, examination_date: Annotated[datetime | None, Form()] = None):
+async def upload(request: Request, file: Annotated[UploadFile, File()], timestamps: Annotated[str, Form()], user: Annotated[User, Depends(get_current_user)], medical: Annotated[Session, Depends(get_medical_db)], audit: Annotated[Session, Depends(get_audit_db)], patient_id: Annotated[UUID | None, Form()] = None, generate_patient: Annotated[bool, Form()] = False):
     try:
-        value, created_patient = await service.upload_examination(medical, patient_id=patient_id, generate_patient=generate_patient, uploaded_by=user.id, file=file, examination_date=examination_date)
+        parsed_timestamps = service.parse_timestamps(timestamps)
+        value, created_patient = await service.upload_examination(medical, patient_id=patient_id, generate_patient=generate_patient, uploaded_by=user.id, file=file)
     except ValueError as error: raise HTTPException(422, str(error)) from None
     except patients_service.PatientNotFoundError: raise HTTPException(404, "Patient not found") from None
     except service.ExaminationValidationError as error: raise HTTPException(422, str(error)) from None
@@ -37,7 +41,7 @@ async def upload(request: Request, file: Annotated[UploadFile, File()], user: An
         audit_service.log(audit, event_code="PATIENT_CREATED", user_id=user.id, resource_type="PATIENT", resource_id=value.patient_id, ip_address=ip(request))
     audit_service.log(audit, event_code="EXAMINATION_UPLOADED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata={"patient_id": str(patient_id), "file_format": value.file_format, "file_size_bytes": value.file_size_bytes}, ip_address=ip(request))
     metadata = {"examination_id": str(value.id), "storage_bucket": value.storage_bucket, "storage_key": value.storage_key}
-    try: PreprocessingClient().request(value.id, value.storage_bucket, value.storage_key)
+    try: PreprocessingClient().request(value.id, value.storage_bucket, value.storage_key, parsed_timestamps)
     except PreprocessingServiceError as error:
         audit_service.log(audit, event_code="PREPROCESSING_FAILED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata=metadata | {"reason": str(error)}, ip_address=ip(request)); raise HTTPException(502, "Examination was saved, but preprocessing could not be requested") from error
     audit_service.log(audit, event_code="PREPROCESSING_REQUESTED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata=metadata, ip_address=ip(request)); return exam(value)
@@ -79,9 +83,11 @@ def get_one(examination_id: UUID, medical: Annotated[Session, Depends(get_medica
     try:
         examination = service.get_examination(medical, examination_id)
         if current_user.role == Role.DOCTOR:
+            patient_id = examination.patient_id
             recent_service.record_examination_visit(medical, doctor_id=current_user.id, examination_id=examination.id)
-        analyses = MLClient().results(examination_id)["analyses"] if examination.status is ExaminationStatus.READY else []
-        return detail(examination, analyses)
+            recent_service.record_patient_visit(medical, doctor_id=current_user.id, patient_id=patient_id)
+        ml_results = MLClient().results(examination_id) if examination.status is ExaminationStatus.READY else None
+        return detail(examination, ml_results)
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
     except MLServiceError as error: raise HTTPException(502, str(error)) from error
 @router.patch("/{examination_id}", response_model=ExaminationResponse)

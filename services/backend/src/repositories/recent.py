@@ -78,11 +78,31 @@ def record_recent_examination(session: Session, *, doctor_id: UUID, examination_
     )
 
 
-def list_recent_patients(session: Session, *, doctor_id: UUID) -> list[tuple[Patient, datetime]]:
+def list_recent_patients(
+    session: Session, *, doctor_id: UUID
+) -> list[tuple[Patient, datetime, datetime | None, datetime | None, int]]:
+    examination_summary = (
+        select(
+            Examination.patient_id.label("patient_id"),
+            func.min(Examination.examination_date).label("first_examination_date"),
+            func.max(Examination.examination_date).label("last_examination_date"),
+            func.count(Examination.id).label("examination_count"),
+        )
+        .where(Examination.deleted_at.is_(None))
+        .group_by(Examination.patient_id)
+        .subquery()
+    )
     return list(
         session.execute(
-            select(Patient, RecentPatient.visited_at)
+            select(
+                Patient,
+                RecentPatient.visited_at,
+                examination_summary.c.first_examination_date,
+                examination_summary.c.last_examination_date,
+                func.coalesce(examination_summary.c.examination_count, 0),
+            )
             .join(RecentPatient, RecentPatient.patient_id == Patient.id)
+            .outerjoin(examination_summary, examination_summary.c.patient_id == Patient.id)
             .where(RecentPatient.doctor_id == doctor_id)
             .order_by(RecentPatient.visited_at.desc(), Patient.id.asc())
             .limit(MAX_RECENT_RESOURCES)

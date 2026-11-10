@@ -7,6 +7,33 @@ from sqlalchemy.orm import Session
 from src.models.audit import AuditLog, AuditLogType
 
 
+def app_activity_counts(session: Session, *, since: datetime) -> tuple[int, int, int]:
+    """Return login and examination activity recorded since ``since``."""
+    event_codes = ("LOGIN", "FAILED_LOGIN_ATTEMPT", "EXAMINATION_UPLOADED")
+    event_counts = dict(
+        session.execute(
+            select(AuditLogType.code, func.count(AuditLog.id))
+            .join(AuditLog, AuditLog.type_id == AuditLogType.id)
+            .where(AuditLog.created_at >= since, AuditLogType.code.in_(event_codes))
+            .group_by(AuditLogType.code)
+        ).all()
+    )
+    active_users = session.scalar(
+        select(func.count(func.distinct(AuditLog.user_id)))
+        .join(AuditLogType, AuditLog.type_id == AuditLogType.id)
+        .where(
+            AuditLog.created_at >= since,
+            AuditLogType.code == "LOGIN",
+            AuditLog.user_id.is_not(None),
+        )
+    ) or 0
+    return (
+        active_users,
+        event_counts.get("FAILED_LOGIN_ATTEMPT", 0),
+        event_counts.get("EXAMINATION_UPLOADED", 0),
+    )
+
+
 def list_audit_logs(
     session: Session,
     *,

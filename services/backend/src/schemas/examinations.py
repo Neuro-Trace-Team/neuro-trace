@@ -42,15 +42,18 @@ class PreprocessingStatusResponse(BaseModel):
 
 class MLAnalysisResponse(BaseModel):
     analysis_id: int
-    result: Decimal
-    confidence: Decimal = Field(ge=0, le=1)
+    time_stamp: float
+    result: float
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class ExaminationResultsResponse(BaseModel):
     examination_id: UUID
+    total_analyses_count: int | None = Field(default=None, ge=0)
     analyses: list[MLAnalysisResponse]
 
 
 class ExaminationDetailResponse(ExaminationResponse):
     """Metadata plus per-analysis ML results when the examination is READY."""
+    total_analyses_count: int | None = Field(default=None, ge=0)
     analyses: list[MLAnalysisResponse] = Field(default_factory=list)

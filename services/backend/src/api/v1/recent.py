@@ -22,11 +22,16 @@ def list_recent_patients(
     return [
         RecentPatientResponse(
             id=patient.id,
+            patient_id=patient.id,
             created_at=patient.created_at,
             updated_at=patient.updated_at,
             last_visited_at=visited_at,
+            first_examination_date=first_examination_date,
+            last_examination_date=last_examination_date,
+            examination_count=examination_count,
         )
-        for patient, visited_at in recent_service.list_recent_patients(medical_db, doctor_id=current_user.id)
+        for patient, visited_at, first_examination_date, last_examination_date, examination_count
+        in recent_service.list_recent_patients(medical_db, doctor_id=current_user.id)
     ]
 
 

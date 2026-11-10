@@ -15,6 +15,7 @@ from src.api.v1.bulk import router as bulk_router
 from src.api.v1.examinations import router as examinations_router
 from src.api.v1.patients import router as patients_router
 from src.api.v1.recent import router as recent_router
+from src.api.v1.storage import router as storage_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
 from src.messaging.ml_completion_consumer import MLCompletionConsumer
@@ -48,6 +49,7 @@ app.include_router(users_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(patients_router, prefix="/api/v1")
 app.include_router(recent_router, prefix="/api/v1")
+app.include_router(storage_router, prefix="/api/v1")
 app.include_router(examinations_router, prefix="/api/v1")
 app.include_router(bulk_router, prefix="/api/v1")
 

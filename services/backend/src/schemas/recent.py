@@ -8,9 +8,13 @@ from src.models.medical import ExaminationStatus
 
 class RecentPatientResponse(BaseModel):
     id: UUID
+    patient_id: UUID
     created_at: datetime
     updated_at: datetime
     last_visited_at: datetime
+    first_examination_date: datetime | None
+    last_examination_date: datetime | None
+    examination_count: int
 
 
 class RecentExaminationResponse(BaseModel):
