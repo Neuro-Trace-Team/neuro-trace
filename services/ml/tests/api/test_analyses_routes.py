@@ -55,8 +55,8 @@ async def test_complete_examination_returns_200_with_serialized_analyses(client,
         "examination_id": str(exam),
         "total_analyses_count": 2,
         "analyses": [
-            {"analysis_id": 1, "time_stamp": 1.5, "result": 0.2, "confidence": 0.9},
-            {"analysis_id": 2, "time_stamp": 2.5, "result": 0.8, "confidence": None},
+            {"analysis_id": 1, "time_stamp": 1500, "result": 0.2, "confidence": 0.9},
+            {"analysis_id": 2, "time_stamp": 2500, "result": 0.8, "confidence": None},
         ],
     }
 
