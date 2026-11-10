@@ -23,12 +23,17 @@ async def test_invalid_upload_does_not_create_generated_patient() -> None:
     session.add.assert_not_called()
 
 
-def test_timestamps_must_be_a_non_empty_json_array_in_the_frontend_format() -> None:
-    assert examination_service.parse_timestamps('["00:00:00:000000", "23:59:59:123456"]') == [
-        "00:00:00:000000", "23:59:59:123456"
+def test_timestamps_preserve_frontend_format_and_allow_empty_array() -> None:
+    assert examination_service.parse_timestamps('["00:00:00:000", "99:59:59:123"]') == [
+        "00:00:00:000", "99:59:59:123"
     ]
-    with pytest.raises(examination_service.ExaminationValidationError, match="HH:MM:SS:ffffff"):
-        examination_service.parse_timestamps('["00:00:00.000"]')
+    assert examination_service.parse_timestamps('[]') == []
+
+
+@pytest.mark.parametrize("value", ['["00:00:00.000"]', '["00:00:00:000000"]', '["00:60:00:000"]', '[12]', '{}'])
+def test_timestamps_reject_invalid_values(value: str) -> None:
+    with pytest.raises(examination_service.ExaminationValidationError):
+        examination_service.parse_timestamps(value)
 
 
 def test_extracts_examination_date_from_edf_header() -> None:

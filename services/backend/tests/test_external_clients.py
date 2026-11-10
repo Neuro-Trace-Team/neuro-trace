@@ -24,11 +24,11 @@ def test_preprocessing_request_contains_storage_and_timestamps_contract(monkeypa
 
     monkeypatch.setattr(preprocessing.httpx, "post", post)
     preprocessing.PreprocessingClient().request(
-        examination_id, "examinations", "examinations/patient/file.eeg", ["00:00:00:000000"]
+        examination_id, "examinations", "examinations/patient/file.eeg", ["00:00:00:000"]
     )
 
     assert captured["url"] == f"http://preprocessing.test/api/v1/examinations/{examination_id}/preprocessing"
-    assert captured["json"] == {"examination_id": str(examination_id), "storage_bucket": "examinations", "storage_key": "examinations/patient/file.eeg", "timestamps": ["00:00:00:000000"]}
+    assert captured["json"] == {"examination_id": str(examination_id), "storage_bucket": "examinations", "storage_key": "examinations/patient/file.eeg", "timestamps": ["00:00:00:000"]}
 
 
 @pytest.mark.parametrize("error", [httpx.ConnectError("offline"), httpx.TimeoutException("timeout")])
@@ -36,7 +36,7 @@ def test_preprocessing_request_maps_transport_errors(monkeypatch, examination_id
     monkeypatch.setattr(preprocessing, "get_settings", lambda: SimpleNamespace(preprocessing_url="http://preprocessing.test", service_timeout_seconds=1))
     monkeypatch.setattr(preprocessing.httpx, "post", lambda *args, **kwargs: (_ for _ in ()).throw(error))
     with pytest.raises(preprocessing.PreprocessingServiceError):
-        preprocessing.PreprocessingClient().request(examination_id, "examinations", "key", ["00:00:00:000000"])
+        preprocessing.PreprocessingClient().request(examination_id, "examinations", "key", ["00:00:00:000"])
 
 
 def test_preprocessing_status_validates_identity(monkeypatch, examination_id) -> None:

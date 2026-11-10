@@ -54,7 +54,7 @@ def test_all_current_business_endpoints(api):
     assert api.get("/api/v1/users", headers=h(login(api,"doctor@integration.local"))).status_code == 403
     patient=api.post("/api/v1/patients",headers=headers); assert patient.status_code==201; patient_id=patient.json()["id"]
     for path in ("/api/v1/patients", "/api/v1/patients/stats", f"/api/v1/patients/{patient_id}", f"/api/v1/patients/{patient_id}/stats"): assert api.get(path,headers=headers).status_code==200
-    upload=api.post("/api/v1/examinations",headers=headers,data={"patient_id":patient_id,"timestamps":"[\"00:00:00:000000\"]"},files={"file":("integration.eeg",b"eeg","application/octet-stream")}); assert upload.status_code==201,upload.text; examination_id=upload.json()["id"]; assert upload.json()["status"] == "PREPROCESSING"
+    upload=api.post("/api/v1/examinations",headers=headers,data={"patient_id":patient_id,"timestamps":"[\"00:00:00:000\"]"},files={"file":("integration.eeg",b"eeg","application/octet-stream")}); assert upload.status_code==201,upload.text; examination_id=upload.json()["id"]; assert upload.json()["status"] == "PREPROCESSING"
     assert api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json()["analyses"] == []
     assert api.get(f"/api/v1/examinations/{examination_id}/results", headers=headers).status_code == 409
     with sessions.MedicalSession() as medical:
@@ -82,7 +82,7 @@ def test_doctor_recent_resources_are_unique_ordered_and_capped(api):
         upload = api.post(
             "/api/v1/examinations",
             headers=admin_headers,
-            data={"patient_id": patient_id, "timestamps": "[\"00:00:00:000000\"]"},
+            data={"patient_id": patient_id, "timestamps": "[\"00:00:00:000\"]"},
             files={"file": (f"patient-{index}.eeg", b"eeg", "application/octet-stream")},
         )
         assert upload.status_code == 201, upload.text
@@ -108,7 +108,7 @@ def test_doctor_recent_resources_are_unique_ordered_and_capped(api):
         upload = api.post(
             "/api/v1/examinations",
             headers=admin_headers,
-            data={"patient_id": patient_ids[0], "timestamps": "[\"00:00:00:000000\"]"},
+            data={"patient_id": patient_ids[0], "timestamps": "[\"00:00:00:000\"]"},
             files={"file": (f"recent-{index}.eeg", b"eeg", "application/octet-stream")},
         )
         assert upload.status_code == 201, upload.text
