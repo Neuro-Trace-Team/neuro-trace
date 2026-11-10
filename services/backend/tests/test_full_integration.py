@@ -26,9 +26,9 @@ def clean_databases():
 
 @pytest.fixture
 def api(monkeypatch):
-    monkeypatch.setattr(PreprocessingClient, "request", lambda self, examination_id, storage_bucket, storage_key, timestamps: None)
+    monkeypatch.setattr(PreprocessingClient, "request", lambda self, examination_id, storage_bucket, storage_key: None)
     monkeypatch.setattr(PreprocessingClient, "status", lambda self, examination_id: {"examination_id": str(examination_id), "status": "COMPLETED"})
-    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"status": "READY", "examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 1, "time_stamp": 12.5, "result": 6.4, "confidence": 0.91}]})
+    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"status": "READY", "examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 1, "time_stamp": "00:00:12:500", "result": 6.4, "confidence": 0.91}]})
     with sessions.AuthSession() as db:
         db.add_all([User(email="admin@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Admin", last_name="User", role="ADMIN", is_active=True), User(email="doctor@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Doctor", last_name="User", role="DOCTOR", is_active=True)]); db.commit()
     with TestClient(app) as client: yield client
@@ -59,7 +59,7 @@ def test_all_current_business_endpoints(api):
     assert api.get(f"/api/v1/examinations/{examination_id}/results", headers=headers).status_code == 409
     with sessions.MedicalSession() as medical:
         assert examinations_service.mark_examination_ready(medical, examination_id)
-    detail = api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json(); assert detail["status"] == "READY"; assert detail["total_analyses_count"] == 1; assert detail["analyses"] == [{"analysis_id": 1, "time_stamp": 12.5, "result": 6.4, "confidence": 0.91}]
+    detail = api.get(f"/api/v1/examinations/{examination_id}", headers=headers).json(); assert detail["status"] == "READY"; assert detail["total_analyses_count"] == 1; assert detail["analyses"] == [{"analysis_id": 1, "time_stamp": "00:00:12:500", "result": 6.4, "confidence": 0.91}]
     for path in ("/api/v1/examinations",f"/api/v1/examinations/{examination_id}",f"/api/v1/patients/{patient_id}/examinations",f"/api/v1/examinations/{examination_id}/preprocessing-status",f"/api/v1/examinations/{examination_id}/results"): assert api.get(path,headers=headers).status_code==200
     assert api.patch(f"/api/v1/examinations/{examination_id}",headers=headers,json={"examination_date":"2026-11-05T12:00:00Z"}).status_code==200
     assert api.post("/api/v1/examinations/bulk-export",headers=headers,json={"examination_ids":[examination_id]}).status_code==200

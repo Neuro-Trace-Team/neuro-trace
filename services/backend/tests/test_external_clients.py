@@ -17,7 +17,7 @@ def examination_id():
     return uuid4()
 
 
-def test_preprocessing_request_contains_storage_and_timestamps_contract(monkeypatch, examination_id) -> None:
+def test_preprocessing_request_contains_only_recording_storage_contract(monkeypatch, examination_id) -> None:
     captured: dict[str, object] = {}
     monkeypatch.setattr(preprocessing, "get_settings", lambda: SimpleNamespace(preprocessing_url="http://preprocessing.test", service_timeout_seconds=1))
 
@@ -26,12 +26,10 @@ def test_preprocessing_request_contains_storage_and_timestamps_contract(monkeypa
         return httpx.Response(202, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(preprocessing.httpx, "post", post)
-    preprocessing.PreprocessingClient().request(
-        examination_id, "examinations", "examinations/patient/file.eeg", ["00:00:00:000"]
-    )
+    preprocessing.PreprocessingClient().request(examination_id, "examinations", "examinations/patient/file.eeg")
 
     assert captured["url"] == f"http://preprocessing.test/api/v1/examinations/{examination_id}/preprocessing"
-    assert captured["json"] == {"examination_id": str(examination_id), "storage_bucket": "examinations", "storage_key": "examinations/patient/file.eeg", "timestamps": ["00:00:00:000"]}
+    assert captured["json"] == {"examination_id": str(examination_id), "storage_bucket": "examinations", "storage_key": "examinations/patient/file.eeg"}
 
 
 @pytest.mark.parametrize("error", [httpx.ConnectError("offline"), httpx.TimeoutException("timeout")])
@@ -39,7 +37,7 @@ def test_preprocessing_request_maps_transport_errors(monkeypatch, examination_id
     monkeypatch.setattr(preprocessing, "get_settings", lambda: SimpleNamespace(preprocessing_url="http://preprocessing.test", service_timeout_seconds=1))
     monkeypatch.setattr(preprocessing.httpx, "post", lambda *args, **kwargs: (_ for _ in ()).throw(error))
     with pytest.raises(preprocessing.PreprocessingServiceError):
-        preprocessing.PreprocessingClient().request(examination_id, "examinations", "key", ["00:00:00:000"])
+        preprocessing.PreprocessingClient().request(examination_id, "examinations", "key")
 
 
 def test_preprocessing_status_validates_identity(monkeypatch, examination_id) -> None:
@@ -62,12 +60,12 @@ def test_ml_results_validates_contract(monkeypatch, examination_id) -> None:
     captured = {}
     def get(url, **kwargs):
         captured["url"] = url
-        return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 12.5, "result": 6.4, "confidence": None}]}, request=httpx.Request("GET", url))
+        return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 12500, "result": 6.4, "confidence": None}]}, request=httpx.Request("GET", url))
     monkeypatch.setattr(ml.httpx, "get", get)
     results = ml.MLClient().results(examination_id)
     assert results["status"] == "READY"
     assert results["total_analyses_count"] == 1
-    assert results["analyses"][0] == {"analysis_id": 7, "time_stamp": 12.5, "result": 6.4, "confidence": None}
+    assert results["analyses"][0] == {"analysis_id": 7, "time_stamp": "00:00:12:500", "result": 6.4, "confidence": None}
     assert captured["url"] == f"http://ml.test/examinations/{examination_id}/analyses"
 
 

@@ -43,7 +43,7 @@ def detail(v: Examination, ml_results: dict | None = None):
 async def upload(request: Request, file: Annotated[UploadFile, File()], timestamps: Annotated[str, Form()], user: Annotated[User, Depends(get_current_user)], medical: Annotated[Session, Depends(get_medical_db)], audit: Annotated[Session, Depends(get_audit_db)], patient_id: Annotated[UUID | None, Form()] = None, generate_patient: Annotated[bool, Form()] = False):
     try:
         parsed_timestamps = service.parse_timestamps(timestamps)
-        value, created_patient = await service.upload_examination(medical, patient_id=patient_id, generate_patient=generate_patient, uploaded_by=user.id, file=file)
+        value, created_patient = await service.upload_examination(medical, patient_id=patient_id, generate_patient=generate_patient, uploaded_by=user.id, file=file, timestamps=parsed_timestamps)
     except ValueError as error: raise HTTPException(422, str(error)) from None
     except patients_service.PatientNotFoundError: raise HTTPException(404, "Patient not found") from None
     except service.ExaminationValidationError as error: raise HTTPException(422, str(error)) from None
@@ -52,7 +52,7 @@ async def upload(request: Request, file: Annotated[UploadFile, File()], timestam
         audit_service.log(audit, event_code="PATIENT_CREATED", user_id=user.id, resource_type="PATIENT", resource_id=value.patient_id, ip_address=ip(request))
     audit_service.log(audit, event_code="EXAMINATION_UPLOADED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata={"patient_id": str(patient_id), "file_format": value.file_format, "file_size_bytes": value.file_size_bytes}, ip_address=ip(request))
     metadata = {"examination_id": str(value.id), "storage_bucket": value.storage_bucket, "storage_key": value.storage_key}
-    try: PreprocessingClient().request(value.id, value.storage_bucket, value.storage_key, parsed_timestamps)
+    try: PreprocessingClient().request(value.id, value.storage_bucket, value.storage_key)
     except PreprocessingServiceError as error:
         audit_service.log(audit, event_code="PREPROCESSING_FAILED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata=metadata | {"reason": str(error)}, ip_address=ip(request)); raise HTTPException(502, "Examination was saved, but preprocessing could not be requested") from error
     audit_service.log(audit, event_code="PREPROCESSING_REQUESTED", user_id=user.id, resource_type="EXAMINATION", resource_id=value.id, metadata=metadata, ip_address=ip(request)); return exam(value)

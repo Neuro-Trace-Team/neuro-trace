@@ -4,6 +4,7 @@ from uuid import UUID
 import httpx
 
 from src.config import get_settings
+from src.services.examinations import milliseconds_to_timestamp
 
 
 class MLServiceError(RuntimeError):
@@ -36,6 +37,7 @@ class MLClient:
             or not isinstance(value.get("analyses"), list)
         ):
             raise MLServiceError("ML service returned an invalid results response")
+        analyses = []
         for analysis in value["analyses"]:
             if (
                 not isinstance(analysis, dict)
@@ -53,7 +55,12 @@ class MLClient:
                 )
             ):
                 raise MLServiceError("ML service returned an invalid analysis")
-        return {"status": "READY", **value}
+            try:
+                frontend_timestamp = milliseconds_to_timestamp(analysis["time_stamp"])
+            except ValueError as error:
+                raise MLServiceError("ML returned an invalid timestamp in milliseconds") from error
+            analyses.append({**analysis, "time_stamp": frontend_timestamp})
+        return {"status": "READY", **value, "analyses": analyses}
 
     @staticmethod
     def _processing_results(examination_id: UUID, value: Any) -> dict:
