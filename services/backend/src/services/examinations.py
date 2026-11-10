@@ -18,7 +18,7 @@ from src.services.storage import RustFSStorage
 _ALLOWED_EEG_EXTENSIONS = frozenset({"edf", "bdf", "set", "fif", "vhdr", "eeg"})
 _CHUNK_SIZE = 1024 * 1024
 _EDF_HEADER_SIZE = 256
-_TIMESTAMP_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d:\d{6}$")
+_TIMESTAMP_PATTERN = re.compile(r"^[0-9]{2}:[0-5][0-9]:[0-5][0-9]:[0-9]{3}$")
 class ExaminationNotFoundError(Exception): pass
 class ExaminationValidationError(Exception): pass
 def _now() -> datetime: return datetime.now(UTC)
@@ -30,10 +30,10 @@ def parse_timestamps(value: str) -> list[str]:
         timestamps = json.loads(value)
     except json.JSONDecodeError as error:
         raise ExaminationValidationError("timestamps must be a JSON array") from error
-    if not isinstance(timestamps, list) or not timestamps:
-        raise ExaminationValidationError("timestamps must be a non-empty JSON array")
+    if not isinstance(timestamps, list):
+        raise ExaminationValidationError("timestamps must be a JSON array")
     if not all(isinstance(timestamp, str) and _TIMESTAMP_PATTERN.fullmatch(timestamp) for timestamp in timestamps):
-        raise ExaminationValidationError("timestamps must use HH:MM:SS:ffffff format")
+        raise ExaminationValidationError("timestamps must use HH:MM:SS:mmm format")
     return timestamps
 
 

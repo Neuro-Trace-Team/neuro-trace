@@ -93,8 +93,8 @@ The backend persists only the examination readiness status, not ML analyses.
 ## Examination upload
 
 `POST /api/v1/examinations` is multipart/form-data. The frontend sends `file`,
-either `patient_id` or `generate_patient=true`, and `timestamps` as a non-empty
-JSON array of `HH:MM:SS:ffffff` strings. It must not send `examination_date`.
+either `patient_id` or `generate_patient=true`, and `timestamps` as a
+JSON array of `HH:MM:SS:mmm` strings. It must not send `examination_date`.
 For EDF/BDF files the backend reads `examination_date` from the recording
 header, stores it in `medical_db`, and forwards the timestamp array in JSON to
 preprocessing with the RustFS object reference.
