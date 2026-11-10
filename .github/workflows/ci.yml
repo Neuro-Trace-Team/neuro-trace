@@ -113,7 +113,7 @@ jobs:
 
       - name: Check service health and HTTP endpoints
         run: |
-          set -euo pipefail
+          set -euxo pipefail
 
           # Compose --wait covers services with healthchecks. Also ensure every
           # service remains running, including frontend and ML which lack one.
