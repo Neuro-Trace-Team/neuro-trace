@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import BinaryIO
 
 import boto3
@@ -12,6 +13,14 @@ logger = logging.getLogger(__name__)
 
 class ObjectStorageError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class StorageUsage:
+    bucket: str
+    bucket_exists: bool
+    object_count: int
+    used_bytes: int
 
 
 class RustFSStorage:
@@ -49,6 +58,44 @@ class RustFSStorage:
             self.client.list_buckets()
         except (BotoCoreError, ClientError) as error:
             raise ObjectStorageError("RustFS is unavailable") from error
+
+    def usage(self) -> StorageUsage:
+        """Return live usage of the backend-owned RustFS bucket.
+
+        S3-compatible APIs do not expose the RustFS host filesystem capacity,
+        so this deliberately reports only the application bucket's objects and
+        total stored bytes.
+        """
+        try:
+            self.client.head_bucket(Bucket=self.bucket)
+        except ClientError as error:
+            status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if status == 404:
+                return StorageUsage(self.bucket, False, 0, 0)
+            raise ObjectStorageError("RustFS bucket is unavailable") from error
+        except BotoCoreError as error:
+            raise ObjectStorageError("RustFS is unavailable") from error
+
+        object_count = 0
+        used_bytes = 0
+        continuation_token: str | None = None
+        try:
+            while True:
+                arguments = {"Bucket": self.bucket}
+                if continuation_token is not None:
+                    arguments["ContinuationToken"] = continuation_token
+                page = self.client.list_objects_v2(**arguments)
+                for item in page.get("Contents", []):
+                    object_count += 1
+                    used_bytes += int(item["Size"])
+                if not page.get("IsTruncated"):
+                    break
+                continuation_token = page.get("NextContinuationToken")
+                if not continuation_token:
+                    raise ObjectStorageError("RustFS returned an invalid object listing")
+        except (BotoCoreError, ClientError, KeyError, TypeError, ValueError) as error:
+            raise ObjectStorageError("RustFS usage could not be read") from error
+        return StorageUsage(self.bucket, True, object_count, used_bytes)
 
     def upload(self, source: BinaryIO, *, key: str, content_type: str | None) -> None:
         self._ensure_bucket()

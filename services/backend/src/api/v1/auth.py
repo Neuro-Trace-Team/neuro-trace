@@ -9,11 +9,9 @@ from src.models.auth import User
 from src.schemas.auth import (
     ChangePasswordRequest,
     CurrentUserResponse,
-    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
-    ResetPasswordRequest,
     TokenResponse,
 )
 from src.services import audit as audit_service
@@ -91,38 +89,6 @@ def logout(
 @router.get("/me", response_model=CurrentUserResponse)
 def me(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     return current_user
-
-
-@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
-def forgot_password(
-    payload: ForgotPasswordRequest,
-    auth_db: Annotated[Session, Depends(get_auth_db)],
-) -> dict[str, str]:
-    auth_service.create_password_reset(auth_db, email=payload.email)
-    # Deliberately generic to avoid exposing whether an e-mail is registered.
-    # A future mail adapter will receive the raw token instead of this endpoint.
-    return {"message": "If the account exists, password reset instructions will be sent."}
-
-
-@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
-def reset_password(
-    payload: ResetPasswordRequest,
-    request: Request,
-    auth_db: Annotated[Session, Depends(get_auth_db)],
-    audit_db: Annotated[Session, Depends(get_audit_db)],
-) -> None:
-    try:
-        user = auth_service.reset_password(auth_db, raw_token=payload.token, new_password=payload.new_password)
-    except auth_service.PasswordResetError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token") from None
-    audit_service.log(
-        audit_db,
-        event_code="PASSWORD_RESET",
-        user_id=user.id,
-        resource_type="USER",
-        resource_id=user.id,
-        ip_address=_client_ip(request),
-    )
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

@@ -40,9 +40,6 @@ def _examination_response(examination: Examination) -> PatientExaminationRespons
         updated_at=examination.updated_at,
         file_format=examination.file_format,
         file_size_bytes=examination.file_size_bytes,
-        sampling_frequency=examination.sampling_frequency,
-        duration_seconds=examination.duration_seconds,
-        processing_status=examination.processing_status,
     )
 
 
@@ -67,10 +64,8 @@ def create_patient(
 
 @router.get("", response_model=PatientListResponse)
 def list_patients(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(get_current_user)],
     medical_db: Annotated[Session, Depends(get_medical_db)],
-    audit_db: Annotated[Session, Depends(get_audit_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None, min_length=1, max_length=36),
@@ -84,14 +79,6 @@ def list_patients(
     patients, total = patients_service.list_patients(
         medical_db, page=page, page_size=page_size, search=search, created_from=created_from,
         created_to=created_to, sort_by=sort_by, sort_order=sort_order,
-    )
-    audit_service.log(
-        audit_db,
-        event_code="PATIENT_ACCESSED",
-        user_id=current_user.id,
-        resource_type="PATIENT",
-        metadata={"action": "LIST", "result_count": len(patients)},
-        ip_address=_client_ip(request),
     )
     return PatientListResponse(items=[_patient_response(patient) for patient in patients], page=page, page_size=page_size, total=total)
 
@@ -160,10 +147,8 @@ def get_patient_examination_statistics(
 @router.get("/{patient_id}/examinations", response_model=PatientExaminationListResponse)
 def list_patient_examinations(
     patient_id: UUID,
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    _: Annotated[User, Depends(get_current_user)],
     medical_db: Annotated[Session, Depends(get_medical_db)],
-    audit_db: Annotated[Session, Depends(get_audit_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> PatientExaminationListResponse:
@@ -173,15 +158,6 @@ def list_patient_examinations(
         )
     except patients_service.PatientNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found") from None
-    audit_service.log(
-        audit_db,
-        event_code="PATIENT_ACCESSED",
-        user_id=current_user.id,
-        resource_type="PATIENT",
-        resource_id=patient_id,
-        metadata={"action": "EXAMINATION_LIST", "result_count": len(examinations)},
-        ip_address=_client_ip(request),
-    )
     return PatientExaminationListResponse(
         items=[_examination_response(examination) for examination in examinations],
         page=page,

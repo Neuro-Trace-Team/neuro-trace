@@ -9,6 +9,8 @@ import Modal from "./Modal";
 type DataTableProps = {
   columns: string[];
   rows: string[][];
+  rowIds?: string[];
+  renderCell?: (value: string, columnIndex: number) => React.ReactNode;
   totalCount?: number;
   selectable?: boolean;
   searchPlaceholder?: string;
@@ -40,6 +42,8 @@ type DataTableProps = {
 export default function DataTable({
   columns,
   rows,
+  rowIds,
+  renderCell,
   totalCount,
   selectable = true,
   searchPlaceholder = "Search",
@@ -69,9 +73,12 @@ export default function DataTable({
 }: DataTableProps) {
   const [localQuery, setLocalQuery] = useState("");
   const [localPage, setLocalPage] = useState(1);
-  const [pageInput, setPageInput] = useState(String(currentPage ?? localPage));
+  const [pageInputState, setPageInputState] = useState({ page: currentPage ?? 1, value: String(currentPage ?? 1) });
+  const pageInput = pageInputState.page === (currentPage ?? localPage) ? pageInputState.value : String(currentPage ?? localPage);
+  const setPageInput = (value: string) => setPageInputState({ page: currentPage ?? localPage, value });
   const pageInputId = useId();
-  const [selected, setSelected] = useState<number[]>([]);
+  const filterFormId = useId();
+  const [selected, setSelected] = useState<string[]>([]);
   const [localSort, setLocalSort] = useState<{ columnIndex: number; order: "asc" | "desc" } | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const closeFilterModal = useCallback(() => setIsFilterModalOpen(false), []);
@@ -116,10 +123,11 @@ export default function DataTable({
     ? localSort ? sortedRows : filteredRows
     : sortedRows.slice((page - 1) * pageSize, page * pageSize);
   const resultCount = serverPagination ? totalCount ?? rows.length : sortedRows.length;
-  const allSelected = visibleRows.length > 0 && visibleRows.every((row) => selected.includes(rows.indexOf(row)));
+  const rowId = (row: string[]) => rowIds?.[rows.indexOf(row)] ?? row[0];
+  const allSelected = visibleRows.length > 0 && visibleRows.every((row) => selected.includes(rowId(row)));
 
   const toggleAll = () => {
-    const visibleIndexes = visibleRows.map((row) => rows.indexOf(row));
+    const visibleIndexes = visibleRows.map((row) => rowId(row));
     setSelected(allSelected ? selected.filter((index) => !visibleIndexes.includes(index)) : [...new Set([...selected, ...visibleIndexes])]);
   };
 
@@ -139,7 +147,7 @@ export default function DataTable({
   };
 
   const exportRows = () => {
-    const selectedRows = selected.length ? rows.filter((_, index) => selected.includes(index)) : visibleRows;
+    const selectedRows = selected.length ? rows.filter((row) => selected.includes(rowId(row))) : visibleRows;
     const csv = [columns, ...selectedRows].map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
@@ -181,19 +189,19 @@ export default function DataTable({
         </ButtonSecondary>
       </div>}
 
-      <div className="overflow-x-auto rounded-xl border border-[#dce5e9] bg-white shadow-[0_4px_14px_rgba(8,38,76,0.07)]">
+      <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/45 shadow-[0_6px_18px_rgba(8,38,76,0.06)]">
         <table className="w-full min-w-[680px] border-separate border-spacing-0 text-left text-[13px] leading-5 text-[#334b63]">
-          <thead className="bg-[#f1f6f8] text-[11px] font-bold uppercase tracking-[0.07em] text-[#52677b]">
+          <thead className="bg-white/60 text-[11px] font-bold uppercase tracking-[0.07em] text-[#52677b]">
             <tr>
               {selectable && (
-                <th className="w-12 border-b border-[#dce5e9] px-4 py-3.5">
+                <th className="w-12 border-b border-white/90 px-4 py-3.5">
                   <Checkbox checked={allSelected} label="Select all rows" onChange={toggleAll} showLabel={false} />
                 </th>
               )}
               {columns.map((column, columnIndex) => {
-                if (!sortable) {
+                if (!sortable || (serverPagination && !sortableColumns?.[column])) {
                   return (
-                    <th className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold" key={column}>
+                    <th className="whitespace-nowrap border-b border-white/90 px-4 py-3.5 font-bold" key={column}>
                       {column}
                     </th>
                   );
@@ -205,7 +213,7 @@ export default function DataTable({
                 return (
                   <th
                     aria-sort={activeOrder ? (activeOrder === "asc" ? "ascending" : "descending") : "none"}
-                    className="whitespace-nowrap border-b border-[#dce5e9] px-4 py-3.5 font-bold"
+                    className="whitespace-nowrap border-b border-white/90 px-4 py-3.5 font-bold"
                     key={column}
                   >
                     <button
@@ -214,7 +222,7 @@ export default function DataTable({
                       type="button"
                     >
                       {column}
-                      <Icon className={`h-3.5 w-3.5 ${activeOrder ? "text-[#0876b5]" : "opacity-40"}`} name={activeOrder === "asc" ? "sortAsc" : activeOrder === "desc" ? "sortDesc" : "sort"} />
+                      <Icon className={`h-3.5 w-3.5 ${activeOrder ? "text-[#0876b5]" : "opacity-40"}`} name={activeOrder === "asc" ? "sortDesc" : activeOrder === "desc" ? "sortAsc" : "sort"} />
                     </button>
                   </th>
                 );
@@ -228,17 +236,17 @@ export default function DataTable({
                 <tr
                   className={`group items-center transition-[background-color,box-shadow] duration-150 ease-out ${
                     onRowClick
-                      ? "cursor-pointer hover:bg-[#eaf8fa] active:bg-[#ddf3f5] motion-reduce:transition-none"
+                      ? "cursor-pointer hover:bg-white/45 active:bg-white/60 focus-visible:bg-white/45 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#009bb4] motion-reduce:transition-none"
                       : ""
                   } ${
-                    selected.includes(rowIndex)
-                      ? "bg-[#eaf8fa] even:bg-[#eaf8fa]"
-                      : "bg-white even:bg-[#f7fafb]"
+                    selected.includes(rowId(row))
+                      ? "bg-[#d7f2f4]/75"
+                      : "bg-transparent"
                   }`}
                   key={`${row.join("-")}-${rowIndex}`}
                   onClick={() => onRowClick?.(row, rowIndex)}
                   onKeyDown={(event) => {
-                    if (onRowClick && (event.key === "Enter" || event.key === " ")) {
+                    if (event.target === event.currentTarget && onRowClick && (event.key === "Enter" || event.key === " ")) {
                       event.preventDefault();
                       onRowClick(row, rowIndex);
                     }
@@ -246,26 +254,25 @@ export default function DataTable({
                   tabIndex={onRowClick ? 0 : undefined}
                 >
                   {selectable && (
-                    <td className="border-b border-[#edf1f3] px-4 py-2.5 group-last:border-0">
-                      <div onClick={(event) => event.stopPropagation()}>
+                    <td className="relative border-b border-white/90 group-last:border-0" onClick={(event) => event.stopPropagation()}>
                         <Checkbox
-                          checked={selected.includes(rowIndex)}
+                          className="absolute inset-0 px-4"
+                          checked={selected.includes(rowId(row))}
                           label={`Select row ${visibleIndex + 1}`}
-                          onChange={() => setSelected((items) => items.includes(rowIndex) ? items.filter((item) => item !== rowIndex) : [...items, rowIndex])}
+                          onChange={() => setSelected((items) => items.includes(rowId(row)) ? items.filter((item) => item !== rowId(row)) : [...items, rowId(row)])}
                           showLabel={false}
                         />
-                      </div>
                     </td>
                   )}
                   {row.map((cell, index) => (
                     <td
-                      className={`max-w-[420px] truncate border-b border-[#edf1f3] px-4 py-3.5 group-last:border-0 ${
+                      className={`max-w-[420px] truncate border-b border-white/90 px-4 py-3.5 group-last:border-0 ${
                         index === 0 ? "font-semibold text-[#102d58]" : ""
                       }`}
                       key={`${columns[index]}-${index}`}
                       title={cell}
                     >
-                      {cell}
+                      {renderCell ? renderCell(cell, index) : cell}
                     </td>
                   ))}
                 </tr>
@@ -286,13 +293,12 @@ export default function DataTable({
         </table>
       </div>
 
-      {showPagination && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#e5ecef] pt-3 text-[12px] text-[#62768a]">
+      {showPagination && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/80 pt-3 text-[12px] text-[#62768a]">
         <span>
           Showing {resultCount ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, resultCount)} of {resultCount} {resultCount === 1 ? itemLabel : itemLabelPlural}
         </span>
         <div aria-label="Pagination" className="flex items-center gap-1.5">
-          <ButtonSecondary aria-label="Previous page" className="h-9 w-9 rounded-lg px-1 shadow-none" disabled={page <= 1} icon="left" iconOnly onClick={() => changePage(page - 1)} type="button" />
-          <ButtonSecondary aria-label={page > 1 ? `Go to page ${page - 1}` : "No previous page"} className="h-9 min-w-9 px-2" disabled={page <= 1} onClick={() => changePage(page - 1)} type="button">{Math.max(1, page - 1)}</ButtonSecondary>
+          <ButtonSecondary aria-label="Previous page" className="!min-h-0 h-9 w-9 rounded-lg px-1 shadow-none" disabled={page <= 1} icon="left" iconOnly onClick={() => changePage(page - 1)} type="button" />
           <InputSection
             aria-label={`Current page, ${page} of ${pageCount}`}
             className="w-14"
@@ -316,8 +322,7 @@ export default function DataTable({
             value={pageInput}
             type="number"
           />
-          <ButtonSecondary aria-label={page < pageCount ? `Go to page ${page + 1}` : "No next page"} className="h-9 min-w-9 px-2" disabled={page >= pageCount} onClick={() => changePage(page + 1)} type="button">{Math.min(pageCount, page + 1)}</ButtonSecondary>
-          <ButtonSecondary aria-label="Next page" className="h-9 w-9 rounded-lg px-1 shadow-none" disabled={page >= pageCount} icon="right" iconOnly onClick={() => changePage(page + 1)} type="button" />
+          <ButtonSecondary aria-label="Next page" className="!min-h-0 h-9 w-9 rounded-lg px-1 shadow-none" disabled={page >= pageCount} icon="right" iconOnly onClick={() => changePage(page + 1)} type="button" />
         </div>
       </div>}
       {isFilterModalOpen && filterContent && (
@@ -335,20 +340,20 @@ export default function DataTable({
                   Clear filters
                 </ButtonSecondary>
               )}
-              <ButtonPrimary
-                onClick={() => {
-                  onApplyFilters?.();
-                  changePage(1);
-                  closeFilterModal();
-                }}
-                type="button"
-              >
+              <ButtonPrimary form={filterFormId} type="submit">
                 Apply filters
               </ButtonPrimary>
             </>
           )}
         >
-          {filterContent}
+          <form id={filterFormId} onSubmit={(event) => {
+            event.preventDefault();
+            onApplyFilters?.();
+            changePage(1);
+            closeFilterModal();
+          }}>
+            {filterContent}
+          </form>
         </Modal>
       )}
     </div>

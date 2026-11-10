@@ -4,12 +4,16 @@ import ButtonPrimary from "../../components/ButtonPrimary";
 import ButtonSecondary from "../../components/ButtonSecondary";
 import Checkbox from "../../components/Checkbox";
 import InputSection from "../../components/InputSection";
-import { FormField, PageTitle, SectionTitle, Surface } from "../../components/PageUI";
+import FormField from "../../components/FormField";
+import PageTitle from "../../components/PageTitle";
+import SectionTitle from "../../components/SectionTitle";
+import Surface from "../../components/Surface";
 import { apiClient, getApiErrorMessage } from "../../services/apiClient";
-import type { Examination, Patient } from "../../types/api.types";
+import type { Examination } from "../../types/api.types";
 import { useToast } from "../../context/useToast";
+import GlassPane from "../../components/GlassPane";
 
-const supportedExtensions = [".edf", ".bdf", ".set", ".fif", ".vhdr", ".eeg"];
+const supportedExtensions = [".edf", ".bdf"];
 
 function DoctorNewExaminationPage() {
   const [newPatient, setNewPatient] = useState(false);
@@ -23,7 +27,7 @@ function DoctorNewExaminationPage() {
     if (!candidate) return;
     const extension = candidate.name.slice(candidate.name.lastIndexOf(".")).toLowerCase();
     if (!supportedExtensions.includes(extension)) {
-      showToast("Choose an EDF, BDF, SET, FIF, VHDR, or EEG file.", "error");
+      showToast("Choose an EDF or BDF file.", "error");
       return;
     }
     setFile(candidate);
@@ -43,7 +47,7 @@ function DoctorNewExaminationPage() {
     }
 
     const form = new FormData(event.currentTarget);
-    const artifactEvents: Array<{ timestamp: number; type: string }> = [];
+    const timestamps: string[] = [];
     for (let index = 0; index < artifactIds.length; index += 1) {
       const artifactId = artifactIds[index];
       const digits = Array.from({ length: 9 }, (_, digitIndex) =>
@@ -55,27 +59,26 @@ function DoctorNewExaminationPage() {
         return;
       }
 
-      const hours = Number(digits.slice(0, 2).join(""));
       const minutes = Number(digits.slice(2, 4).join(""));
       const seconds = Number(digits.slice(4, 6).join(""));
-      const milliseconds = Number(digits.slice(6, 9).join(""));
       if (minutes > 59 || seconds > 59) {
         showToast(`Artifact ${index + 1} has an invalid time.`, "error");
         return;
       }
-      artifactEvents.push({
-        timestamp: hours * 3600 + minutes * 60 + seconds + milliseconds / 1000,
-        type: "ARTIFACT",
-      });
+      timestamps.push(`${digits.slice(0, 2).join("")}:${digits.slice(2, 4).join("")}:${digits.slice(4, 6).join("")}:${digits.slice(6, 9).join("")}`);
     }
 
     setIsSubmitting(true);
     try {
-      const patientId = newPatient
-        ? (await apiClient.post<Patient>("/patients")).data.id
-        : String(form.get("patientId"));
+      const patientId = String(form.get("patientId") ?? "").trim();
+      if (!newPatient && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(patientId)) {
+        showToast("Enter a valid patient UUID.", "error");
+        return;
+      }
       const upload = new FormData();
-      upload.append("patient_id", patientId);
+      if (newPatient) upload.append("generate_patient", "true");
+      else upload.append("patient_id", patientId);
+      upload.append("timestamps", JSON.stringify(timestamps));
       upload.append("file", file);
       const { data: examination } = await apiClient.post<Examination>("/examinations", upload);
       setFile(null);
@@ -84,28 +87,9 @@ function DoctorNewExaminationPage() {
       setNextArtifactId(0);
       setNewPatient(false);
 
-      if (artifactEvents.length) {
-        try {
-          await Promise.all(
-            artifactEvents.map((artifact) =>
-              apiClient.post(`/examinations/${examination.id}/events`, artifact),
-            ),
-          );
-        } catch (eventError) {
-          showToast(
-            `Examination ${examination.id} was uploaded, but artifact timestamps could not all be saved: ${getApiErrorMessage(eventError, "request failed")}`,
-            "error",
-          );
-          return;
-        }
-      }
-
-      showToast(
-        `Examination ${examination.id} uploaded (${examination.processing_status}). Preprocessing and model analysis are not started automatically by the current backend.`,
-        "success",
-      );
+      showToast(`Examination ${examination.id} uploaded (${examination.status}). Preprocessing was requested.`, "success");
     } catch (submitError) {
-      showToast(getApiErrorMessage(submitError, "Could not upload the examination."), "error");
+      showToast(`${getApiErrorMessage(submitError, "Could not upload the examination.")} The examination may already have been saved. Check the examination list before retrying.`, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -120,15 +104,9 @@ function DoctorNewExaminationPage() {
             <SectionTitle>Patient Details</SectionTitle>
             <FormField disabled={newPatient} label="Patient ID" name="patientId" placeholder={newPatient ? "Generated for this examination" : "Patient UUID"} required={!newPatient} />
             <Checkbox checked={newPatient} className="mt-3" label="Create a new pseudonymized patient" onChange={setNewPatient} />
-            {newPatient && (
-              <p className="mt-2 text-xs text-[#52677b]">
-                The backend generates a patient ID and does not store names or other direct identifiers.
-              </p>
-            )}
             <div className="mt-7">
               <SectionTitle>Examination Artifacts</SectionTitle>
-              <p className="mb-1 text-[14px] font-semibold">Insert timestamps of artifact appearances</p>
-              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => {
+              <ButtonSecondary aria-label="Add artifact timestamp" className="mb-1 !min-h-0 h-9 w-9 px-0" icon="plus" iconOnly onClick={() => {
                 setArtifactIds((ids) => [...ids, nextArtifactId]);
                 setNextArtifactId((id) => id + 1);
               }} type="button" />
@@ -179,7 +157,7 @@ function DoctorNewExaminationPage() {
                     })}
                     <ButtonSecondary
                       aria-label={`Remove artifact timestamp ${index + 1}`}
-                      className="h-9 w-9 shrink-0 px-0"
+                      className="!min-h-0 h-9 w-9 shrink-0 px-0"
                       icon="trash"
                       iconOnly
                       onClick={() => setArtifactIds((ids) => ids.filter((id) => id !== artifactId))}
@@ -192,16 +170,23 @@ function DoctorNewExaminationPage() {
           </div>
           <div>
             <SectionTitle>EEG File Upload</SectionTitle>
-            <label
-              className="flex min-h-[232px] cursor-pointer flex-col items-center justify-center rounded-[8px] border border-[#d8dbdc] bg-[#dcdddd] px-4 text-center shadow-[0_2px_4px_rgba(0,0,0,0.22)] transition hover:bg-[#e5e7e7]"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <Icon className="mb-3 h-8 w-8" name="upload" />
-              <span className="text-[14px] font-semibold">{file?.name ?? "Drag and drop an EEG file here"}</span>
-              <span className="my-3 rounded-md border border-white bg-white/80 px-3 py-1.5 text-[13px] font-semibold shadow-sm">Browse files</span>
-              <input accept=".edf,.bdf,.set,.fif,.vhdr,.eeg" className="sr-only" onChange={(event) => acceptFile(event.target.files?.[0])} type="file" />
-            </label>
+            <GlassPane>
+              <label
+                className="
+                flex min-h-[232px] cursor-pointer flex-col items-center 
+                justify-center rounded-[8px] border border-[#d8dbdc] 
+                px-4 text-center shadow-[0_2px_4px_rgba(0,0,0,0.22)] 
+                transition hover:bg-white/25 hover:shadow-[0_4px_8px_rgba(0,0,0,0.22)]"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <Icon className="mb-3 h-8 w-8" name="upload" />
+                <span className="text-[14px] font-semibold">{file?.name ?? "Drag and drop an EEG file here"}</span>
+                <span className="my-3 rounded-md border border-white bg-white/80 px-3 py-1.5 text-[13px] font-semibold shadow-sm">Browse files</span>
+                <input accept=".edf,.bdf" className="sr-only" onChange={(event) => acceptFile(event.target.files?.[0])} type="file" />
+              </label>
+            </GlassPane>
+
             <ButtonPrimary className="mt-3 w-full" disabled={isSubmitting} type="submit">
               {isSubmitting ? "Uploading..." : "Upload examination"}
             </ButtonPrimary>

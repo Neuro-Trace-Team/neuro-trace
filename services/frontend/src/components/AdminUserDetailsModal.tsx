@@ -62,11 +62,21 @@ export default function AdminUserDetailsModal({
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!form) return;
+    if (!form || !user) return;
+    const changes: Partial<UserForm> = {};
+    if (form.first_name !== user.first_name) changes.first_name = form.first_name;
+    if (form.last_name !== user.last_name) changes.last_name = form.last_name;
+    if (form.email !== user.email) changes.email = form.email;
+    if (form.role !== user.role) changes.role = form.role;
+    if (form.is_active !== user.is_active) changes.is_active = form.is_active;
+    if (Object.keys(changes).length === 0) {
+      setIsEditing(false);
+      return;
+    }
     setIsSaving(true);
     setError("");
     try {
-      const { data } = await apiClient.patch<ApiUser>(`/users/${userId}`, form);
+      const { data } = await apiClient.patch<ApiUser>(`/users/${userId}`, changes);
       setUser(data);
       setForm({
         first_name: data.first_name,

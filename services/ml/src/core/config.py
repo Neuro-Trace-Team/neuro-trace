@@ -1,4 +1,5 @@
 from urllib.parse import quote
+from typing import Literal
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,8 @@ class Settings(BaseSettings):
 
     model_path: str = "/app/models/model.joblib"
     
+    database_url: str = Field(validation_alias="MODEL_DB_URL")
+
     database_url: str = Field(validation_alias="MODEL_DB_URL")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

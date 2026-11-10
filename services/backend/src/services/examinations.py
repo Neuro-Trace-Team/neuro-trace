@@ -1,277 +1,171 @@
 import hashlib
+import json
 import re
 from datetime import UTC, datetime
-from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from src.config import get_settings
-from src.models.medical import (
-    EEGChannel,
-    Examination,
-    ExaminationChannel,
-    ExaminationEvent,
-)
-from src.repositories import examinations as examinations_repository
+from src.models.medical import Examination, ExaminationStatus, Patient
+from src.repositories import examinations as repository
 from src.services import patients as patients_service
 from src.services.storage import RustFSStorage
 
 _ALLOWED_EEG_EXTENSIONS = frozenset({"edf", "bdf", "set", "fif", "vhdr", "eeg"})
 _CHUNK_SIZE = 1024 * 1024
+_EDF_HEADER_SIZE = 256
+_TIMESTAMP_PATTERN = re.compile(r"^[0-9]{2}:[0-5][0-9]:[0-5][0-9]:[0-9]{3}$")
+class ExaminationNotFoundError(Exception): pass
+class ExaminationValidationError(Exception): pass
+def _now() -> datetime: return datetime.now(UTC)
+def _safe_filename(filename: str) -> str: return re.sub(r"[^A-Za-z0-9._-]", "_", Path(filename).name)[:255]
+
+def timestamp_to_milliseconds(timestamp: str) -> int:
+    """Convert the frontend's HH:MM:SS:mmm representation to milliseconds."""
+    if not _TIMESTAMP_PATTERN.fullmatch(timestamp):
+        raise ExaminationValidationError("timestamps must use HH:MM:SS:mmm format")
+    hours, minutes, seconds, milliseconds = (int(part) for part in timestamp.split(":"))
+    return (((hours * 60) + minutes) * 60 + seconds) * 1000 + milliseconds
 
 
-class ExaminationNotFoundError(Exception):
-    pass
+def milliseconds_to_timestamp(milliseconds: int | float) -> str:
+    """Convert an integral ML timestamp in milliseconds to HH:MM:SS:mmm."""
+    if isinstance(milliseconds, bool) or not isinstance(milliseconds, (int, float)):
+        raise ValueError("timestamp must be a number of milliseconds")
+    if isinstance(milliseconds, float) and not milliseconds.is_integer():
+        raise ValueError("timestamp must be an integral number of milliseconds")
+    value = int(milliseconds)
+    if value < 0 or value >= 100 * 60 * 60 * 1000:
+        raise ValueError("timestamp is outside the supported HH:MM:SS:mmm range")
+    hours, remainder = divmod(value, 60 * 60 * 1000)
+    minutes, remainder = divmod(remainder, 60 * 1000)
+    seconds, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{millis:03d}"
 
 
-class ExaminationValidationError(Exception):
-    pass
+def parse_timestamps(value: str) -> list[int]:
+    """Validate frontend timestamps and prepare milliseconds for RustFS JSON."""
+    try:
+        timestamps = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise ExaminationValidationError("timestamps must be a JSON array") from error
+    if not isinstance(timestamps, list):
+        raise ExaminationValidationError("timestamps must be a JSON array")
+    if not all(isinstance(timestamp, str) for timestamp in timestamps):
+        raise ExaminationValidationError("timestamps must use HH:MM:SS:mmm format")
+    return [timestamp_to_milliseconds(timestamp) for timestamp in timestamps]
 
 
-class ExaminationEventNotFoundError(Exception):
-    pass
+def timestamps_storage_key(storage_key: str) -> str:
+    """Use a deterministic companion object next to the EEG/BDF recording."""
+    return f"{storage_key.rsplit('/', 1)[0]}/timestamps.json"
 
 
-def _now() -> datetime:
-    return datetime.now(UTC)
+def _extract_recording_datetime(file: SpooledTemporaryFile[bytes], extension: str) -> datetime | None:
+    """Read the start date/time stored in the fixed EDF/BDF header.
 
-
-def _safe_filename(filename: str) -> str:
-    name = Path(filename).name
-    return re.sub(r"[^A-Za-z0-9._-]", "_", name)[:255]
+    EDF/BDF headers do not encode a timezone. The backend stores this source
+    timestamp as UTC so its value remains explicit in a TIMESTAMPTZ column.
+    """
+    if extension not in {"edf", "bdf"}:
+        return None
+    file.seek(0)
+    header = file.read(_EDF_HEADER_SIZE)
+    file.seek(0)
+    if len(header) < _EDF_HEADER_SIZE:
+        raise ExaminationValidationError("EDF/BDF file is too short to contain its header")
+    try:
+        date = header[168:176].decode("ascii").strip()
+        time = header[176:184].decode("ascii").strip()
+        return datetime.strptime(f"{date} {time}", "%d.%m.%y %H.%M.%S").replace(tzinfo=UTC)
+    except (UnicodeDecodeError, ValueError) as error:
+        raise ExaminationValidationError("EDF/BDF header has an invalid recording date") from error
 
 
 async def upload_examination(
     session: Session,
     *,
-    patient_id: UUID,
+    patient_id: UUID | None,
+    generate_patient: bool,
     uploaded_by: UUID,
     file: UploadFile,
-    sampling_frequency: int,
-    examination_date: datetime | None,
-    electrode_positions: dict[str, Any] | None,
-    reference: str | None,
-    power_line_frequency: int | None,
-    duration_seconds: Decimal | None,
-) -> Examination:
-    patients_service.get_patient(session, patient_id)
-    if sampling_frequency <= 0:
-        raise ExaminationValidationError("sampling_frequency must be positive")
-    if power_line_frequency is not None and power_line_frequency not in (50, 60):
-        raise ExaminationValidationError("power_line_frequency must be 50 or 60")
-    if duration_seconds is not None and duration_seconds <= 0:
-        raise ExaminationValidationError("duration_seconds must be positive")
-    if not file.filename:
-        raise ExaminationValidationError("A file name is required")
-
+    timestamps: list[int],
+) -> tuple[Examination, bool]:
+    if not file.filename: raise ExaminationValidationError("A file name is required")
     filename = _safe_filename(file.filename)
     extension = Path(filename).suffix.lower().lstrip(".")
-    if not filename or extension not in _ALLOWED_EEG_EXTENSIONS:
-        allowed = ", ".join(sorted(_ALLOWED_EEG_EXTENSIONS))
-        raise ExaminationValidationError(f"Unsupported EEG format. Allowed formats: {allowed}")
-
-    settings = get_settings()
-    checksum = hashlib.sha256()
-    total_size = 0
+    if not filename or extension not in _ALLOWED_EEG_EXTENSIONS: raise ExaminationValidationError("Unsupported EEG format")
+    settings, checksum, total_size = get_settings(), hashlib.sha256(), 0
     with SpooledTemporaryFile(max_size=min(settings.max_upload_size_bytes, 10 * 1024 * 1024), mode="w+b") as temporary:
+        while chunk := await file.read(_CHUNK_SIZE):
+            total_size += len(chunk)
+            if total_size > settings.max_upload_size_bytes: raise ExaminationValidationError("The uploaded file exceeds the configured size limit")
+            checksum.update(chunk); temporary.write(chunk)
+        if not total_size: raise ExaminationValidationError("The uploaded file is empty")
+        examination_date = _extract_recording_datetime(temporary, extension)
+        created_patient = False
+        if patient_id is None:
+            if not generate_patient:
+                raise ExaminationValidationError("patient_id or generate_patient=true is required")
+            patient = Patient()
+            session.add(patient)
+            session.flush()
+            patient_id = patient.id
+            created_patient = True
+        else:
+            if generate_patient:
+                raise ExaminationValidationError("patient_id and generate_patient cannot be used together")
+            patients_service.get_patient(session, patient_id)
+        examination_id = uuid4(); storage_key = f"examinations/{patient_id}/{examination_id}/{filename}"; temporary.seek(0)
+        timestamp_key = timestamps_storage_key(storage_key)
+        storage = RustFSStorage()
         try:
-            while chunk := await file.read(_CHUNK_SIZE):
-                total_size += len(chunk)
-                if total_size > settings.max_upload_size_bytes:
-                    raise ExaminationValidationError("The uploaded file exceeds the configured size limit")
-                checksum.update(chunk)
-                temporary.write(chunk)
-            if total_size == 0:
-                raise ExaminationValidationError("The uploaded file is empty")
-
-            examination_id = uuid4()
-            storage_key = f"examinations/{patient_id}/{examination_id}/{filename}"
-            temporary.seek(0)
-            storage = RustFSStorage()
             storage.upload(temporary, key=storage_key, content_type=file.content_type)
-            try:
-                examination = Examination(
-                    id=examination_id,
-                    patient_id=patient_id,
-                    uploaded_by=uploaded_by,
-                    original_filename=filename,
-                    file_format=extension.upper(),
-                    file_size_bytes=total_size,
-                    storage_bucket=storage.bucket,
-                    storage_key=storage_key,
-                    file_checksum=checksum.hexdigest(),
-                    examination_date=examination_date,
-                    sampling_frequency=sampling_frequency,
-                    electrode_positions=electrode_positions,
-                    reference=reference.strip() if reference else None,
-                    power_line_frequency=power_line_frequency,
-                    duration_seconds=duration_seconds,
-                    processing_status="UPLOADED",
-                )
-                session.add(examination)
-                session.commit()
-                session.refresh(examination)
-                return examination
-            except Exception:
-                session.rollback()
-                storage.delete(key=storage_key)
-                raise
-        finally:
-            await file.close()
-
+            storage.upload(
+                BytesIO(json.dumps({"timestamps": timestamps}, ensure_ascii=False).encode("utf-8")),
+                key=timestamp_key,
+                content_type="application/json",
+            )
+        except Exception:
+            session.rollback()
+            storage.delete(key=timestamp_key)
+            storage.delete(key=storage_key)
+            raise
+        try:
+            examination = Examination(id=examination_id, patient_id=patient_id, uploaded_by=uploaded_by, original_filename=filename, file_format=extension, file_size_bytes=total_size, storage_bucket=settings.rustfs_bucket, storage_key=storage_key, file_checksum=checksum.hexdigest(), examination_date=examination_date)
+            session.add(examination)
+            session.commit(); session.refresh(examination); return examination, created_patient
+        except Exception:
+            session.rollback(); storage.delete(key=timestamp_key); storage.delete(key=storage_key); raise
 
 def get_examination(session: Session, examination_id: UUID) -> Examination:
-    examination = examinations_repository.get_examination(session, examination_id)
-    if examination is None:
-        raise ExaminationNotFoundError
-    return examination
-
-
-def list_examinations(
-    session: Session,
-    *,
-    page: int,
-    page_size: int,
-    patient_id: UUID | None,
-    uploaded_by: UUID | None,
-    processing_status: str | None,
-    date_from: datetime | None,
-    date_to: datetime | None,
-    channel: str | None = None,
-    pain_level: Decimal | None = None,
-    pain_level_min: Decimal | None = None,
-    pain_level_max: Decimal | None = None,
-    pain_source: str = "doctor",
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-) -> tuple[list[Examination], int]:
-    return examinations_repository.list_examinations(
-        session,
-        page=page,
-        page_size=page_size,
-        patient_id=patient_id,
-        uploaded_by=uploaded_by,
-        processing_status=processing_status,
-        date_from=date_from,
-        date_to=date_to,
-        channel=channel,
-        pain_level=pain_level,
-        pain_level_min=pain_level_min,
-        pain_level_max=pain_level_max,
-        pain_source=pain_source,
-        sort_by=sort_by,
-        sort_order=sort_order,
-    )
-
-
-def update_examination(session: Session, *, examination_id: UUID, updates: dict[str, Any]) -> Examination:
-    examination = get_examination(session, examination_id)
-    for field, value in updates.items():
-        setattr(examination, field, value.strip() if field == "reference" and value else value)
-    examination.updated_at = _now()
-    session.commit()
-    session.refresh(examination)
-    return examination
-
-
-def soft_delete_examination(session: Session, examination_id: UUID) -> Examination:
-    examination = get_examination(session, examination_id)
-    now = _now()
-    examination.deleted_at = now
-    examination.updated_at = now
-    session.commit()
-    session.refresh(examination)
-    return examination
-
-
-def soft_delete_examinations(session: Session, examination_ids: list[UUID]) -> list[Examination]:
-    examinations = [get_examination(session, examination_id) for examination_id in examination_ids]
-    now = _now()
-    for examination in examinations:
-        examination.deleted_at = now
-        examination.updated_at = now
-    session.commit()
-    for examination in examinations:
-        session.refresh(examination)
-    return examinations
-
-
-def list_eeg_channels(session: Session) -> list[EEGChannel]:
-    return examinations_repository.list_eeg_channels(session)
-
-
-def replace_channels(
-    session: Session, *, examination_id: UUID, channels: list[dict[str, int]]
-) -> list[tuple[ExaminationChannel, EEGChannel]]:
-    get_examination(session, examination_id)
-    channel_ids = [channel["channel_id"] for channel in channels]
-    positions = [channel["position"] for channel in channels]
-    if len(channel_ids) != len(set(channel_ids)) or len(positions) != len(set(positions)):
-        raise ExaminationValidationError("Channel IDs and positions must be unique")
-    catalog = examinations_repository.get_eeg_channels_by_ids(session, set(channel_ids))
-    if len(catalog) != len(channel_ids):
-        raise ExaminationValidationError("One or more EEG channel IDs are unknown")
-    session.query(ExaminationChannel).filter(ExaminationChannel.examination_id == examination_id).delete()
-    session.add_all(
-        ExaminationChannel(examination_id=examination_id, channel_id=channel["channel_id"], position=channel["position"])
-        for channel in channels
-    )
-    session.commit()
-    return examinations_repository.list_examination_channels(session, examination_id)
-
-
-def list_channels(session: Session, examination_id: UUID) -> list[tuple[ExaminationChannel, EEGChannel]]:
-    get_examination(session, examination_id)
-    return examinations_repository.list_examination_channels(session, examination_id)
-
-
-def create_event(session: Session, *, examination_id: UUID, event: dict[str, Any]) -> ExaminationEvent:
-    get_examination(session, examination_id)
-    record = ExaminationEvent(
-        examination_id=examination_id,
-        timestamp=event["timestamp"],
-        type=event["type"].strip(),
-        description=event.get("description"),
-        metadata_json=event.get("metadata"),
-    )
-    session.add(record)
-    session.commit()
-    session.refresh(record)
+    record = repository.get_examination(session, examination_id)
+    if record is None: raise ExaminationNotFoundError
     return record
-
-
-def list_events(session: Session, examination_id: UUID) -> list[ExaminationEvent]:
-    get_examination(session, examination_id)
-    return examinations_repository.list_events(session, examination_id)
-
-
-def update_event(
-    session: Session, *, examination_id: UUID, event_id: UUID, updates: dict[str, Any]
-) -> ExaminationEvent:
-    get_examination(session, examination_id)
-    event = examinations_repository.get_event(session, examination_id=examination_id, event_id=event_id)
-    if event is None:
-        raise ExaminationEventNotFoundError
-    for field, value in updates.items():
-        if field == "metadata":
-            event.metadata_json = value
-        else:
-            setattr(event, field, value.strip() if field == "type" and value else value)
-    event.updated_at = _now()
+def mark_examination_ready(session: Session, examination_id: UUID) -> bool:
+    record = repository.get_examination(session, examination_id)
+    if record is None:
+        return False
+    if record.status is ExaminationStatus.READY:
+        return True
+    record.status = ExaminationStatus.READY
+    record.updated_at = _now()
     session.commit()
-    session.refresh(event)
-    return event
-
-
-def delete_event(session: Session, *, examination_id: UUID, event_id: UUID) -> None:
-    get_examination(session, examination_id)
-    event = examinations_repository.get_event(session, examination_id=examination_id, event_id=event_id)
-    if event is None:
-        raise ExaminationEventNotFoundError
-    session.delete(event)
-    session.commit()
+    return True
+def list_examinations(session: Session, **kwargs): return repository.list_examinations(session, **kwargs)
+def update_examination(session: Session, *, examination_id: UUID, updates: dict) -> Examination:
+    record = get_examination(session, examination_id)
+    for field, value in updates.items(): setattr(record, field, value)
+    record.updated_at = _now(); session.commit(); session.refresh(record); return record
+def soft_delete_examination(session: Session, examination_id: UUID) -> Examination:
+    record = get_examination(session, examination_id); record.deleted_at = record.updated_at = _now(); session.commit(); session.refresh(record); return record
+def soft_delete_examinations(session: Session, examination_ids: list[UUID]) -> list[Examination]:
+    records = [get_examination(session, value) for value in examination_ids]
+    now = _now()
+    for record in records: record.deleted_at = record.updated_at = now
+    session.commit(); return records

@@ -19,7 +19,6 @@ dependencies = [
     "boto3",
     "python-multipart",
     "httpx",
-    "reportlab",
 ]
 
 [project.optional-dependencies]
@@ -36,3 +35,6 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: requires a fresh Docker Compose database and RustFS stack",
+]
