@@ -32,13 +32,17 @@ services:
       RUSTFS_BUCKET: examinations
 
       PREPROCESSING_URL: http://preprocessing:8001
+      ML_URL: http://ml:8000
       JWT_SECRET: ${JWT_SECRET}
       PREPROCESSING_SERVICE_JWT_SECRET: ${PREPROCESSING_SERVICE_JWT_SECRET}
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_TTL_MINUTES: 15
       REFRESH_TOKEN_TTL_DAYS: 7
 
-      # TODO: Add rest of the RabbitMQ credentials
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ${COMPLETED_ANALYSIS_QUEUE_NAME}
 
     depends_on:
@@ -117,6 +121,12 @@ services:
         condition: service_healthy
       model-db:
         condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/readyz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
     networks:
       - neuro-network

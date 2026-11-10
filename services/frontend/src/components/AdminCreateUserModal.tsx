@@ -11,7 +11,7 @@ export type CreateUserInput = {
   last_name: string;
   email: string;
   password: string;
-  role: "DOCTOR";
+  role: "DOCTOR" | "ADMIN";
 };
 
 export default function AdminCreateUserModal({
@@ -21,7 +21,7 @@ export default function AdminCreateUserModal({
   onClose: () => void;
   onCreate: (user: CreateUserInput) => Promise<void>;
 }) {
-  const role = "Doctor";
+  const [role, setRole] = useState<"Doctor" | "Admin">("Doctor");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
@@ -35,9 +35,9 @@ export default function AdminCreateUserModal({
       last_name: String(form.get("lastName")),
       email: String(form.get("email")),
       password: String(form.get("password")),
-      role: "DOCTOR",
+      role: role === "Admin" ? "ADMIN" : "DOCTOR",
       });
-      showToast("Doctor account created successfully.", "success");
+      showToast("User account created successfully.", "success");
     } catch (createError) {
       showToast(getApiErrorMessage(createError, "Could not create the account."), "error");
     } finally {
@@ -48,7 +48,7 @@ export default function AdminCreateUserModal({
   return (
     <Modal
       className="max-w-[624px]"
-      description="Create a physician account."
+      description="Create a user account."
       onClose={onClose}
       title="Create New Account"
     >
@@ -68,7 +68,7 @@ export default function AdminCreateUserModal({
                 <ButtonSecondary
                   aria-pressed={role === option}
                   className={`h-[42px] justify-start text-left ${role === option ? "border-[#9adce3] bg-[#e8f8fa] text-[#07516a]" : ""}`}
-                  disabled={option === "Admin"}
+                  onClick={() => setRole(option)}
                   key={option}
                   type="button"
                 >

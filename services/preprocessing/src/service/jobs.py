@@ -3,11 +3,10 @@ from __future__ import annotations
 import subprocess
 import sys
 import threading
-import uuid
 import json
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -61,50 +60,10 @@ class NeuroTraceClient:
             raise BackendAPIError("Backend returned a JSON value instead of an object")
         return value
 
-    def create_job(self, examination_id: str) -> dict:
-        return self._request(
-            "POST",
-            f"/api/v1/examinations/{examination_id}/preprocessing-jobs",
-            {"pipeline_version": self.settings.pipeline_version},
-        )
-
-    def get_job(self, job_id: str) -> dict:
-        return self._request("GET", f"/api/v1/preprocessing-jobs/{job_id}")
-
     def get_examination(self, examination_id: str) -> dict:
         return self._request(
             "GET", f"/api/v1/internal/preprocessing/examinations/{examination_id}"
         )
-
-    def update_status(
-        self, job_id: str, status: Literal["RUNNING", "CANCELLED"]
-    ) -> dict:
-        return self._request(
-            "PATCH",
-            f"/api/v1/internal/preprocessing/jobs/{job_id}/status",
-            {"status": status},
-        )
-
-    def submit_result(
-        self,
-        job_id: str,
-        status: Literal["COMPLETED", "FAILED"],
-        error_message: str | None = None,
-        *,
-        output_bucket: str | None = None,
-        output_storage_key: str | None = None,
-    ) -> dict:
-        payload: dict[str, str] = {"status": status}
-        if output_bucket is not None:
-            payload["output_bucket"] = output_bucket
-        if output_storage_key is not None:
-            payload["output_storage_key"] = output_storage_key
-        if error_message is not None:
-            payload["error_message"] = error_message
-        return self._request(
-            "POST", f"/api/v1/internal/preprocessing/jobs/{job_id}/result", payload
-        )
-
 
 class JobManager:
     def __init__(
@@ -117,61 +76,72 @@ class JobManager:
         self.storage = storage
         self.backend = backend
         self._jobs: dict[str, dict] = {}
+        self._storage_coordinates: dict[str, tuple[str | None, str | None]] = {}
         self._lock = threading.Lock()
 
-    def create(self, examination_id: str, job_id: str | None = None) -> str:
+    def create(
+        self,
+        examination_id: str,
+        *,
+        storage_bucket: str | None = None,
+        storage_key: str | None = None,
+    ) -> str:
         try:
             examination_uuid = uuid.UUID(examination_id)
         except (ValueError, AttributeError, TypeError) as exc:
             raise ValueError("examination_id must be a UUID") from exc
-        requested_job_id = job_id or str(uuid.uuid4())
-        try:
-            uuid.UUID(requested_job_id)
-        except (ValueError, AttributeError, TypeError) as exc:
-            raise ValueError("job_id must be a UUID") from exc
-        job_id = str(requested_job_id)
+        examination_id = str(examination_uuid)
+        if storage_bucket is None or storage_key is None:
+            raise ValueError("storage_bucket and storage_key must be provided together")
+        if not storage_bucket.strip():
+            raise ValueError("storage_bucket must not be blank")
+        if not storage_key.strip():
+            raise ValueError("storage_key must not be blank")
         with self._lock:
-            self._jobs[job_id] = {
-                "job_id": job_id,
-                "examination_id": str(examination_uuid),
+            self._jobs[examination_id] = {
+                "examination_id": examination_id,
                 "status": "QUEUED",
                 "pipeline_version": self.settings.pipeline_version,
                 "created_at": self._now(),
             }
-        return job_id
+            self._storage_coordinates[examination_id] = (storage_bucket, storage_key)
+        return examination_id
 
-    def get(self, job_id: str) -> dict | None:
+    def get(self, examination_id: str) -> dict | None:
         with self._lock:
-            job = self._jobs.get(job_id)
+            job = self._jobs.get(examination_id)
             return dict(job) if job else None
 
-    def _update(self, job_id: str, **values) -> None:
+    def get_for_examination(self, examination_id: str) -> dict | None:
         with self._lock:
-            self._jobs[job_id].update(values)
+            job = self._jobs.get(examination_id)
+            return dict(job) if job else None
+
+    def _get_storage_coordinates(self, examination_id: str) -> tuple[str | None, str | None]:
+        with self._lock:
+            return self._storage_coordinates.get(examination_id, (None, None))
+
+    def _update(self, examination_id: str, **values) -> None:
+        with self._lock:
+            self._jobs[examination_id].update(values)
 
     @staticmethod
     def _now() -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    def run(self, job_id: str, examination_id: str) -> None:
-        job_root = self.settings.work_root / job_id
+    def run(self, examination_id: str) -> None:
+        job_root = self.settings.work_root / examination_id
         input_recording = job_root / "input" / "study" / "subject" / "run"
         output_root = job_root / "output"
-        self._update(job_id, status="RUNNING", started_at=self._now())
+        self._update(examination_id, status="RUNNING", started_at=self._now())
         try:
             if self.backend is None:
                 raise RuntimeError("NeuroTrace backend client is not configured")
-            backend_job = self.backend.get_job(job_id)
-            examination_id = self.get(job_id)["examination_id"]
-            if str(backend_job.get("examination_id")) != examination_id:
-                raise ValueError("Backend examination_id does not match the preprocessing job")
-            if backend_job.get("status") == "CANCELLED":
-                self._update(job_id, status="CANCELLED", finished_at=self._now())
-                self.backend.update_status(job_id, "CANCELLED")
-                return
-            self.backend.update_status(job_id, "RUNNING")
-            examination = self.backend.get_examination(examination_id)
-            self.storage.download_examination(examination, input_recording)
+            storage_bucket, storage_key = self._get_storage_coordinates(examination_id)
+            self.storage.download_recording_inputs(
+                storage_bucket, storage_key, input_recording
+            )
+            output_bucket = storage_bucket
             command = [
                 sys.executable,
                 "-m",
@@ -199,12 +169,10 @@ class JobManager:
             combined_features_path = (
                 output_root / "study" / "subject" / "run" / "combined_features.csv"
             )
-            source_file = examination.get("source_file")
-            output_bucket = source_file.get("bucket") if isinstance(source_file, dict) else None
             if not isinstance(output_bucket, str) or not output_bucket.strip():
                 raise ValueError("Examination response does not contain a storage bucket")
             output_storage_key = (
-                f"preprocessing/{examination_id}/{job_id}/combined_features.csv"
+                f"preprocessing/{examination_id}/combined_features.csv"
             )
             self.storage.upload_result(
                 combined_features_path, output_bucket, output_storage_key
@@ -212,12 +180,8 @@ class JobManager:
             published_rows = publish_combined_features(
                 self.settings, combined_features_path, examination_id=examination_id
             )
-            self.backend.submit_result(
-                job_id, "COMPLETED",
-                output_bucket=output_bucket, output_storage_key=output_storage_key,
-            )
             self._update(
-                job_id,
+                examination_id,
                 status="COMPLETED",
                 finished_at=self._now(),
                 output_path=str(output_root),
@@ -229,9 +193,4 @@ class JobManager:
             )
         except Exception as exc:
             message = str(exc)
-            self._update(job_id, status="FAILED", finished_at=self._now(), error=message)
-            try:
-                if self.backend is not None:
-                    self.backend.submit_result(job_id, "FAILED", error_message=message)
-            except Exception as callback_error:
-                self._update(job_id, backend_error=str(callback_error))
+            self._update(examination_id, status="FAILED", finished_at=self._now(), error=message)

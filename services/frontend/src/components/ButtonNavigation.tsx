@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEventHandler, ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import activityIcon from "../assets/icon-activity.svg?raw";
-import databaseIcon from "../assets/icon-database.svg?raw";
+import auditIcon from "../assets/icon-activity.svg?raw";
+import systemIcon from "../assets/icon-system.svg?raw";
 import examinationsIcon from "../assets/icon-examinations.svg?raw";
 import homeIcon from "../assets/icon-home.svg?raw";
 import logoutIcon from "../assets/icon-logout.svg?raw";
@@ -10,8 +10,8 @@ import settingsIcon from "../assets/icon-settings.svg?raw";
 import usersIcon from "../assets/icon-users.svg?raw";
 
 const navigationIcons = {
-  activity: activityIcon,
-  database: databaseIcon,
+  audit: auditIcon,
+  system: systemIcon,
   examinations: examinationsIcon,
   home: homeIcon,
   logout: logoutIcon,
@@ -41,7 +41,7 @@ type ButtonNavigationProps = {
 const baseClassName =
   "flex min-h-11 w-full items-center border border-0 gap-3 rounded-lg px-3 text-left text-md font-bold text-brand-navy transition-colors hover:bg-white/55 hover:shadow-[0_2px_4px_rgba(0,30,60,0.16)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan";
 const selectedClassName =
-  "border border-white/85 bg-white/55 shadow-[0_2px_4px_rgba(0,30,60,0.16)]";
+  "border border-white bg-white/50 shadow-[0_2px_4px_rgba(0,30,60,0.50)] text-brand-navy hover:bg-white/50 hover:shadow-[0_2px_4px_rgba(0,30,60,0.50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan";
 
 export default function ButtonNavigation(props: ButtonNavigationProps) {
   const { children, className = "", disabled = false, icon } = props;

@@ -11,15 +11,11 @@ from src.core.security import (
     hash_password,
     verify_password,
 )
-from src.models.auth import PasswordResetToken, RefreshToken, User
+from src.models.auth import RefreshToken, User
 from src.repositories import auth as auth_repository
 
 
 class AuthenticationError(Exception):
-    pass
-
-
-class PasswordResetError(Exception):
     pass
 
 
@@ -88,42 +84,6 @@ def logout(session: Session, *, user_id: UUID, raw_refresh_token: str) -> None:
         raise AuthenticationError
     token.revoked_at = now
     session.commit()
-
-
-def create_password_reset(session: Session, *, email: str) -> str | None:
-    """Create the opaque token; its delivery belongs to a future notification adapter."""
-    user = auth_repository.get_user_by_email(session, email)
-    if user is None or not user.is_active:
-        return None
-    raw_token = generate_opaque_token()
-    session.add(
-        PasswordResetToken(
-            user_id=user.id,
-            token_hash=hash_opaque_token(raw_token),
-            expires_at=_now() + timedelta(hours=1),
-        )
-    )
-    session.commit()
-    return raw_token
-
-
-def reset_password(session: Session, *, raw_token: str, new_password: str) -> User:
-    reset_token = auth_repository.get_password_reset_token(session, hash_opaque_token(raw_token), lock=True)
-    now = _now()
-    if reset_token is None or reset_token.used_at is not None or reset_token.expires_at <= now:
-        session.rollback()
-        raise PasswordResetError
-    user = auth_repository.get_user_by_id(session, reset_token.user_id)
-    if user is None or not user.is_active:
-        session.rollback()
-        raise PasswordResetError
-
-    user.password_hash = hash_password(new_password)
-    user.updated_at = now
-    reset_token.used_at = now
-    auth_repository.revoke_refresh_tokens_for_user(session, user.id, now)
-    session.commit()
-    return user
 
 
 def change_password(session: Session, *, user: User, current_password: str, new_password: str) -> None:

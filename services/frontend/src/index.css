@@ -23,3 +23,48 @@ body,
 body {
   margin: 0;
 }
+/* Soft colour underneath the same elliptical artwork used on the login page. */
+.app-background {
+  isolation: isolate;
+  background: #dceff1;
+}
+
+.app-background-shapes {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(133deg, transparent 42%, rgba(255, 255, 255, 0.18) 52%, rgba(255, 255, 255, 0.34) 57%, rgba(255, 255, 255, 0.10) 63%, transparent 72%),
+    radial-gradient(ellipse at 92% 0%, rgba(255, 255, 255, 0.48), transparent 40%),
+    radial-gradient(ellipse at 18% 25%, rgba(117, 208, 214, 0.42), transparent 49%),
+    radial-gradient(ellipse at 83% 78%, rgba(111, 196, 216, 0.35), transparent 48%),
+    radial-gradient(ellipse at 68% 12%, rgba(255, 255, 255, 0.6), transparent 48%),
+    linear-gradient(135deg, #e2f2f2, #c7e7ed 52%, #e4f2f3);
+}
+
+.app-background-ellipse {
+  position: absolute;
+  width: min(100vw, 1292px);
+  max-width: none;
+  height: auto;
+}
+
+.app-background-ellipse--top {
+  top: -55%;
+  left: -25%;
+  transform: rotate(-30deg);
+}
+
+.app-background-ellipse--bottom {
+  right: -39%;
+  bottom: -75%;
+  transform: rotate(135deg);
+}
+
+@media (max-width: 767px) {
+  .app-background-ellipse { width: 150vw; }
+  .app-background-ellipse--top { top: -18%; left: -65%; }
+  .app-background-ellipse--bottom { right: -80%; bottom: -10%; }
+}

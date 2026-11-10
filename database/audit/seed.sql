@@ -13,12 +13,17 @@ INSERT INTO audit_log_types (code, name, description) VALUES
     ('PATIENT_ACCESSED', 'Dostęp do danych pacjenta', 'Odczyt danych pacjenta zgodnie z polityką audytową.'),
     ('EXAMINATION_UPLOADED', 'Przesłanie badania', 'Dodanie pliku EEG do systemu.'),
     ('EXAMINATION_UPDATED', 'Aktualizacja badania', 'Zmiana dozwolonych metadanych badania.'),
+    ('PREPROCESSING_REQUESTED', 'Preprocessing requested', 'Examination submitted to preprocessing.'),
+    ('PREPROCESSING_STARTED', 'Preprocessing started', 'Preprocessing started for an examination.'),
+    ('PREPROCESSING_COMPLETED', 'Preprocessing completed', 'Preprocessing completed for an examination.'),
+    ('PREPROCESSING_FAILED', 'Preprocessing failed', 'Preprocessing request or execution failed.'),
     ('EXAMINATION_DELETED', 'Usunięcie badania', 'Logiczne usunięcie badania.'),
     ('ANALYSIS_REQUESTED', 'Zlecenie analizy', 'Zlecenie wykonania analizy AI/ML.'),
     ('ANALYSIS_COMPLETED', 'Zakończenie analizy', 'Analiza AI/ML została zakończona poprawnie.'),
     ('ANALYSIS_FAILED', 'Błąd analizy', 'Analiza AI/ML zakończyła się błędem.'),
     ('DATA_EXPORTED', 'Eksport danych', 'Wyeksportowanie danych z systemu.'),
     ('ACCESS_DENIED', 'Odmowa dostępu', 'Próba wykonania operacji bez wymaganych uprawnień.')
+    , ('ACCOUNT_ACTIVATED', 'Account activation', 'Account was enabled by an administrator.')
 ON CONFLICT (code) DO UPDATE
 SET
     name = EXCLUDED.name,

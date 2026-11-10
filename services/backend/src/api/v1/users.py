@@ -31,11 +31,20 @@ def list_users(
     auth_db: Annotated[Session, Depends(get_auth_db)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    sort_by: Literal["created_at", "updated_at", "email"] = "created_at",
+    query: str | None = Query(default=None, min_length=1, max_length=255),
+    id: UUID | None = None,
+    email: str | None = Query(default=None, min_length=1, max_length=255),
+    first_name: str | None = Query(default=None, min_length=1, max_length=100),
+    last_name: str | None = Query(default=None, min_length=1, max_length=100),
+    role: Role | None = None,
+    is_active: bool | None = None,
+    sort_by: Literal["id", "email", "first_name", "last_name", "role", "is_active", "created_at", "updated_at"] = "created_at",
     sort_order: Literal["asc", "desc"] = "desc",
 ) -> UserListResponse:
     users, total = users_service.list_users(
-        auth_db, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order
+        auth_db, page=page, page_size=page_size, query=query, user_id=id, email=email,
+        first_name=first_name, last_name=last_name, role=role.value if role else None,
+        is_active=is_active, sort_by=sort_by, sort_order=sort_order,
     )
     return UserListResponse(items=users, page=page, page_size=page_size, total=total)
 
@@ -99,7 +108,7 @@ def update_user(
     audit_db: Annotated[Session, Depends(get_audit_db)],
 ) -> User:
     try:
-        user, role_changed, deactivated = users_service.update_user(
+        user, role_changed, deactivated, activated = users_service.update_user(
             auth_db, actor=actor, user_id=user_id, payload=payload
         )
     except users_service.UserNotFoundError:
@@ -123,6 +132,15 @@ def update_user(
         audit_service.log(
             audit_db,
             event_code="ACCOUNT_DEACTIVATED",
+            user_id=actor.id,
+            resource_type="USER",
+            resource_id=user.id,
+            ip_address=_client_ip(request),
+        )
+    if activated:
+        audit_service.log(
+            audit_db,
+            event_code="ACCOUNT_ACTIVATED",
             user_id=actor.id,
             resource_type="USER",
             resource_id=user.id,

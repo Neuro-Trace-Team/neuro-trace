@@ -1,427 +1,170 @@
 # NeuroTrace backend
 
-Backend NeuroTrace is a FastAPI application. The current milestone provides
-authentication, pseudonymized patient and EEG-examination management, audit,
-preprocessing and analysis state management, pain assessments, dashboards,
-and bulk operations. Preprocessing and ML integrations themselves are
-intentionally not implemented yet.
+The FastAPI backend owns authentication, audit, pseudonymized patient and
+examination metadata, and original EEG objects in RustFS. It has separate
+connections to `auth_db`, `medical_db`, and `audit_db`.
 
-## Current functionality
-
-- Configuration is read from environment variables with `pydantic-settings`.
-- `auth_db`, `medical_db`, and `audit_db` have separate SQLAlchemy engines
-  and session factories.
-- ORM models mirror the existing SQL schema. They do not create or migrate
-  database tables.
-- `GET /health/live` confirms that the backend process is running.
-- `GET /health/ready` checks all three databases and the configured RustFS
-  bucket; it returns `503` when any dependency is unavailable.
-- Access tokens are signed JWTs. Refresh tokens and password-reset tokens are
-  opaque, cryptographically generated values stored only as SHA-256 hashes.
-- Refreshing rotates the token; logout and a password change revoke sessions.
-- Login, failed login, logout, password change, and password reset are
-  appended to `audit_db` without exposing passwords or tokens.
-- Role-based access control is centralised in `require_roles(...)`. The two
-  accepted roles are `ADMIN` and `DOCTOR`; denied role checks create an
-  `ACCESS_DENIED` audit record.
-- Administrators can create, list, inspect, and update users. Any user can
-  edit their own basic profile without being able to change their role.
-- `audit_service.log(...)` is the central, best-effort audit writer. It
-  resolves `type_id` from `audit_log_types` before adding a record.
-- Audit metadata is filtered before persistence: passwords, JWTs, refresh and
-  reset tokens, raw EEG data, and direct patient identifiers are omitted.
-  An audit-database failure is logged by the application but never reverses a
-  completed business operation.
-- Administrators can inspect paginated audit logs, filtered by event, actor,
-  or time range.
-- Any authenticated `ADMIN` or `DOCTOR` can create and read pseudonymized
-  patients. A patient contains only its generated UUID and timestamps because
-  the medical schema contains no personal details.
-- EEG upload writes the object to RustFS and its metadata to `medical_db`.
-  Upload does not call or wait for preprocessing. A dedicated storage boundary
-  keeps a future `PreprocessingService` separate from this transaction.
-- The internal preprocessing contract exposes an active examination's RustFS
-  object coordinates, metadata, channels, and events. It contains neither EEG
-  bytes nor RustFS credentials, and does not perform an outbound request.
-- Preprocessing jobs are persisted in `medical_db`. Creating a job changes an
-  examination to `PREPROCESSING`; a completed result changes it to `READY`, a
-  failure to `FAILED`, and cancellation back to `UPLOADED`. This is backend
-  state management only: no preprocessing HTTP request, queue, or worker is
-  started in this milestone.
-- The analysis domain is persisted in `medical_db`: an analysis belongs to
-  one completed preprocessing job, examination, requesting user, and declared
-  model/version. It supports queued, running, completed, failed, and cancelled
-  states plus one optional `analysis_result`. Public analysis/result endpoints
-  and protected internal callback contracts are available; no ML call is made.
-- Doctor and administrator dashboards aggregate existing data across the three
-  databases. They do not require preprocessing or ML services to be running.
-- Administrators can soft-delete up to 100 examinations in one operation or
-  export their source EEG files and metadata as a generated ZIP archive.
-
-The future HTTP resource name is **examinations**. New endpoints will use
-`/api/v1/examinations`.
+`medical_db` contains only `patients`, `examinations`, and
+the per-doctor navigation tables `recent_patients` and `recent_examinations`.
+It deliberately contains no event markers, preprocessing jobs, channel catalogue,
+pain assessments, analyses, or ML results.
 
 ## Examination API
 
-All endpoints require a logged-in `ADMIN` or `DOCTOR`. `POST` accepts
-`multipart/form-data` with `patient_id`, `sampling_frequency`, and `file`.
-Optional metadata fields are `examination_date`, `electrode_positions` (JSON
-object encoded as text), `reference`, `power_line_frequency` (50 or 60), and
-`duration_seconds`. The MVP accepts `.edf`, `.bdf`, `.set`, `.fif`, `.vhdr`,
-and `.eeg` files and calculates their SHA-256 checksum while streaming them
-to a temporary file before RustFS upload.
+All endpoints below require an access token.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| POST | `/api/v1/examinations` | Upload EEG to RustFS and persist metadata. |
-| GET | `/api/v1/examinations` | Paginated list; filters: patient, uploader, status, creation date, EEG `channel`, and latest pain value from `doctor` or `ai`; safe sorting is available. |
-| GET | `/api/v1/examinations/eeg-channels` | EEG channel catalogue. |
-| GET | `/api/v1/examinations/{examination_id}` | Examination details. |
-| PATCH | `/api/v1/examinations/{examination_id}` | Edit allowed metadata only. |
-| DELETE | `/api/v1/examinations/{examination_id}` | Soft delete; the RustFS object is retained. |
-| GET/PUT | `/api/v1/examinations/{examination_id}/channels` | Read or replace channel assignments. |
-| GET/POST | `/api/v1/examinations/{examination_id}/events` | Read or add examination events. |
-| PATCH/DELETE | `/api/v1/examinations/{examination_id}/events/{event_id}` | Edit or remove one event. |
+| POST | `/api/v1/examinations` | Upload an EEG, persist its RustFS coordinates, then request preprocessing. |
+| GET | `/api/v1/examinations` | List active examinations. |
+| GET | `/api/v1/examinations/statuses` | List backend-owned examination lifecycle values for the frontend. |
+| GET/PATCH/DELETE | `/api/v1/examinations/{id}` | Read details with ML analyses when ready, edit the examination date, or soft-delete. |
+| GET | `/api/v1/examinations/{id}/preprocessing-status` | Proxy the status maintained by preprocessing. |
+| GET | `/api/v1/examinations/{id}/results` | Read ML results only after the examination is ready. |
 
-The response deliberately does not expose `storage_bucket` or `storage_key`.
-When RustFS cannot accept an upload, the API returns `503` and creates no
-examination metadata. If metadata persistence fails after a RustFS upload,
-the backend attempts to delete the uploaded object. Upload, metadata updates,
-channel/event modifications, and soft delete create the matching examination
-audit event without recording the file content.
+The upload request is one `multipart/form-data` transaction. Send `file`,
+`timestamps`, and exactly one of `patient_id` or `generate_patient=true`. The
+backend validates the file before it creates a generated patient, then commits
+the patient and examination together. It stores two RustFS objects under the
+same examination prefix: the original EEG/BDF file and `timestamps.json` in
+the form `{"timestamps":[0,83456]}`. The frontend's `HH:MM:SS:mmm` values are
+converted to integer milliseconds before this JSON is written. Timestamps are not persisted in
+`medical_db` and are not included in the preprocessing request. The backend
+sends preprocessing only:
 
-## Internal preprocessing contract
-
-| Method | Endpoint | Current access | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/v1/internal/preprocessing/examinations/{examination_id}` | ADMIN | Source-object coordinates and examination context for future preprocessing. |
-| PATCH | `/api/v1/internal/preprocessing/jobs/{job_id}/status` | ADMIN | Mark a queued job as `RUNNING` or cancel an active job. |
-| POST | `/api/v1/internal/preprocessing/jobs/{job_id}/result` | ADMIN | Save a `COMPLETED` output location or a `FAILED` error. |
-
-The internal response includes `bucket`, `storage_key`, file information,
-examination metadata, channels, and events. It intentionally excludes
-`RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, and file bytes. During this stage,
-the endpoint is protected by existing administrator RBAC; a future
-service-to-service authentication mechanism can replace this boundary without
-changing the response contract. `DeferredPreprocessingClient` is only a
-non-network integration placeholder and is not called by uploads.
-
-## Preprocessing jobs API
-
-All endpoints require a logged-in user. Creating a job stores a declared,
-non-empty `pipeline_version` and optional JSON `parameters`; it does not send
-anything to a preprocessing service. A terminal job cannot be transitioned
-again. Completion requires both `output_bucket` and `output_storage_key`;
-failure requires an `error_message`.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Queue a preprocessing job. |
-| GET | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Paginated job history for an examination. |
-| GET | `/api/v1/preprocessing-jobs/{job_id}` | Read one preprocessing job. |
-
-## Analysis domain preparation
-
-The backend service layer now persists and reads `analyses` and
-`analysis_results`. An analysis can only be created for an active examination
-and a `COMPLETED` preprocessing job belonging to that examination. It starts
-as `QUEUED`; the service layer also protects the later `RUNNING`, `COMPLETED`,
-`FAILED`, and `CANCELLED` transitions. Completion atomically stores one
-optional result record with flexible JSON result and explanation fields.
-
-`DeferredMLClient` is an explicit non-network integration placeholder; the
-public result API and future ML callback contracts are documented below.
-
-## Analysis and result API
-
-All endpoints require a logged-in user. Requesting an analysis validates that
-the examination exists and that the selected preprocessing job belongs to it
-and is `COMPLETED`. The request only persists a `QUEUED` analysis; it does not
-call ML. Completed results are returned only after the internal ML result
-callback has saved them.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/v1/examinations/{examination_id}/results` | Queue analysis for a completed preprocessing job. |
-| GET | `/api/v1/examinations/{examination_id}/results` | Paginated completed analysis results for an examination. |
-| GET | `/api/v1/analyses` | Paginated analyses; filters: `examination_id`, `requested_by`, `analysis_status`. |
-| GET | `/api/v1/analyses/{analysis_id}` | Analysis status and declared model/version. |
-
-## Pain assessments API
-
-Pain assessments are entered by a logged-in user and stored separately from
-AI/ML `analysis_results`. The database permits any non-negative `pain_level`;
-the API deliberately adds no arbitrary upper bound because the project has not
-defined a universal pain scale. When `assessed_at` is omitted, the backend
-uses the current UTC time.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/v1/examinations/{examination_id}/pain-assessments` | Record a clinician pain assessment. |
-| GET | `/api/v1/examinations/{examination_id}/pain-assessments` | Paginated assessment history, newest first. |
-
-## Internal ML contracts
-
-The existing preprocessing internal contract remains unchanged. The following
-temporary `ADMIN`-protected contracts are prepared for a future ML service;
-they persist data in the backend but do not contact ML or a queue themselves.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| PATCH | `/api/v1/internal/analyses/{analysis_id}/status` | Mark a queued analysis `RUNNING` or cancel an active analysis. |
-| POST | `/api/v1/internal/analyses/{analysis_id}/result` | Atomically store a completed analysis and its optional result fields. |
-| POST | `/api/v1/internal/analyses/{analysis_id}/error` | Store a bounded failure message and set the analysis to `FAILED`. |
-
-The result contract keeps `pain_level`, `confidence`, `result`, and
-`explanation` optional and structurally flexible. No final ML output, feature,
-tensor, or XAI schema is imposed. Completion and failure create the matching
-central audit event; callback payloads never include source EEG data or
-storage credentials.
-
-## Dashboards and administrator statistics
-
-`GET /api/v1/dashboard/stats` is available to every logged-in `ADMIN` or
-`DOCTOR`. It returns global patient and active-examination totals, examination
-counts by processing status, total/completed/failed analyses, and up to 10
-most recently created active examinations. The current schema has no
-facility/assignment boundary, so these values are global within the local
-backend.
-
-All administrator endpoints below accept `period=7d`, `30d`, or `90d` where
-applicable. They combine `auth_db`, `medical_db`, and `audit_db` only in the
-application layer; database sessions remain separate.
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/v1/dashboard/stats` | Logged-in user | Doctor-facing summary and recent examinations. |
-| GET | `/api/v1/admin/dashboard?period=7d` | ADMIN | Users, logins, examinations, analyses, failures, and exports. |
-| GET | `/api/v1/admin/stats/active-users?period=7d` | ADMIN | Unique users with a `LOGIN` audit event in the period. |
-| GET | `/api/v1/admin/stats/login-attempts?period=7d` | ADMIN | Successful and failed login events in the period. |
-| GET | `/api/v1/admin/stats/examinations?period=30d` | ADMIN | Active examinations created in the period. |
-| GET | `/api/v1/admin/stats/exports?period=30d` | ADMIN | `DATA_EXPORTED` audit-event count in the period. |
-
-## Bulk examination operations
-
-Both operations accept JSON in the form
-`{"examination_ids": ["uuid", "..."]}`. The list must contain 1–100 unique
-UUIDs. The backend validates every requested examination before changing data.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/v1/examinations/bulk-delete` | ADMIN: soft-delete all selected active examinations; source files remain in RustFS. |
-| POST | `/api/v1/examinations/bulk-export` | ADMIN or DOCTOR: download a ZIP containing each source EEG file and its `metadata.json`. |
-| POST | `/api/v1/examinations/bulk-report` | ADMIN or DOCTOR: download a pseudonymized PDF report for the selected examinations. |
-
-The ZIP is generated in memory for the current MVP. An unavailable RustFS
-object produces `503`; successful export writes one `DATA_EXPORTED` audit
-event with only the exported examination count, never file bytes or storage
-credentials.
-
-`bulk-report` is also generated in memory and does not include source EEG
-bytes or RustFS coordinates. Each report contains the patient and examination
-UUIDs, available examination metadata, channels, events, most recent clinician
-pain assessment, and most recent completed AI analysis. It is intended as a
-pseudonymized documentation draft, not a final legally approved medical form.
-
-## Patient API
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| POST | `/api/v1/patients` | Logged-in user | Create a pseudonymized patient. |
-| GET | `/api/v1/patients` | Logged-in user | Paginated list; UUID search, creation date range, and safe sorting. |
-| GET | `/api/v1/patients/stats` | Logged-in user | Patient and active-examination counts. |
-| GET | `/api/v1/patients/{patient_id}` | Logged-in user | Pseudonymized patient details. |
-| GET | `/api/v1/patients/{patient_id}/stats` | Logged-in user | Active examination count and first/last examination timestamps. |
-| GET | `/api/v1/patients/{patient_id}/examinations` | Logged-in user | Active examinations for that patient. |
-
-No name, surname, PESEL, address, e-mail, or any other personal identifier is
-accepted, stored, or returned by this API. The patient responses deliberately
-contain only `id`, `created_at`, and `updated_at`. Patient reads and creation
-produce `PATIENT_ACCESSED` and `PATIENT_CREATED` audit events respectively.
-
-## Authentication API
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/v1/auth/login` | Sign in and receive access/refresh tokens. |
-| POST | `/api/v1/auth/refresh` | Rotate a valid refresh token. |
-| POST | `/api/v1/auth/logout` | Revoke the submitted refresh token. |
-| GET | `/api/v1/auth/me` | Return the current authenticated user. |
-| POST | `/api/v1/auth/change-password` | Change password and revoke active refresh tokens. |
-| POST | `/api/v1/auth/forgot-password` | Create a reset request without exposing account existence. |
-| POST | `/api/v1/auth/reset-password` | Consume a one-time reset token. |
-
-Use `Authorization: Bearer <access_token>` for protected endpoints.
-
-## User-management API
-
-| Method | Endpoint | Access |
-| --- | --- | --- |
-| GET | `/api/v1/users` | ADMIN |
-| POST | `/api/v1/users` | ADMIN |
-| GET | `/api/v1/users/{user_id}` | ADMIN |
-| PATCH | `/api/v1/users/{user_id}` | ADMIN |
-| GET | `/api/v1/users/me` | Logged-in user |
-| PATCH | `/api/v1/users/me` | Logged-in user |
-
-An administrator cannot deactivate their own account or remove their own
-administrator role through the API. Role changes and account deactivation
-are recorded in the audit database.
-
-## Audit API
-
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/v1/admin/audit-logs` | ADMIN | Paginated audit log list. |
-| GET | `/api/v1/admin/audit-logs/{log_id}` | ADMIN | One audit record. |
-
-Optional list filters are `event_code`, `user_id`, `date_from`, and `date_to`
-(ISO 8601), plus `page`, `page_size` (maximum 100), `sort_by`, and
-`sort_order`. A range where
-`date_from` is after `date_to` returns `400`; no token returns `401`; a
-non-administrator gets `403` and the denial is itself audited.
-
-The event catalogue in `audit_log_types` includes: `LOGIN`,
-`FAILED_LOGIN_ATTEMPT`, `LOGOUT`, `PASSWORD_CHANGED`, `PASSWORD_RESET`,
-`ACCOUNT_CREATED`, `ACCOUNT_DEACTIVATED`, `ROLE_CHANGED`, `PATIENT_CREATED`,
-`PATIENT_ACCESSED`, `EXAMINATION_UPLOADED`, `EXAMINATION_UPDATED`,
-`EXAMINATION_DELETED`, `ANALYSIS_REQUESTED`, `ANALYSIS_COMPLETED`,
-`ANALYSIS_FAILED`, `DATA_EXPORTED`, and `ACCESS_DENIED`. Events for future
-patient, examination, and analysis operations will be emitted when those
-operations are implemented.
-
-Future protected endpoints use the central dependency, for example:
-
-```python
-@router.get("/admin-only")
-def endpoint(user: Annotated[User, Depends(require_roles(Role.ADMIN))]):
-    return {"user_id": user.id}
+```json
+{"examination_id":"uuid","storage_bucket":"examinations","storage_key":"examinations/..."}
 ```
 
-Password reset cannot yet be completed end-to-end: the project has no mail or
-notification service to deliver the raw reset token. The token is generated
-and stored securely, but a future notification adapter must send it to the
-user; it must never be returned by the public API.
+It calls `POST {PREPROCESSING_URL}/api/v1/examinations/{examination_id}/preprocessing`.
+Status is read from `GET .../{examination_id}/preprocessing-status`.
 
-## Run with Docker Compose
+`examinations.status` is the PostgreSQL enum `examination_status`. New
+examinations have `status: PREPROCESSING`; the backend keeps that state while
+the preprocessing request and downstream ML work are pending. ML publishes the durable RabbitMQ
+event below to `RABBITMQ_COMPLETED_ANALYSIS_QUEUE` when all analyses for one
+examination have been persisted:
 
-From the repository root, create local environment settings once:
+```json
+{"event_type":"examination_completed","examination_id":"uuid","total_analyses_count":3}
+```
+
+The backend consumer changes the matching non-deleted examination to
+`status: READY`. `GET /api/v1/examinations/{id}` always returns the status and
+the ML-specific `analysis_status`: `NOT_READY`, `PROCESSING`, or `READY`.
+If ML answers `202 {"status":"processing","received":...,"expected":...}`
+despite a `READY` examination, the detail endpoint remains available and
+returns an empty `analyses` list with the received and expected counts. The
+list endpoint does not call ML. `GET /api/v1/examinations/{id}/results` returns
+`409` until the examination is ready, `202` with the same progress contract
+while ML is still processing, and `200` with analyses when complete.
+
+The frontend obtains the allowed values from `GET /api/v1/examinations/statuses`:
+
+```json
+{"statuses":["PREPROCESSING","READY"]}
+```
+
+The frontend must not create its own values. To introduce a future state, add it
+to `ExaminationStatus` and deliver a migration with `ALTER TYPE
+examination_status ADD VALUE ...`; the endpoint will then expose it automatically.
+
+## List filtering, sorting, and pagination
+
+All list endpoints use `page` (starting at `1`), `page_size` (from `1` to
+`100`), `sort_by`, and `sort_order` (`asc` or `desc`). Exact field filters are
+combined with `AND`; `query` is a case-insensitive partial search.
+
+- `GET /api/v1/examinations`: `query` searches `id` and `patient_id`; filters
+  are `id`, `patient_id`, `uploaded_by`, `status`, `examination_date_from`, and
+  `examination_date_to`.
+- `GET /api/v1/users`: `query` searches `first_name`, `last_name`, and `email`;
+  filters are `id`, `email`, `first_name`, `last_name`, `role`, and `is_active`.
+- `GET /api/v1/admin/audit-logs`: `query` searches `id`, `user_id`, and
+  `ip_address`; filters are `id`, `user_id`, `type_id`, `created_at_from`,
+  `created_at_to`, `ip_address`, `request_id`, `resource_type`, and
+  `resource_id`. The legacy exact `event_code` filter remains supported.
+
+For a ready examination, results are read from
+`GET {ML_URL}/examinations/{examination_id}/analyses` and are forwarded to the
+frontend by both the examination detail and results endpoints:
+
+```json
+{"examination_id":"uuid","total_analyses_count":1,"analyses":[{"analysis_id":7,"time_stamp":"00:00:12:500","result":6.4,"confidence":0.91}]}
+```
+
+ML returns `time_stamp` as an integral number of milliseconds. The backend
+converts it to `HH:MM:SS:mmm` before returning analyses to the frontend.
+
+The backend persists only the examination readiness status, not ML analyses.
+
+## Examination upload
+
+`POST /api/v1/examinations` is multipart/form-data. The frontend sends `file`,
+either `patient_id` or `generate_patient=true`, and `timestamps` as a
+JSON array of `HH:MM:SS:mmm` strings. It must not send `examination_date`.
+For EDF/BDF files the backend reads `examination_date` from the recording
+header, stores it in `medical_db`, and writes the timestamp array to the
+companion `timestamps.json` RustFS object. Preprocessing receives the bucket
+and EEG/BDF `storage_key`, then can resolve the companion JSON under the same
+examination prefix.
+For an existing `medical_db`, apply
+`database/medical/migrations/001_add_examination_status.sql` followed by
+`database/medical/migrations/003_replace_examination_status_with_enum.sql` and
+`database/medical/migrations/004_rename_finished_status_to_ready.sql`; a
+fresh Compose volume receives the enum and column from `database/medical/init.sql`.
+Apply `database/medical/migrations/005_drop_examination_events.sql` to an
+existing database to remove the retired event-marker table.
+
+## Recently visited resources
+
+For a doctor, `GET /api/v1/examinations/{id}` records both the examination and
+its patient as visited. The backend stores at most ten unique patient entries
+and ten unique examination entries per doctor. Revisiting a resource moves it
+to the beginning. Doctors can read their own history with:
+
+| Method | Endpoint |
+| --- | --- |
+| GET | `/api/v1/me/recent/patients` |
+| GET | `/api/v1/me/recent/examinations` |
+
+These endpoints are restricted to the `DOCTOR` role and return resources in
+descending `last_visited_at` order. A recent patient includes `patient_id`,
+`first_examination_date`, `last_examination_date`, and `examination_count`
+for non-deleted examinations. Existing medical databases require
+`database/medical/migrations/002_add_recent_resources.sql` and
+`database/medical/migrations/007_add_recent_patient_examination_summary_index.sql`.
+
+Administrators changing a user from inactive to active create the
+`ACCOUNT_ACTIVATED` audit event. Existing audit databases require
+`database/audit/migrations/001_add_account_activated_audit_type.sql`.
+
+## RustFS usage
+
+`GET /api/v1/storage/usage` is restricted to the `ADMIN` role and returns the
+live RustFS state for the backend-owned bucket: `bucket_exists`,
+`object_count`, and `used_bytes`. The S3-compatible API does not provide the
+RustFS host filesystem capacity, so this endpoint intentionally does not
+invent a total capacity or percentage value.
+
+## Administrator app activity
+
+`GET /api/v1/admin/app-activity` is restricted to the `ADMIN` role and is the
+dashboard endpoint for the last 24 hours. It returns unique users with a
+successful `LOGIN` audit event, `FAILED_LOGIN_ATTEMPT` count,
+`EXAMINATION_UPLOADED` count, and the same live RustFS bucket usage payload as
+the storage endpoint. Audit events are used as the source of truth; no metrics
+are duplicated into another database table.
+
+## Tests
+
+Run unit and API-contract tests from `services/backend` with:
 
 ```powershell
-Copy-Item .env.example .env
+python -m pytest
 ```
 
-Set a long, locally unique `JWT_SECRET` in `.env`, then run:
-
-```powershell
-docker compose up --build backend
-```
-
-Compose starts `auth-db`, `medical-db`, `audit-db`, and `backend`. The
-backend waits until all three databases pass their PostgreSQL health checks.
-
-After the databases start, create the first administrator once. The command
-refuses to run if `auth_db` already contains any user and reads the password
-interactively instead of receiving it as a command-line argument:
-
-```powershell
-docker compose run --rm backend python -m src.scripts.bootstrap_admin `
-  --email admin@example.local --first-name Admin --last-name Local
-```
-
-Verify it in a second terminal:
-
-```powershell
-Invoke-RestMethod http://localhost:8080/health/live
-Invoke-RestMethod http://localhost:8080/health/ready
-```
-
-Stop the current stack with `docker compose down`.
-
-## Run backend locally
-
-Start only the databases:
-
-```powershell
-docker compose up -d auth-db medical-db audit-db
-```
-
-Then, from `services/backend`, provide the required settings and start
-Uvicorn:
-
-```powershell
-$env:DB_AUTH_URL = "postgresql://postgres:postgres@localhost:5432/auth_db"
-$env:DB_MEDICAL_URL = "postgresql://postgres:postgres@localhost:5433/medical_db"
-$env:DB_AUDIT_URL = "postgresql://postgres:postgres@localhost:5434/audit_db"
-$env:RUSTFS_ENDPOINT = "http://localhost:9000"
-$env:RUSTFS_ACCESS_KEY = "local-placeholder"
-$env:RUSTFS_SECRET_KEY = "local-placeholder"
-$env:PREPROCESSING_URL = "http://localhost:8001"
-$env:JWT_SECRET = "replace-this-with-a-long-local-development-secret"
-..\..\.venv\Scripts\python -m uvicorn src.main:app --host 0.0.0.0 --port 8080
-```
-
-RustFS and preprocessing settings are required configuration now, but no
-connection is made to either service during this milestone.
-
-## Manual API checks with Postman
-
-Import both files from the repository's `postman/` directory into Postman:
-
-- `NeuroTrace Auth.postman_collection.json`
-- `NeuroTrace Local.postman_environment.json`
-
-Select **NeuroTrace Local** as the active environment and set
-`admin_password` to the password entered for the bootstrap administrator.
-Set `admin_password` to the bootstrap administrator password, then run the
-**whole collection** with Collection Runner in its displayed order. Do not run
-folders in parallel. Each business folder signs in again before it needs an
-administrator token and creates its own patient/examination data, so a logout,
-soft delete, or deactivated test doctor from an earlier folder cannot break a
-later folder. Generated UUIDs and tokens are saved automatically.
-The **User management (ADMIN)** folder then creates a distinct doctor account,
-checks the administrator-only endpoints, and verifies that the doctor gets
-`403` when attempting to list users. It deactivates the generated doctor at
-the end and verifies that the account can no longer log in.
-
-The **Audit (ADMIN)** folder signs in as the administrator, lists logs,
-checks the `LOGIN` filter, opens one selected record, and checks the `401`
-response for a request without a token. Run its requests in displayed order:
-the list request saves `audit_log_id` for the detail request.
-
-The **Patients** folder signs in as an administrator, creates a pseudonymized
-patient, lists and searches by UUID, reads details and statistics, requests
-the empty examination list, and verifies `404` for an unknown UUID and `401`
-without authentication. It saves the new UUID as `patient_id`.
-
-The **Examinations** folder signs in, creates its own pseudonymized patient,
-uploads `postman/fixtures/sample.eeg`, checks filtering and details, updates
-metadata, reads the channel catalogue, assigns channels, adds an event, and
-finishes with a soft delete. In Postman, select that local fixture for the
-`file` form field if the imported collection cannot resolve its relative path.
-
-The **Preprocessing jobs** folder creates a separate patient and examination,
-queues a job, verifies its history and detail endpoint, marks it `RUNNING`,
-checks invalid completion input, then saves a `COMPLETED` result and verifies
-that the examination becomes `READY`. It does not contact a preprocessing
-service; internal job endpoints use the current temporary `ADMIN` boundary.
-
-The **Analyses and results** folder creates a completed preprocessing job,
-queues an analysis, simulates its internal result callback, and reads the
-stored result. The **Pain assessments** folder creates an independent
-clinician assessment, reads its history, and checks validation of a negative
-value. The internal ML folder contains contract-level authentication and
-unknown-analysis checks.
-
-The final **Full API coverage additions** folder tests password-recovery/error
-contracts, dashboards, statistics, newly added list filters and sorting, and
-bulk export/delete. It intentionally runs last because bulk delete removes
-the examination created by the pain-assessment scenario.
-
-`forgot-password` has a successful automated check. A successful password
-reset cannot be automated from Postman yet: the raw token is deliberately not
-returned by the API and no mail adapter exists. The collection therefore tests
-the invalid-token response for `reset-password` and the invalid-current-
-password response for `change-password`, without changing the administrator
-password.
-
+The suite validates the medical SQL contract, the OpenAPI surface, HTTP client
+contracts, and the RabbitMQ completion-event consumer. Full tests against
+PostgreSQL and RustFS require a fresh Compose volume because the schema
+intentionally removed tables from the previous architecture.

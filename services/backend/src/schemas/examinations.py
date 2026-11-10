@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+from src.models.medical import ExaminationStatus
 
 
 class ExaminationResponse(BaseModel):
@@ -14,15 +15,10 @@ class ExaminationResponse(BaseModel):
     file_format: str
     file_size_bytes: int
     file_checksum: str | None
+    status: ExaminationStatus
     examination_date: datetime | None
     created_at: datetime
     updated_at: datetime
-    sampling_frequency: int
-    electrode_positions: dict[str, Any] | None
-    reference: str | None
-    power_line_frequency: int | None
-    duration_seconds: Decimal | None
-    processing_status: str
 
 
 class ExaminationListResponse(BaseModel):
@@ -32,63 +28,46 @@ class ExaminationListResponse(BaseModel):
     total: int
 
 
+class ExaminationStatusesResponse(BaseModel):
+    statuses: list[ExaminationStatus]
+
+
 class ExaminationUpdate(BaseModel):
     examination_date: datetime | None = None
-    electrode_positions: dict[str, Any] | None = None
-    reference: str | None = Field(default=None, max_length=50)
-    power_line_frequency: int | None = None
-    duration_seconds: Decimal | None = Field(default=None, gt=0)
-
-    @field_validator("power_line_frequency")
-    @classmethod
-    def validate_power_line_frequency(cls, value: int | None) -> int | None:
-        if value is not None and value not in (50, 60):
-            raise ValueError("power_line_frequency must be 50 or 60")
-        return value
 
 
-class ExaminationEventCreate(BaseModel):
-    timestamp: Decimal = Field(ge=0)
-    type: str = Field(min_length=1, max_length=50)
-    description: str | None = None
-    metadata: dict[str, Any] | None = None
-
-
-class ExaminationEventUpdate(BaseModel):
-    timestamp: Decimal | None = Field(default=None, ge=0)
-    type: str | None = Field(default=None, min_length=1, max_length=50)
-    description: str | None = None
-    metadata: dict[str, Any] | None = None
-
-
-class ExaminationEventResponse(BaseModel):
-    id: UUID
+class PreprocessingStatusResponse(BaseModel):
     examination_id: UUID
-    timestamp: Decimal
-    type: str
-    description: str | None
-    metadata: dict[str, Any] | None
-    created_at: datetime
-    updated_at: datetime
+    status: str
 
 
-class ExaminationChannelInput(BaseModel):
-    channel_id: int = Field(gt=0)
-    position: int = Field(ge=0)
+class MLAnalysisResponse(BaseModel):
+    analysis_id: int
+    time_stamp: str = Field(pattern=r"^[0-9]{2}:[0-5][0-9]:[0-5][0-9]:[0-9]{3}$")
+    result: float
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
-class ExaminationChannelReplace(BaseModel):
-    channels: list[ExaminationChannelInput]
+class ExaminationResultsResponse(BaseModel):
+    examination_id: UUID
+    total_analyses_count: int | None = Field(default=None, ge=0)
+    analyses: list[MLAnalysisResponse]
 
 
-class ExaminationChannelResponse(BaseModel):
-    channel_id: int
-    code: str
-    description: str | None
-    position: int
+class ExaminationResultsProcessingResponse(BaseModel):
+    """ML has accepted the examination but has not produced every analysis yet."""
+
+    examination_id: UUID
+    status: Literal["PROCESSING"]
+    received_analyses_count: int = Field(ge=0)
+    total_analyses_count: int = Field(ge=0)
+    analyses: list[MLAnalysisResponse] = Field(default_factory=list)
 
 
-class EEGChannelResponse(BaseModel):
-    id: int
-    code: str
-    description: str | None
+class ExaminationDetailResponse(ExaminationResponse):
+    """Metadata plus the current availability of ML analyses."""
+
+    analysis_status: Literal["NOT_READY", "PROCESSING", "READY"] = "NOT_READY"
+    received_analyses_count: int | None = Field(default=None, ge=0)
+    total_analyses_count: int | None = Field(default=None, ge=0)
+    analyses: list[MLAnalysisResponse] = Field(default_factory=list)

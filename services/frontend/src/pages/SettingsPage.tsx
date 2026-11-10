@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import Icon from "../components/Icon";
 import ButtonPrimary from "../components/ButtonPrimary";
 import ButtonSecondary from "../components/ButtonSecondary";
 import InputSection from "../components/InputSection";
-import { PageTitle, SectionTitle, Surface } from "../components/PageUI";
+import PageTitle from "../components/PageTitle";
+import SectionTitle from "../components/SectionTitle";
+import Surface from "../components/Surface";
 import { useAuth } from "../context/useAuth";
 import { useToast } from "../context/useToast";
 import { apiClient, getApiErrorMessage } from "../services/apiClient";
@@ -38,13 +39,7 @@ function SettingsPage() {
 
   useEffect(() => {
     localStorage.setItem("theme", theme.toLowerCase());
-    document.documentElement.dataset.theme = theme.toLowerCase();
-    document.documentElement.classList.toggle(
-      "dark",
-      theme === "Dark" ||
-        (theme === "System" &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches),
-    );
+    window.dispatchEvent(new Event("neurotrace-theme"));
   }, [theme]);
 
   const saveField = async (key: (typeof accountFields)[number]["key"]) => {
@@ -97,8 +92,7 @@ function SettingsPage() {
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)]">
           <SectionTitle>Account Details</SectionTitle>
-          <p className="mb-5 text-sm text-[#52677b]">Review and manage the profile information linked to your account.</p>
-          <div className="max-w-[600px] divide-y divide-[#dce7eb] overflow-hidden rounded-xl border border-white/80 bg-white/45 px-4">
+          <div className="max-w-[600px] divide-y divide-white overflow-hidden rounded-xl border border-white/80 bg-white/45 px-4">
             {accountFields.map(({ key, label }) => (
               <div className="grid grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] items-center gap-3 py-3 text-[13px]" key={key}>
                 <span className="font-medium text-[#52677b]">{label}</span>
@@ -119,7 +113,7 @@ function SettingsPage() {
                 )}
                 <ButtonSecondary
                   aria-label={`${editing === key ? "Save" : "Edit"} ${label}`}
-                  className="h-9 w-9 border-0 bg-transparent p-0 shadow-none"
+                  className="!min-h-0 h-9 w-9 border-0 bg-transparent p-0 shadow-none"
                   disabled={isSaving}
                   icon={editing === key ? "check" : "edit"}
                   iconOnly
@@ -133,7 +127,7 @@ function SettingsPage() {
               <strong className="text-[#102d58]">{user?.role === "admin" ? "Admin" : "Doctor"}</strong>
               <ButtonSecondary
                   aria-label={"Edit role"}
-                  className="h-9 w-9 border-0 bg-transparent p-0 shadow-none"
+                  className="!min-h-0 h-9 w-9 border-0 bg-transparent p-0 shadow-none"
                   disabled
                   icon={"edit"}
                   iconOnly
@@ -145,7 +139,6 @@ function SettingsPage() {
         </Surface>
         <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)]">
           <SectionTitle>Change Password</SectionTitle>
-          <p className="mb-4 text-sm text-[#52677b]">Use a strong password to protect your account.</p>
           <form className="grid max-w-[480px] gap-4" onSubmit={changePassword}>
             <InputSection autoComplete="current-password" label="Current password" name="current-password" onChange={(event) => setCurrentPassword(event.target.value)} required type="password" value={currentPassword} />
             <InputSection autoComplete="new-password" label="New password (at least 12 characters)" minLength={12} name="new-password" onChange={(event) => setNewPassword(event.target.value)} required type="password" value={newPassword} />
@@ -154,14 +147,23 @@ function SettingsPage() {
         </Surface>
         <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)] lg:col-span-2">
           <SectionTitle>App Settings</SectionTitle>
-          <p className="mb-5 text-sm text-[#52677b]">Personalize how NeuroTrace looks on this device.</p>
           <div className="grid gap-6 sm:grid-cols-2">
-            <label className="grid max-w-sm gap-2 text-[13px] font-semibold text-[#173456]">
-              Language
-              <select className="h-10 rounded-lg border border-[#d6e1e6] bg-white/85 px-3 font-bold text-[#09264d] outline-none transition focus:border-[#00a9c4] focus:ring-2 focus:ring-[#00b7c8]/15" onChange={(event) => setLanguage(event.target.value)} value={language}>
-                <option>English</option><option>Polski</option>
-              </select>
-            </label>
+            <fieldset>
+              <legend className="mb-2 text-[13px] font-semibold text-[#173456]">Language</legend>
+              <div className="flex flex-wrap gap-2">
+                {["English", "Polski"].map((option) => (
+                  <ButtonSecondary
+                    aria-pressed={language === option}
+                    className={language === option ? "border-[#9adce3] bg-[#e8f8fa] text-[#07516a]" : ""}
+                    key={option}
+                    onClick={() => setLanguage(option)}
+                    type="button"
+                  >
+                    {option}
+                  </ButtonSecondary>
+                ))}
+              </div>
+              </fieldset>
             <fieldset>
               <legend className="mb-2 text-[13px] font-semibold text-[#173456]">Color theme</legend>
               <div className="flex flex-wrap gap-2">

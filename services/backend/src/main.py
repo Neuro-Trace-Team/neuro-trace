@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from collections.abc import Iterable
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
@@ -8,38 +10,48 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.api.v1.admin import router as admin_router
-from src.api.v1.analyses import router as analyses_router
 from src.api.v1.auth import router as auth_router
 from src.api.v1.bulk import router as bulk_router
-from src.api.v1.dashboard import admin_router as admin_dashboard_router
-from src.api.v1.dashboard import router as dashboard_router
 from src.api.v1.examinations import router as examinations_router
-from src.api.v1.internal import analysis_router as internal_analysis_router
-from src.api.v1.internal import router as internal_router
 from src.api.v1.patients import router as patients_router
-from src.api.v1.pain_assessments import router as pain_assessments_router
-from src.api.v1.preprocessing_jobs import router as preprocessing_jobs_router
+from src.api.v1.recent import router as recent_router
+from src.api.v1.storage import router as storage_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
+from src.messaging.ml_completion_consumer import MLCompletionConsumer
 from src.services.storage import ObjectStorageError, RustFSStorage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="NeuroTrace Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    consumer = MLCompletionConsumer(
+        queue_url=sessions.settings.rabbitmq_url,
+        queue_name=sessions.settings.completed_analysis_queue_name,
+        session_factory=sessions.MedicalSession,
+    )
+    consumer_task = asyncio.create_task(consumer.run())
+    try:
+        yield
+    finally:
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            pass
+        await consumer.close()
+
+
+app = FastAPI(title="NeuroTrace Backend", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
-app.include_router(dashboard_router, prefix="/api/v1")
-app.include_router(admin_dashboard_router, prefix="/api/v1")
 app.include_router(patients_router, prefix="/api/v1")
+app.include_router(recent_router, prefix="/api/v1")
+app.include_router(storage_router, prefix="/api/v1")
 app.include_router(examinations_router, prefix="/api/v1")
 app.include_router(bulk_router, prefix="/api/v1")
-app.include_router(preprocessing_jobs_router, prefix="/api/v1")
-app.include_router(analyses_router, prefix="/api/v1")
-app.include_router(pain_assessments_router, prefix="/api/v1")
-app.include_router(internal_router, prefix="/api/v1")
-app.include_router(internal_analysis_router, prefix="/api/v1")
 
 
 @app.get("/health/live", tags=["health"])
