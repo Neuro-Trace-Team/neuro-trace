@@ -28,7 +28,7 @@ def clean_databases():
 def api(monkeypatch):
     monkeypatch.setattr(PreprocessingClient, "request", lambda self, examination_id, storage_bucket, storage_key, timestamps: None)
     monkeypatch.setattr(PreprocessingClient, "status", lambda self, examination_id: {"examination_id": str(examination_id), "status": "COMPLETED"})
-    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 1, "time_stamp": 12.5, "result": 6.4, "confidence": 0.91}]})
+    monkeypatch.setattr(MLClient, "results", lambda self, examination_id: {"status": "READY", "examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 1, "time_stamp": 12.5, "result": 6.4, "confidence": 0.91}]})
     with sessions.AuthSession() as db:
         db.add_all([User(email="admin@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Admin", last_name="User", role="ADMIN", is_active=True), User(email="doctor@integration.local", password_hash=hash_password("IntegrationPassword123!"), first_name="Doctor", last_name="User", role="DOCTOR", is_active=True)]); db.commit()
     with TestClient(app) as client: yield client

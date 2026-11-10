@@ -47,9 +47,13 @@ examination have been persisted:
 
 The backend consumer changes the matching non-deleted examination to
 `status: READY`. `GET /api/v1/examinations/{id}` always returns the status and
-returns an empty `analyses` list while processing. When ready, it reads ML
-analyses and includes them in the examination details. The list endpoint does
-not call ML. `GET /api/v1/examinations/{id}/results` returns `409` until ready.
+the ML-specific `analysis_status`: `NOT_READY`, `PROCESSING`, or `READY`.
+If ML answers `202 {"status":"processing","received":...,"expected":...}`
+despite a `READY` examination, the detail endpoint remains available and
+returns an empty `analyses` list with the received and expected counts. The
+list endpoint does not call ML. `GET /api/v1/examinations/{id}/results` returns
+`409` until the examination is ready, `202` with the same progress contract
+while ML is still processing, and `200` with analyses when complete.
 
 The frontend obtains the allowed values from `GET /api/v1/examinations/statuses`:
 

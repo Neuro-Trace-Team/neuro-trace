@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -53,7 +54,20 @@ class ExaminationResultsResponse(BaseModel):
     analyses: list[MLAnalysisResponse]
 
 
+class ExaminationResultsProcessingResponse(BaseModel):
+    """ML has accepted the examination but has not produced every analysis yet."""
+
+    examination_id: UUID
+    status: Literal["PROCESSING"]
+    received_analyses_count: int = Field(ge=0)
+    total_analyses_count: int = Field(ge=0)
+    analyses: list[MLAnalysisResponse] = Field(default_factory=list)
+
+
 class ExaminationDetailResponse(ExaminationResponse):
-    """Metadata plus per-analysis ML results when the examination is READY."""
+    """Metadata plus the current availability of ML analyses."""
+
+    analysis_status: Literal["NOT_READY", "PROCESSING", "READY"] = "NOT_READY"
+    received_analyses_count: int | None = Field(default=None, ge=0)
     total_analyses_count: int | None = Field(default=None, ge=0)
     analyses: list[MLAnalysisResponse] = Field(default_factory=list)

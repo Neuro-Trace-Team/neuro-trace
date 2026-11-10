@@ -4,7 +4,10 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from fastapi import Response
 
+from src.api.v1 import examinations as examination_api
+from src.models.medical import ExaminationStatus
 from src.services import ml, preprocessing
 from src.services.storage import RustFSStorage
 
@@ -62,9 +65,59 @@ def test_ml_results_validates_contract(monkeypatch, examination_id) -> None:
         return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 12.5, "result": 6.4, "confidence": None}]}, request=httpx.Request("GET", url))
     monkeypatch.setattr(ml.httpx, "get", get)
     results = ml.MLClient().results(examination_id)
+    assert results["status"] == "READY"
     assert results["total_analyses_count"] == 1
     assert results["analyses"][0] == {"analysis_id": 7, "time_stamp": 12.5, "result": 6.4, "confidence": None}
     assert captured["url"] == f"http://ml.test/examinations/{examination_id}/analyses"
+
+
+def test_ml_results_maps_accepted_response_to_processing_state(monkeypatch, examination_id) -> None:
+    monkeypatch.setattr(ml, "get_settings", lambda: SimpleNamespace(ml_url="http://ml.test", service_timeout_seconds=1))
+    response = httpx.Response(
+        202,
+        json={"status": "processing", "received": 0, "expected": 3},
+        request=httpx.Request("GET", "http://ml.test"),
+    )
+    monkeypatch.setattr(ml.httpx, "get", lambda *args, **kwargs: response)
+
+    assert ml.MLClient().results(examination_id) == {
+        "status": "PROCESSING",
+        "examination_id": str(examination_id),
+        "received_analyses_count": 0,
+        "total_analyses_count": 3,
+        "analyses": [],
+    }
+
+
+def test_results_endpoint_returns_202_when_ready_examination_is_still_processing(monkeypatch, examination_id) -> None:
+    monkeypatch.setattr(
+        examination_api.service,
+        "get_examination",
+        lambda *_: SimpleNamespace(status=ExaminationStatus.READY),
+    )
+    monkeypatch.setattr(
+        examination_api.MLClient,
+        "results",
+        lambda *_: {
+            "status": "PROCESSING",
+            "examination_id": str(examination_id),
+            "received_analyses_count": 0,
+            "total_analyses_count": 3,
+            "analyses": [],
+        },
+    )
+    response = Response()
+
+    payload = examination_api.results(examination_id, response, MagicMock(), MagicMock())
+
+    assert response.status_code == 202
+    assert payload.model_dump(mode="json") == {
+        "examination_id": str(examination_id),
+        "status": "PROCESSING",
+        "received_analyses_count": 0,
+        "total_analyses_count": 3,
+        "analyses": [],
+    }
 
 
 def test_rustfs_usage_sums_all_object_listing_pages() -> None:

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 from src.api.deps import get_current_user
 from src.db.sessions import get_audit_db, get_medical_db
@@ -22,9 +22,20 @@ router = APIRouter(prefix="/examinations", tags=["examinations"])
 def ip(r: Request): return r.client.host if r.client else None
 def exam(v: Examination): return ExaminationResponse.model_validate(v, from_attributes=True)
 def detail(v: Examination, ml_results: dict | None = None):
+    analysis_status = "NOT_READY"
+    received_analyses_count = None
+    total_analyses_count = None
+    analyses = []
+    if ml_results is not None:
+        analysis_status = ml_results["status"]
+        received_analyses_count = ml_results.get("received_analyses_count")
+        total_analyses_count = ml_results["total_analyses_count"]
+        analyses = ml_results["analyses"]
     return ExaminationDetailResponse.model_validate(exam(v).model_dump() | {
-        "total_analyses_count": ml_results["total_analyses_count"] if ml_results else None,
-        "analyses": ml_results["analyses"] if ml_results else [],
+        "analysis_status": analysis_status,
+        "received_analyses_count": received_analyses_count,
+        "total_analyses_count": total_analyses_count,
+        "analyses": analyses,
     })
 
 
@@ -106,12 +117,25 @@ def preprocessing_status(examination_id: UUID, medical: Annotated[Session, Depen
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
     except PreprocessingServiceError as error: raise HTTPException(502, str(error)) from error
 
-@router.get("/{examination_id}/results", response_model=ExaminationResultsResponse)
-def results(examination_id: UUID, medical: Annotated[Session, Depends(get_medical_db)], _: Annotated[User, Depends(get_current_user)]):
+@router.get(
+    "/{examination_id}/results",
+    response_model=ExaminationResultsResponse | ExaminationResultsProcessingResponse,
+    responses={202: {"description": "ML analyses are still processing"}},
+)
+def results(
+    examination_id: UUID,
+    response: Response,
+    medical: Annotated[Session, Depends(get_medical_db)],
+    _: Annotated[User, Depends(get_current_user)],
+):
     try:
         examination = service.get_examination(medical, examination_id)
         if examination.status is not ExaminationStatus.READY:
             raise HTTPException(status.HTTP_409_CONFLICT, "ML analyses are not ready")
-        return ExaminationResultsResponse.model_validate(MLClient().results(examination_id))
+        ml_results = MLClient().results(examination_id)
+        if ml_results["status"] == "PROCESSING":
+            response.status_code = status.HTTP_202_ACCEPTED
+            return ExaminationResultsProcessingResponse.model_validate(ml_results)
+        return ExaminationResultsResponse.model_validate(ml_results)
     except service.ExaminationNotFoundError: raise HTTPException(404, "Examination not found") from None
     except MLServiceError as error: raise HTTPException(502, str(error)) from error
