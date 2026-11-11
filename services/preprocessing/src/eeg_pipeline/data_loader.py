@@ -1,5 +1,5 @@
 from __future__ import annotations
-import csv
+import json
 import logging
 import math
 import shutil
@@ -25,31 +25,31 @@ def _find_eeg_file(directory: Path) -> Optional[Path]:
     return sorted(files)[0] if files else None
 
 def _read_event_onsets(directory: Path) -> list[float]:
-    """Read event onset times, in seconds, from the recording's events.csv."""
-    path = directory / "events.csv"
+    """Read millisecond timestamps from events.json and return seconds."""
+    path = directory / "events.json"
     if not path.is_file():
-        raise FileNotFoundError(f"Missing events.csv in {directory}")
+        raise FileNotFoundError(f"Missing events.json in {directory}")
     try:
-        with path.open(newline="", encoding="utf-8-sig") as stream:
-            reader = csv.DictReader(stream)
-            if not reader.fieldnames or "onset" not in {name.strip().lower() for name in reader.fieldnames}:
-                raise ValueError(f"events.csv must contain an 'onset' column: {path}")
-            onset_name = next(name for name in reader.fieldnames if name.strip().lower() == "onset")
-            onsets = []
-            for row_number, row in enumerate(reader, start=2):
-                value = row.get(onset_name, "")
-                if value is None or not value.strip():
-                    continue
-                try:
-                    onset = float(value)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError(f"Invalid onset at row {row_number} in {path}: {value!r}") from exc
-                if not math.isfinite(onset) or onset < 0:
-                    raise ValueError(f"Invalid onset at row {row_number} in {path}: {value!r}")
-                onsets.append(onset)
-            return onsets
+        with path.open(encoding="utf-8-sig") as stream:
+            values = json.load(stream)
     except OSError as exc:
         raise OSError(f"Could not read {path}: {exc}") from exc
+    if isinstance(values, dict):
+        values = values.get("timestamps")
+    if not isinstance(values, list):
+        raise ValueError(f"events.json must contain a list of timestamps: {path}")
+    onsets = []
+    for index, value in enumerate(values):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Invalid onset at index {index} in {path}: {value!r}")
+        try:
+            onset = float(value)
+        except (ValueError, OverflowError) as exc:
+            raise ValueError(f"Invalid onset at index {index} in {path}: {value!r}") from exc
+        if not math.isfinite(onset) or onset < 0:
+            raise ValueError(f"Invalid onset at index {index} in {path}: {value!r}")
+        onsets.append(onset / 1000.0)
+    return onsets
 
 def _validate_bdf_metadata(raw, eeg_path: Path) -> None:
     """Ensure all metadata needed by preprocessing comes from the BDF/MNE object."""
@@ -107,7 +107,7 @@ def load_recording(directory: str | Path, preload: bool = False) -> Recording:
             import pandas as pd
             ratings = pd.read_csv(ratings_path)
         except Exception as exc: LOGGER.warning("Could not read pain ratings: %s", exc)
-    recording = Recording(eeg_path, raw, {"events_csv": str(directory / "events.csv")}, events, ratings)
+    recording = Recording(eeg_path, raw, {"events_json": str(directory / "events.json")}, events, ratings)
     return recording
 
 def iter_recording_dirs(input_root: str | Path, experiment: Optional[str] = None, subject: Optional[str] = None):
