@@ -44,8 +44,19 @@ class MLClient:
                 or not _is_non_boolean_int(analysis.get("analysis_id"))
                 or not isinstance(analysis.get("time_stamp"), (int, float))
                 or isinstance(analysis["time_stamp"], bool)
-                or not isinstance(analysis.get("result"), (int, float))
-                or isinstance(analysis["result"], bool)
+                or not isinstance(analysis.get("is_valid"), bool)
+                or "result" not in analysis
+                or (
+                    analysis["result"] is not None
+                    and (
+                        not isinstance(analysis["result"], (int, float))
+                        or isinstance(analysis["result"], bool)
+                    )
+                )
+                or (
+                    analysis.get("invalid_reason") is not None
+                    and not isinstance(analysis["invalid_reason"], str)
+                )
                 or (
                     analysis.get("confidence") is not None
                     and (

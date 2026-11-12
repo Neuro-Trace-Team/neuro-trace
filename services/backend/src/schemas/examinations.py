@@ -44,8 +44,10 @@ class PreprocessingStatusResponse(BaseModel):
 class MLAnalysisResponse(BaseModel):
     analysis_id: int
     time_stamp: str = Field(pattern=r"^[0-9]{2}:[0-5][0-9]:[0-5][0-9]:[0-9]{3}$")
-    result: float
+    is_valid: bool
+    result: float | None
     confidence: float | None = Field(default=None, ge=0, le=1)
+    invalid_reason: str | None = None
 
 
 class ExaminationResultsResponse(BaseModel):
