@@ -7,7 +7,7 @@ from infrastructure.repositories.sql_alchemy_analysis_repository import SqlAlche
 import pytest
 
 
-def make_row(analysis_id=1, exam_id=None, ts=1.0, result=0.5, conf=0.9, count=1):
+def make_row(analysis_id=1, exam_id=None, ts=1.0, result=0.5, conf=0.9, count=1, valid=True, invalid_reason=None):
     return AnalysisRow(
         analysis_id=analysis_id,
         examination_id=exam_id or uuid4(),
@@ -15,6 +15,8 @@ def make_row(analysis_id=1, exam_id=None, ts=1.0, result=0.5, conf=0.9, count=1)
         result=result,
         confidence=conf,
         total_analyses_count=count,
+        is_valid=valid,
+        invalid_reason=invalid_reason
     )
 
 
