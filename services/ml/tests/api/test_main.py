@@ -3,7 +3,6 @@ import json
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from infrastructure.services.features import FEATURE_NAMES
 import pytest
 
 from api.main import _log_consumer_exit, app, healthz, info, lifespan, readyz
@@ -11,6 +10,10 @@ from core.config import settings
 from infrastructure.repositories.sql_alchemy_analysis_repository import (
     SqlAlchemyAnalysisRepository,
 )
+
+from tests.conftest import TEST_FEATURES
+
+
 
 
 def make_engine(execute_side_effect=None):
@@ -211,11 +214,6 @@ async def test_lifespan_cancels_running_consumer_on_shutdown(
     mock_consumer.close.assert_awaited_once()
     mock_publisher.close.assert_awaited_once()
     mock_create_engine.return_value.dispose.assert_awaited_once()
-
-
-def test_module_predictor_is_configured_with_feature_names():
-    from api.main import predictor
-    assert predictor.feature_names == FEATURE_NAMES          # bug 1
 
 
 @pytest.mark.asyncio

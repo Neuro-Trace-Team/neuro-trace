@@ -16,12 +16,13 @@ import sklearn
 logger = logging.getLogger(__name__)
 
 class SklearnPredictor(IPredictor):
-    def __init__(self, model_path: str | None = None, feature_names: Sequence[str] | None = None):
+    def __init__(self, model_path: str | None = None, feature_names: Sequence[str] | None = None, require_feature_names: bool = False):
         self.model_path = model_path
         self.feature_names = list(feature_names) if feature_names else None
         self.model = None
         self._artifact_sha256: str | None = None
         self._metadata: dict[str, Any] = {}
+        self.require_feature_names = require_feature_names
 
     def load_model(self) -> None:
         """Loads a pre-trained scikit-learn model from the disk."""
@@ -88,12 +89,12 @@ class SklearnPredictor(IPredictor):
 
         trained = getattr(self.model, "feature_names_in_", None)
         if trained is not None:
-            trained = list(trained)
+            trained = [str(n) for n in trained]
             if self.feature_names is None:
                 self.feature_names = trained
             elif trained != self.feature_names:
                 raise RuntimeError(
-                    "Configured FEATURE_NAMES differ from the model's feature_names_in_ "
+                    "Configured feature names differ from the model's feature_names_in_ "
                     "(order or content). Model expects %d, "
                     "config has %d." % (len(trained), len(self.feature_names))
                 )
@@ -102,6 +103,11 @@ class SklearnPredictor(IPredictor):
                 and n_expected != len(self.feature_names):
             raise RuntimeError(
                 "Model expects %d features, config has %d." % (n_expected, len(self.feature_names))
+            )
+
+        if self.require_feature_names and not self.feature_names:
+            raise RuntimeError(
+                "Model does not record feature_names_in_; refit it on a DataFrame."
             )
         logger.info("Model loaded with %d expected features.", len(self.feature_names or []))
 

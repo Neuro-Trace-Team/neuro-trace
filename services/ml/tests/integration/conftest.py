@@ -6,7 +6,7 @@ from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from infrastructure.db.session import create_engine, create_session_factory
 
-from common import find_project_root
+from tests.common import find_project_root
 
 INIT_SQL = find_project_root() / "database" / "model" / "init.sql"
 
