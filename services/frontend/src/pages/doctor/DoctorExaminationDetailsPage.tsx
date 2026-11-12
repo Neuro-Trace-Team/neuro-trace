@@ -10,7 +10,12 @@ import { apiClient, getApiErrorMessage } from "../../services/apiClient";
 import { formatExaminationDate } from "../../services/api";
 import type { Examination, PaginatedResponse } from "../../types/api.types";
 
-type Analysis = { analysis_id: number; time_stamp: string; result: number | string; confidence: number | string | null };
+type Analysis = { analysis_id: number; time_stamp: string; is_valid: boolean; result: number | string | null; confidence: number | string | null; invalid_reason: string | null };
+
+function formatPainLevel(value: number | string | null) {
+  if (value === null || value === "" || !Number.isFinite(Number(value))) return "Unavailable";
+  return Number(value).toFixed(2);
+}
 type Results = { examination_id: string; total_analyses_count: number | null; analyses: Analysis[] };
 type HistoryItem = { id: string; examination_date: string | null };
 
@@ -82,7 +87,7 @@ function ModelEvaluation({ id }: { id: string }) {
   };
 
   const analysis = results?.analyses.find((item) => item.analysis_id === selected);
-  const painLevel = analysis ? Number(analysis.result) : NaN;
+  const painLevel = analysis?.result != null && analysis.result !== "" ? Number(analysis.result) : NaN;
   const hasPainLevel = Number.isFinite(painLevel) && painLevel >= 0 && painLevel <= 10;
 
   return (
@@ -105,19 +110,19 @@ function ModelEvaluation({ id }: { id: string }) {
               <div aria-label="Analyses" className="max-h-56 space-y-1 overflow-y-auto pr-1">
                 {results.analyses.map((item) => (
                   <button aria-pressed={item.analysis_id === selected} className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm text-[#102d58] transition-colors focus-visible:outline-2 focus-visible:outline-[#00a9c4] ${item.analysis_id === selected ? "border-white bg-white/80 shadow-md" : "border-white bg-white/20 hover:bg-white/60"}`} key={item.analysis_id} onClick={() => setSelected(item.analysis_id)} type="button">
-                    <span>{item.time_stamp}</span><strong>{item.result}</strong>
+                    <span>{item.time_stamp}</span><strong className={item.is_valid ? "" : "text-red-700"}>{item.is_valid ? formatPainLevel(item.result) : "Failed"}</strong>
                   </button>
                 ))}
               </div>
-              {analysis && <div className="flex min-w-0 flex-col justify-center py-3">
-                {hasPainLevel ? <>
+              {analysis && <div className="flex min-w-0 flex-col justify-top">
+                {!analysis.is_valid ? <div className="rounded-lg p-4 text-sm text-red-800" role="alert"><strong className="block">Analysis failed</strong><p className="mt-1">{analysis.invalid_reason || "No reason was provided."}</p></div> : hasPainLevel ? <>
                   <div aria-label={`Pain level ${painLevel} out of 10`} className="relative h-5 rounded-full bg-gradient-to-r from-[#8de2cb] via-[#e8df9d] to-[#a8393e]">
                     <span aria-hidden="true" className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-white/0 via-white/35 to-white/90" style={{ width: `${painLevel * 10}%` }} />
                     <span aria-hidden="true" className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_5px_2px_rgba(255,255,255,0.95),0_0_13px_5px_rgba(255,255,255,0.6)]" style={{ left: `${painLevel * 10}%` }} />
                   </div>
                   <div aria-hidden="true" className="mt-2 flex justify-between text-xs text-[#173456]">{Array.from({ length: 11 }, (_, index) => <span className={index === painLevel ? "font-bold text-[#009bb4]" : ""} key={index}>{index}</span>)}</div>
                 </> : <p className="text-sm text-[#52677b]">Result: {analysis.result} (outside the displayed 0–10 scale)</p>}
-                <p className="mt-7 text-right text-lg text-[#102d58]">Confidence: <strong>{Math.round(Number(analysis.confidence) * 100)}%</strong></p>
+                {analysis.is_valid && <p className="mt-7 text-right text-lg text-[#102d58]">Confidence: <strong>{analysis.confidence == null ? "Unavailable" : `${Math.round(Number(analysis.confidence) * 100)}%`}</strong></p>}
               </div>}
             </div>
           )}
