@@ -61,11 +61,10 @@ class SklearnPredictor(IPredictor):
             X = np.array(features, dtype=float)
             if X.ndim == 1:
                 X = X.reshape(1, -1)
-            # # The commented code below is probably redundant
-            # if self.feature_names and X.shape[1] != len(self.feature_names):
-            #     raise FeatureValidationError(
-            #         "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
-            #     )
+            if self.feature_names and X.shape[1] != len(self.feature_names):
+                raise FeatureValidationError(
+                    "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
+                )
 
         prediction = self.model.predict(X)
         probabilities = (
