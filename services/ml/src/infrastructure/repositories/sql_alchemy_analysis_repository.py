@@ -9,7 +9,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 def _to_domain(r: AnalysisRow) -> Analysis:
     return Analysis(r.analysis_id, r.examination_id, r.event_timestamp,
-                    r.result, r.confidence, r.total_analyses_count)
+                    r.result, r.confidence, r.total_analyses_count, 
+                    r.is_valid, r.invalid_reason)
 
 class SqlAlchemyAnalysisRepository(IAnalysisRepository):
     def __init__(self, session: AsyncSession):
@@ -24,6 +25,8 @@ class SqlAlchemyAnalysisRepository(IAnalysisRepository):
                 result=analysis.result,
                 confidence=analysis.confidence,
                 total_analyses_count=analysis.total_analyses_count,
+                is_valid=analysis.is_valid,
+                invalid_reason=analysis.invalid_reason,
             )
             .on_conflict_do_nothing(index_elements=["examination_id", "event_timestamp"])
             .returning(AnalysisRow)

@@ -1,6 +1,8 @@
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 import logging
+import math
 from typing import Any, Dict
 from uuid import UUID
 
@@ -10,10 +12,18 @@ from domain.services.ieventpublisher import IEventPublisher
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from infrastructure.event_handlers.ievent_handler import IEventHandler
-from domain.services.ipredictor import IPredictor
+from domain.services.ipredictor import FeatureValidationError, IPredictor
 
+
+@dataclass(frozen=True)
+class Evaluation:
+    result: float | None = None
+    confidence: float | None = None
+    invalid_reason: str | None = None
 
 RepositoryFactory = Callable[[AsyncSession], IAnalysisRepository]
+
+RESULT_MIN, RESULT_MAX = 0.0, 10.0
 
 METADATA_KEYS = frozenset({
     "experiment_id", "subject_id", "recording_id", "window_id",
@@ -40,7 +50,6 @@ class PredictionEventHandler(IEventHandler):
     async def handle(self, payload: Dict[str, Any]) -> None:
         """Handles the incoming combined EEG features message."""
 
-        # TODO: VERIFY HOW IS THE JSON GONNA LOOK AND WHAT CAN I USE
         experiment_id = payload.get("experiment_id")
         subject_id = payload.get("subject_id")
         recording_id = payload.get("recording_id")
@@ -52,19 +61,19 @@ class PredictionEventHandler(IEventHandler):
         )
 
         try:
-            examination_id = UUID(str(self._require(payload, "examination_id")))
-            event_timestamp = float(self._require(payload, "event_time_s"))
-            total = int(self._require(payload, "total_analyses_count"))
-
+            examination_id, event_timestamp, total = self._parse_envelope(payload)
             feature_payload = {k: v for k, v in payload.items() if k not in METADATA_KEYS}
-            result = await asyncio.to_thread(self.predictor.predict, feature_payload)
+            
+            evaluation = await self._evaluate(feature_payload)
 
             new = NewAnalysis(
                 examination_id=examination_id,
                 event_timestamp=event_timestamp,
-                result=self._extract_result(result),
-                confidence=self._extract_confidence(result),
+                result=evaluation.result,
+                confidence=evaluation.confidence,
                 total_analyses_count=total,
+                is_valid=evaluation.invalid_reason is None,
+                invalid_reason=evaluation.invalid_reason,
             )
 
             async with self.session_factory() as session, session.begin():
@@ -72,6 +81,14 @@ class PredictionEventHandler(IEventHandler):
                 await repo.lock_examination(examination_id)
                 saved = await repo.add(new)
                 received = await repo.count_for_examination(examination_id)
+
+                if (saved.total_analyses_count, saved.is_valid) != (new.total_analyses_count, new.is_valid):
+                    logger.warning(
+                        "Conflicting duplicate for examination %s at t=%s: stored total=%s valid=%s, "
+                        "received total=%s valid=%s; keeping the stored row",
+                        examination_id, event_timestamp, saved.total_analyses_count, saved.is_valid,
+                        new.total_analyses_count, new.is_valid,
+                    )
 
             if received >= saved.total_analyses_count:
                 await self.event_publisher.publish(
@@ -88,6 +105,59 @@ class PredictionEventHandler(IEventHandler):
         except Exception:
             logger.exception(f"Failed to process prediction for Recording {recording_id}")
             raise
+
+    @staticmethod
+    def _parse_envelope(payload) -> tuple[UUID, float, int]:
+        require = PredictionEventHandler._require
+        examination_id = UUID(str(require(payload, "examination_id")))
+
+        event_timestamp = float(require(payload, "event_time_s"))
+        if not math.isfinite(event_timestamp) or event_timestamp < 0:
+            raise ValueError("event_time_s must be a finite, non-negative number")
+        
+        total = int(require(payload, "total_analyses_count"))
+        if total < 1:
+            raise ValueError("total_analyses_count must be >= 1")
+        
+        return examination_id, event_timestamp, total
+
+    async def _evaluate(self, features: dict[str, Any]) -> Evaluation:
+        """Never raises: any failure becomes an invalid analysis, so the examination can complete."""
+        try:
+            prediction = await asyncio.to_thread(self.predictor.predict, features)
+        except FeatureValidationError as e:
+            logger.warning("Invalid input features: %s", e)
+            return Evaluation(invalid_reason=self._describe(e))
+        except Exception:
+            logger.exception("Prediction failed")
+            return Evaluation(invalid_reason="prediction_failed")
+
+        try:
+            result = self._extract_result(prediction)
+            confidence = self._extract_confidence(prediction)
+        except (KeyError, IndexError, TypeError, ValueError):
+            logger.exception("Unusable model output: %r", prediction)
+            return Evaluation(invalid_reason="unusable_model_output")
+
+        if not RESULT_MIN <= result <= RESULT_MAX:
+            return Evaluation(invalid_reason=f"result_out_of_range: {result}")
+        if confidence is not None and not 0.0 <= confidence <= 1.0:
+            logger.warning("Dropping out-of-range confidence %r", confidence)
+            confidence = None
+        return Evaluation(result, confidence)
+
+    @staticmethod
+    def _describe(error: FeatureValidationError) -> str:
+        def preview(names, limit=10):
+            extra = f" (+{len(names) - limit} more)" if len(names) > limit else ""
+            return ", ".join(names[:limit]) + extra
+
+        parts = []
+        if error.missing:
+            parts.append(f"missing_features: {preview(error.missing)}")
+        if error.invalid:
+            parts.append(f"invalid_feature_values: {preview(error.invalid)}")
+        return "; ".join(parts) or "feature_validation_failed"
 
     @staticmethod
     def _require(payload: Dict[str, Any], key: str) -> Any:

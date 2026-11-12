@@ -1,16 +1,17 @@
+import hashlib
+import json
 import logging
 import math
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 import joblib
 import numpy as np
 import pandas as pd
 
-from domain.services.ipredictor import IPredictor
-
-class FeatureValidationError(ValueError):
-    pass
+from domain.services.ipredictor import FeatureValidationError, IPredictor
+import sklearn
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class SklearnPredictor(IPredictor):
         self.model_path = model_path
         self.feature_names = list(feature_names) if feature_names else None
         self.model = None
+        self._artifact_sha256: str | None = None
+        self._metadata: dict[str, Any] = {}
 
     def load_model(self) -> None:
         """Loads a pre-trained scikit-learn model from the disk."""
@@ -33,12 +36,18 @@ class SklearnPredictor(IPredictor):
                 raise RuntimeError(
                     f"{self.model_path} is a Git LFS pointer, not the model. Run `git lfs pull`."
                 )
+
+        self._artifact_sha256 = self._read_digest()
+
         
         logger.info("Loading scikit-learn model from %s...", self.model_path)
         self.model = joblib.load(self.model_path)
+        self._check_model()
         logger.info("Scikit-learn model successfully loaded into memory.")
 
-        self._check_model()
+        logger.info("Reading model metadata...")
+        
+        self._metadata = self._read_metadata()
 
     def predict(self, features: List[float] | Dict[str, Any] | List[List[float]]) -> Dict[str, Any]:
         if self.model is None:
@@ -46,16 +55,17 @@ class SklearnPredictor(IPredictor):
 
         if isinstance(features, dict):
             if not self.feature_names:
-                raise FeatureValidationError("feature_names are not configured; cannot build a frame from a dict")
+                raise RuntimeError("feature_names are not configured; cannot build a frame from a dict")
             X = self._build_frame(features)
         else:
             X = np.array(features, dtype=float)
             if X.ndim == 1:
                 X = X.reshape(1, -1)
-            if self.feature_names and X.shape[1] != len(self.feature_names):
-                raise FeatureValidationError(
-                    "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
-                )
+            # # The commented code below is probably redundant
+            # if self.feature_names and X.shape[1] != len(self.feature_names):
+            #     raise FeatureValidationError(
+            #         "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
+            #     )
 
         prediction = self.model.predict(X)
         probabilities = (
@@ -100,7 +110,7 @@ class SklearnPredictor(IPredictor):
         names = self.feature_names
         missing = [n for n in names if n not in features]
         if missing:
-            raise FeatureValidationError("Missing %d features: %s" % (len(missing), missing))
+            raise FeatureValidationError(f"Missing {len(missing)} features: {missing}", missing=missing)
 
         extra = set(features) - set(names)
         if extra:
@@ -119,6 +129,43 @@ class SklearnPredictor(IPredictor):
                 bad.append(k)
             row[k] = f
         if bad:
-            raise FeatureValidationError("Non-numeric/NaN/inf values for: %s" % bad)
+            raise FeatureValidationError(f"Non-numeric/NaN/inf values for: {bad}", invalid=bad)
 
         return pd.DataFrame([row], columns=names)
+
+    def _read_digest(self) -> str:
+        """One pass: reject a Git LFS pointer, and hash the artifact."""
+        sha = hashlib.sha256()
+        with open(self.model_path, "rb") as f:
+            head = f.read(24)
+            if head.startswith(b"version https://git-lfs"):
+                raise RuntimeError(f"{self.model_path} is a Git LFS pointer, not the model. Run `git lfs pull`.")
+            sha.update(head)
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                sha.update(chunk)
+        return sha.hexdigest()
+
+    def _read_metadata(self) -> dict[str, Any]:
+        path = Path(self.model_path).with_suffix(".meta.json")
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            logger.warning("Ignoring unreadable model metadata at %s", path, exc_info=True)
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def model_info(self) -> dict[str, Any]:
+        if self.model is None:
+            return {"loaded": False}
+        return {
+            "loaded": True,
+            "estimator": type(self.model).__name__,
+            "n_features": len(self.feature_names) if self.feature_names
+                        else getattr(self.model, "n_features_in_", None),
+            "has_probabilities": hasattr(self.model, "predict_proba"),
+            "sklearn_version": sklearn.__version__,
+            "artifact_sha256": self._artifact_sha256,
+            "metadata": self._metadata,
+        }

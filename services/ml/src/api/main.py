@@ -107,7 +107,8 @@ async def _ping_db(engine) -> None:
 @app.get("/info")
 async def info():
     return {
-        "app_name": settings.app_name, 
+        "app_name": settings.app_name,
+        "model": predictor.model_info() 
     }
 
 @app.get("/healthz")

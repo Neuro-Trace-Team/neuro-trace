@@ -1,0 +1,7 @@
+{
+  "version": "<release tag or date>",
+  "target": "<what the model predicts>",
+  "trained_on_tasks": ["<task>"],
+  "trained_with_sklearn": "<x.y.z>",
+  "cv_within_intensity_subject_r": "<value from your old bundle>"
+}
