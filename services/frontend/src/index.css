@@ -68,3 +68,11 @@ body {
   .app-background-ellipse--top { top: -18%; left: -65%; }
   .app-background-ellipse--bottom { right: -80%; bottom: -10%; }
 }
+
+/* Scrollbars share the application palette in both directions. */
+* { scrollbar-width: thin; scrollbar-color: #69aebc #e3f0f2; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: #e3f0f2; border-radius: 999px; }
+*::-webkit-scrollbar-thumb { background: #69aebc; border: 2px solid #e3f0f2; border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: #338a9b; }
+*::-webkit-scrollbar-corner { background: #e3f0f2; }

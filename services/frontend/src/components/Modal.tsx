@@ -90,7 +90,7 @@ export default function Modal({
           </div>
           <ButtonSecondary
             aria-label={closeLabel}
-            className="border-0 bg-transparent text-white shadow-none hover:bg-white/15 hover:text-white focus-visible:ring-white"
+            className="!border-white/40 !bg-white/90 !text-[#173456] shadow-none hover:!bg-white focus-visible:ring-white"
             icon="close"
             iconOnly
             onClick={() => onCloseRef.current()}

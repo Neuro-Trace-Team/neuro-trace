@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useState, type DragEvent, type FormEvent } from "react";
 import Icon from "../../components/Icon";
 import ButtonPrimary from "../../components/ButtonPrimary";
@@ -16,6 +17,7 @@ import GlassPane from "../../components/GlassPane";
 const supportedExtensions = [".edf", ".bdf"];
 
 function DoctorNewExaminationPage() {
+  const navigate = useNavigate();
   const [newPatient, setNewPatient] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [artifactIds, setArtifactIds] = useState<number[]>([]);
@@ -88,6 +90,7 @@ function DoctorNewExaminationPage() {
       setNewPatient(false);
 
       showToast(`Examination ${examination.id} uploaded (${examination.status}). Preprocessing was requested.`, "success");
+      navigate(`/doctor/examinations/${examination.id}`);
     } catch (submitError) {
       showToast(`${getApiErrorMessage(submitError, "Could not upload the examination.")} The examination may already have been saved. Check the examination list before retrying.`, "error");
     } finally {

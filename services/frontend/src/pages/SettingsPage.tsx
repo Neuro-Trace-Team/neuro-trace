@@ -25,6 +25,7 @@ function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const displayAppSettings = false; // Set to true to display app settings
   const { showToast } = useToast();
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -145,6 +146,7 @@ function SettingsPage() {
             <ButtonPrimary className="w-fit" disabled={isSaving} type="submit">Change password</ButtonPrimary>
           </form>
         </Surface>
+        {displayAppSettings && (
         <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 shadow-[0_6px_18px_rgba(8,38,76,0.09)] lg:col-span-2">
           <SectionTitle>App Settings</SectionTitle>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -181,7 +183,7 @@ function SettingsPage() {
               </div>
             </fieldset>
           </div>
-        </Surface>
+        </Surface>)}
       </div>
     </div>
   );
