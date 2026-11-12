@@ -1,7 +1,8 @@
+import hashlib
 from pathlib import Path
 from unittest.mock import patch
 
-from infrastructure.event_handlers.prediction_event_handler import METADATA_KEYS
+from infrastructure.event_handlers.prediction_event_handler import METADATA_KEYS, PredictionEventHandler
 from infrastructure.services.features import FEATURE_NAMES
 import numpy as np
 import pytest
@@ -196,7 +197,7 @@ def test_load_without_any_feature_metadata_is_allowed(load_with):
 def test_dict_without_configured_feature_names_raises_validation_error():
     p = SklearnPredictor()
     p.model = DummyModelWithProba()
-    with pytest.raises(FeatureValidationError, match="not configured"):
+    with pytest.raises(RuntimeError, match="not configured"):
         p.predict({"a": 1})
 
 
@@ -267,3 +268,30 @@ def test_load_model_rejects_lfs_pointer(tmp_path):
 
     with pytest.raises(RuntimeError, match="LFS pointer"):
         SklearnPredictor(str(pointer)).load_model()
+
+
+def test_model_info_describes_loaded_model(load_with, model_file):
+    info = load_with(NamedModel(names=["a", "b"], n=2)).model_info()
+    assert (info["estimator"], info["n_features"], info["has_probabilities"]) == ("NamedModel", 2, True)
+    assert info["artifact_sha256"] == hashlib.sha256(model_file.read_bytes()).hexdigest()
+    assert info["metadata"] == {}
+
+
+def test_model_info_includes_sidecar_metadata(load_with, model_file):
+    model_file.with_suffix(".meta.json").write_text('{"version": "v1"}')
+    assert load_with(DummyModelWithProba()).model_info()["metadata"] == {"version": "v1"}
+
+
+@pytest.mark.parametrize("content", ["{broken", "[1, 2]"])
+def test_unreadable_sidecar_is_ignored(load_with, model_file, content):
+    model_file.with_suffix(".meta.json").write_text(content)
+    assert load_with(DummyModelWithProba()).model_info()["metadata"] == {}
+
+
+def test_model_info_before_load():
+    assert SklearnPredictor().model_info() == {"loaded": False}
+
+
+def test_describe_truncates_long_feature_lists():
+    err = FeatureValidationError("x", invalid=[f"f{i}" for i in range(12)])
+    assert PredictionEventHandler._describe(err).endswith("(+2 more)")

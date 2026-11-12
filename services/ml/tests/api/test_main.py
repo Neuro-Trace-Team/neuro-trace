@@ -286,3 +286,11 @@ async def test_lifespan_disposes_engine_when_publisher_connect_fails(
     mock_consumer_class.assert_not_called()
     publisher.close.assert_awaited_once()
     mock_create_engine.return_value.dispose.assert_awaited_once()
+
+
+async def test_info_describes_model_without_leaking_the_filesystem_path(client):
+    with patch("api.main.predictor") as p:
+        p.model_info.return_value = {"loaded": True, "estimator": "X"}
+        r = await client.get("/info")
+    assert r.json() == {"app_name": settings.app_name, "model": {"loaded": True, "estimator": "X"}}
+    assert settings.model_path not in r.text

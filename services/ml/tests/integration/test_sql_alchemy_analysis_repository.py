@@ -1,27 +1,20 @@
-from pathlib import Path
 from uuid import uuid4
 
 from domain.entities.analysis import NewAnalysis
-from infrastructure.db.models import Base
+from infrastructure.db.models import AnalysisRow, Base
 from infrastructure.db.session import create_engine, create_session_factory
 from infrastructure.repositories.sql_alchemy_analysis_repository import SqlAlchemyAnalysisRepository
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from testcontainers.community.postgres import PostgresContainer
 
+from common import find_project_root
+
 pytestmark = pytest.mark.integration
 
-def find_project_root(marker="database"):
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / marker).exists():
-            return parent
-        # Stop if we hit the system root
-        if parent == parent.parent:
-            break
-    raise FileNotFoundError(f"Could not find project root containing '{marker}'")
 
 INIT_SQL = find_project_root() / "database" / "model" / "init.sql"
 
@@ -93,8 +86,46 @@ async def test_add_rejects_values_violating_check_constraints(repo, ts, confiden
     with pytest.raises(IntegrityError):
         await repo.add(NewAnalysis(uuid4(), ts, 0.5, confidence, count))
 
+
 async def test_add_accepts_missing_confidence(repo):
     saved = await repo.add(NewAnalysis(uuid4(), 1.0, 0.5, None, 1))
 
     assert saved.confidence is None
     assert await repo.get(saved.analysis_id) == saved
+
+
+async def test_invalid_analysis_roundtrips_with_null_result(repo):
+    saved = await repo.add(NewAnalysis(uuid4(), 1.0, None, None, 1, is_valid=False, invalid_reason="x"))
+    assert (saved.result, saved.is_valid) == (None, False)
+    assert await repo.get(saved.analysis_id) == saved
+
+
+@pytest.mark.parametrize("result", [0.0, 10.0])
+async def test_result_range_boundaries_are_accepted(repo, result):
+    assert (await repo.add(NewAnalysis(uuid4(), 1.0, result, None, 1))).result == result
+
+
+@pytest.mark.parametrize("result", [-0.1, 10.1])
+async def test_database_rejects_result_outside_range(repo, result):
+    with pytest.raises(IntegrityError):
+        await repo.add(NewAnalysis(uuid4(), 1.0, result, None, 1))
+
+
+async def test_database_rejects_inconsistent_validity_rows(session_factory):
+    """Backstop that doesn't depend on the Python entity."""
+    sql = text("INSERT INTO analyses (examination_id, event_timestamp, result, confidence, "
+               "total_analyses_count, is_valid, invalid_reason) "
+               "VALUES (:e, 1, 1, NULL, 1, false, 'x')")      # invalid, yet has a result
+    async with session_factory() as s:
+        with pytest.raises(IntegrityError):
+            await s.execute(sql, {"e": uuid4()})
+
+
+async def test_orm_model_matches_database_schema(engine):
+    """You've had column drift twice (time_stamp, confidence nullability); this catches it."""
+    async with engine.connect() as conn:
+        rows = (await conn.execute(text(
+            "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'analyses'"
+        ))).all()
+    assert {n: nullable == "YES" for n, nullable in rows} == \
+           {c.name: c.nullable for c in AnalysisRow.__table__.columns}

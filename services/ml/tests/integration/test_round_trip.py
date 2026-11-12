@@ -168,15 +168,12 @@ def _poison_cases():
     exam = uuid4()
     no_exam = make_event(exam, 0, 1)
     del no_exam["examination_id"]
-    missing_feature = make_event(exam, 0, 1)
-    del missing_feature[FEATURE_NAMES[0]]
     return {
         "invalid_json": b"{not json",
         "json_array": b"[1, 2, 3]",
         "unknown_event_type": make_event(exam, 0, 1, event_type="nope"),
         "missing_examination_id": no_exam,
-        "missing_feature": missing_feature,
-        "negative_timestamp_violates_check": make_event(exam, -1, 1),
+        "negative_timestamp": make_event(exam, -1, 1),
     }
 
 
@@ -193,3 +190,17 @@ async def test_poison_message_is_dropped_and_the_queue_keeps_flowing(pipeline, n
     assert len(await pipeline.rows(good_exam)) == 1
     assert await pipeline.pending_backlog() == 0
     assert await pipeline.no_more_completions()
+
+
+async def test_examination_with_an_invalid_event_still_completes(pipeline):
+    exam = uuid4()
+    bad = make_event(exam, 0, total=2)
+    bad[FEATURE_NAMES[0]] = None
+    await pipeline.send(bad)
+    await pipeline.send(make_event(exam, 1, total=2))
+
+    await pipeline.next_completion()
+
+    rows = await pipeline.rows(exam)
+    assert [(r.is_valid, r.result) for r in rows] == [(False, None), (True, 1.0)]
+    assert rows[0].invalid_reason.startswith("invalid_feature_values")

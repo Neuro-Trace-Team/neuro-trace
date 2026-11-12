@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 import pytest_asyncio
 from testcontainers.community.postgres import PostgresContainer
@@ -8,15 +6,7 @@ from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from infrastructure.db.session import create_engine, create_session_factory
 
-def find_project_root(marker="database"):
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / marker).exists():
-            return parent
-        # Stop if we hit the system root
-        if parent == parent.parent:
-            break
-    raise FileNotFoundError(f"Could not find project root containing '{marker}'")
+from common import find_project_root
 
 INIT_SQL = find_project_root() / "database" / "model" / "init.sql"
 
