@@ -173,4 +173,5 @@ class SklearnPredictor(IPredictor):
             "sklearn_version": sklearn.__version__,
             "artifact_sha256": self._artifact_sha256,
             "metadata": self._metadata,
+            "feature_names_sha256": hashlib.sha256("\n".join(self.feature_names or []).encode()).hexdigest(),
         }
