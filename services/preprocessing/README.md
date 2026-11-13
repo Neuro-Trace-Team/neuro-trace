@@ -56,8 +56,26 @@ application does not require a RustFS-specific library.
 | Method | Endpoint | Action |
 |---|---|---|
 | `GET` | `/health` | Returns `{"status": "ok"}`; used by the container healthcheck |
+| `GET` | `/health/connections` | Checks RustFS bucket access and RabbitMQ queue existence/access |
 | `POST` | `/api/v1/examinations/{examination_id}/preprocessing` | Accepts backend upload coordinates and starts preprocessing |
 | `GET` | `/api/v1/examinations/{examination_id}/preprocessing-status` | Returns the latest local status for an examination |
+
+`GET http://preprocessing:8001/health/connections` is available within the
+Compose network (the preprocessing port is not published to the host).
+It returns HTTP 200 with `status: "ok"` when all probes succeed, or HTTP 503
+with `status: "degraded"` otherwise. `connections` contains `rustfs` and
+`rabbitmq`, each with `status` (`ok` or `error`), `latency_ms`,
+and `error` (null or a sanitized error code).
+
+Probes run concurrently with a three-second response deadline per dependency
+and no retries. Blocking S3 calls run in worker threads with socket
+timeouts; a timed-out worker may finish after the response deadline.
+RustFS uses `head_bucket` on `RUSTFS_BUCKET`. RabbitMQ uses a passive
+declaration of `RABBITMQ_QUEUE`, the same queue used by the publisher: it does
+not create queues or publish messages. A missing queue reports
+`queue_not_found`, including before its first creation by the publisher.
+This probe does not verify publish permissions or routing.
+The existing `/health` endpoint and pipeline behavior are unchanged.
 | `POST` | `/api/v1/examinations/{examination_id}/preprocessing-jobs` | Starts preprocessing when the body includes the examination UUID and nonblank RustFS bucket and key |
 
 The backend-compatible submission request contains the same examination UUID in
