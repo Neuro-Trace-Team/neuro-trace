@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import logging
+import time
 
 from fastapi import FastAPI, Request
 
@@ -26,11 +27,13 @@ def _log_consumer_exit(task: asyncio.Task) -> None:
     if not task.cancelled() and task.exception():
         logger.critical("RabbitMQ consumer stopped unexpectedly", exc_info=task.exception())
 
+
 # Logger setup
 setup_logging()
 logger = logging.getLogger(__name__)
 
 predictor: IPredictor = SklearnPredictor(model_path=settings.model_path, require_feature_names=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +47,7 @@ async def lifespan(app: FastAPI):
 
     engine = create_engine(settings.database_url)
     publisher = RabbitMQPublisher(settings.queue_url, settings.completed_queue_name)
+    app.state.publisher = publisher
     rabbit_consumer = None
     consumer_task = None
 
@@ -66,6 +70,7 @@ async def lifespan(app: FastAPI):
             queue_name=settings.pending_analysis_queue_name,
             handlers={"predict_event": handler},
         )
+        app.state.consumer = rabbit_consumer
 
         consumer_task = asyncio.create_task(rabbit_consumer.start())
         consumer_task.add_done_callback(_log_consumer_exit)
@@ -93,15 +98,18 @@ async def lifespan(app: FastAPI):
 
         logger.info("Microservice shutdown complete.")
 
+
 app = FastAPI(
     title=settings.app_name,
     lifespan=lifespan
 )
 app.include_router(analyses_router)
 
+
 async def _ping_db(engine) -> None:
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
+
 
 @app.get("/info")
 async def info():
@@ -110,12 +118,14 @@ async def info():
         "model": predictor.model_info() 
     }
 
+
 @app.get("/healthz")
 async def healthz():
     """Liveness probe for container orchestration."""
     return {
         "status": "healthy"
     }
+
 
 @app.get("/readyz")
 async def readyz(request: Request):
@@ -153,3 +163,39 @@ async def readyz(request: Request):
             )
     
     return {"status": "ready"}
+
+
+async def _check_database(engine) -> dict:
+    if engine is None:
+        return {"status": "down"}
+    started = time.perf_counter()
+    try:
+        await asyncio.wait_for(_ping_db(engine), READINESS_DB_TIMEOUT_S)
+    except Exception:
+        logger.warning("Connections check: database unreachable", exc_info=True)
+        return {"status": "down"}
+    return {"status": "up", "latency_ms": round((time.perf_counter() - started) * 1000)}
+
+
+def _status(up: bool) -> dict:
+    return {"status": "up" if up else "down"}
+
+
+@app.get("/connections")
+async def connections(request: Request):
+    """Diagnostics: state of each external connection. Not a probe, so it always returns 200."""
+    state = request.app.state
+    consumer = getattr(state, "consumer", None)
+    publisher = getattr(state, "publisher", None)
+    task = getattr(state, "consumer_task", None)
+
+    checks = {
+        "database": await _check_database(getattr(state, "engine", None)),
+        "rabbitmq_consumer": _status(
+            consumer is not None and consumer.is_connected
+            and task is not None and not task.done()
+        ),
+        "rabbitmq_publisher": _status(publisher is not None and publisher.is_connected),
+    }
+    overall = "ok" if all(c["status"] == "up" for c in checks.values()) else "degraded"
+    return {"status": overall, "connections": checks}

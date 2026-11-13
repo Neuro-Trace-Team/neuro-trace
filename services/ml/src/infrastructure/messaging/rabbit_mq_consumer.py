@@ -76,3 +76,7 @@ class RabbitMQConsumer:
             logger.info("RabbitMQ connection closed successfully.")
         else:
             logger.debug("Close called, but RabbitMQ connection was already closed or None.")
+
+    @property
+    def is_connected(self) -> bool:
+        return self.connection is not None and not self.connection.is_closed

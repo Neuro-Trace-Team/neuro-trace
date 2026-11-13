@@ -15,7 +15,6 @@ CONSUMER_MODULE = "infrastructure.messaging.rabbit_mq_consumer"
 
 @pytest.fixture
 def mock_handler():
-    # handle() is `async def` in IEventHandler, so autospec makes it an AsyncMock
     return create_autospec(IEventHandler, instance=True)
 
 
@@ -99,7 +98,7 @@ async def test_dispatch_message_missing_handler(mock_handler: IEventHandler):
     await make_consumer(mock_handler)._dispatch_message(message)
 
     cast(AsyncMock, mock_handler.handle).assert_not_awaited()
-    message.reject.assert_awaited_once_with(requeue=False)   # permanent: never requeue
+    message.reject.assert_awaited_once_with(requeue=False)
     message.ack.assert_not_awaited()
     message.nack.assert_not_awaited()
 
@@ -210,9 +209,20 @@ async def test_dispatch_message_without_event_type_defaults_to_predict_event(moc
 
 @pytest.mark.asyncio
 async def test_dispatch_message_non_object_json_is_rejected(mock_handler):
-    message = make_message("[1, 2, 3]")   # valid JSON, but .get() fails on a list
+    message = make_message("[1, 2, 3]")
 
     await make_consumer(mock_handler)._dispatch_message(message)
 
     message.reject.assert_awaited_once_with(requeue=False)
     cast(AsyncMock, mock_handler.handle).assert_not_awaited()
+
+
+def test_consumer_is_connected_reflects_connection_state():
+    consumer = make_consumer()
+    assert consumer.is_connected is False
+
+    consumer.connection = MagicMock(is_closed=False)
+    assert consumer.is_connected is True
+
+    consumer.connection.is_closed = True
+    assert consumer.is_connected is False

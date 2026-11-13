@@ -41,3 +41,10 @@ class RabbitMQPublisher:
     async def close(self) -> None:
         if self._connection and not self._connection.is_closed:
             await self._connection.close()
+
+    @property
+    def is_connected(self) -> bool:
+        return (
+            self._connection is not None and not self._connection.is_closed
+            and self._channel is not None and not self._channel.is_closed
+        )
