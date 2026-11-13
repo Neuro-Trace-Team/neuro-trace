@@ -47,8 +47,8 @@ class SklearnPredictor(IPredictor):
         logger.info("Scikit-learn model successfully loaded into memory.")
 
         logger.info("Reading model metadata...")
-        
         self._metadata = self._read_metadata()
+        logger.info("Model metadata successfully loaded.")
 
     def predict(self, features: List[float] | Dict[str, Any] | List[List[float]]) -> Dict[str, Any]:
         if self.model is None:
