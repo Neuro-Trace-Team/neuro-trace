@@ -60,12 +60,12 @@ def test_ml_results_validates_contract(monkeypatch, examination_id) -> None:
     captured = {}
     def get(url, **kwargs):
         captured["url"] = url
-        return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 12500, "result": 6.4, "confidence": None}]}, request=httpx.Request("GET", url))
+        return httpx.Response(200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [{"analysis_id": 7, "time_stamp": 12500, "is_valid": True, "result": 6.4, "confidence": None, "invalid_reason": None}]}, request=httpx.Request("GET", url))
     monkeypatch.setattr(ml.httpx, "get", get)
     results = ml.MLClient().results(examination_id)
     assert results["status"] == "READY"
     assert results["total_analyses_count"] == 1
-    assert results["analyses"][0] == {"analysis_id": 7, "time_stamp": "00:00:12:500", "result": 6.4, "confidence": None}
+    assert results["analyses"][0] == {"analysis_id": 7, "time_stamp": "00:00:12:500", "is_valid": True, "result": 6.4, "confidence": None, "invalid_reason": None}
     assert captured["url"] == f"http://ml.test/examinations/{examination_id}/analyses"
 
 
@@ -85,6 +85,27 @@ def test_ml_results_maps_accepted_response_to_processing_state(monkeypatch, exam
         "total_analyses_count": 3,
         "analyses": [],
     }
+
+
+@pytest.mark.parametrize("updates", [
+    {"is_valid": None},
+    {"is_valid": "false"},
+    {"is_valid": 0},
+    {"invalid_reason": 123},
+    {"result": "invalid"},
+    {"result": False},
+])
+def test_ml_results_rejects_invalid_analysis_field_types(monkeypatch, examination_id, updates) -> None:
+    analysis = {"analysis_id": 7, "time_stamp": 12500, "is_valid": False, "result": None}
+    analysis.update(updates)
+    monkeypatch.setattr(ml, "get_settings", lambda: SimpleNamespace(ml_url="http://ml.test", service_timeout_seconds=1))
+    monkeypatch.setattr(ml.httpx, "get", lambda url, **kwargs: httpx.Response(
+        200, json={"examination_id": str(examination_id), "total_analyses_count": 1, "analyses": [analysis]},
+        request=httpx.Request("GET", url),
+    ))
+
+    with pytest.raises(ml.MLServiceError, match="invalid analysis"):
+        ml.MLClient().results(examination_id)
 
 
 def test_results_endpoint_returns_202_when_ready_examination_is_still_processing(monkeypatch, examination_id) -> None:

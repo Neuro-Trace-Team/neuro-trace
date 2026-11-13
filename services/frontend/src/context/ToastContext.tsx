@@ -23,17 +23,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed left-1/2 top-4 -translate-x-1/2 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+      <div aria-live="polite" className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
         {toasts.map(({ id, message, kind }) => (
           <div
-            className={`pointer-events-auto flex items-start gap-3 rounded-xl border bg-white px-4 py-3 shadow-[0_8px_24px_rgba(8,38,76,0.2)] ${
+            className={`pointer-events-auto flex items-center gap-3 rounded-xl border bg-white px-4 py-3 shadow-[0_8px_24px_rgba(8,38,76,0.2)] ${
               kind === "success" ? "border-[#9ad9c0]" : kind === "error" ? "border-[#f2b7b7]" : "border-[#b8dce4]"
             }`}
             key={id}
             role={kind === "error" ? "alert" : "status"}
           >
             <Icon
-              className={`mt-0.5 h-5 w-5 shrink-0 ${kind === "success" ? "text-emerald-700" : kind === "error" ? "text-red-700" : "text-cyan-800"}`}
+              className={`h-5 w-5 shrink-0 ${kind === "success" ? "text-emerald-700" : kind === "error" ? "text-red-700" : "text-cyan-800"}`}
               name={kind === "success" ? "check" : kind === "error" ? "close" : "activity"}
             />
             <p className="min-w-0 flex-1 text-sm leading-5 text-[#173456]">{message}</p>

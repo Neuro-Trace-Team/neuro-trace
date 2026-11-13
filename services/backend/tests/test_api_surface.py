@@ -34,7 +34,7 @@ def test_openapi_exposes_the_current_ml_results_contract() -> None:
     result_properties = schemas["ExaminationResultsResponse"]["properties"]
     detail_properties = schemas["ExaminationDetailResponse"]["properties"]
 
-    assert {"analysis_id", "time_stamp", "result", "confidence"} <= analysis_properties.keys()
+    assert {"analysis_id", "time_stamp", "is_valid", "result", "confidence", "invalid_reason"} <= analysis_properties.keys()
     assert "total_analyses_count" in result_properties
     assert "total_analyses_count" in detail_properties
 

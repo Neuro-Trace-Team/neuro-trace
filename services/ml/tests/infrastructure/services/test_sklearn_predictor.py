@@ -3,7 +3,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from infrastructure.event_handlers.prediction_event_handler import METADATA_KEYS, PredictionEventHandler
-
 import numpy as np
 import pytest
 
