@@ -1,0 +1,2761 @@
+{
+  "parameters": {
+    "highpass": 0.5,
+    "lowpass": 45.0,
+    "notch": 50.0,
+    "filter_method": "fir",
+    "notch_harmonics": true,
+    "target_sfreq": 256.0,
+    "reference": "average",
+    "mode": "event",
+    "tmin": -0.2,
+    "tmax": 0.8,
+    "baseline": [
+      -0.2,
+      0.0
+    ],
+    "analysis_band": [
+      0.5,
+      45.0
+    ],
+    "gamma_band": [
+      30.0,
+      45.0
+    ],
+    "amplitude_uv": 500.0,
+    "flat_std_uv": 1e-06,
+    "artifact_window_seconds": 1.0,
+    "enable_ica": false,
+    "ica_random_state": 42,
+    "connectivity_min_observations": 8,
+    "microstate_classes": 4,
+    "microstate_random_state": 42,
+    "microstate_max_samples": 20000,
+    "alpha_peak_min_snr": 1.5,
+    "alpha_min_power": 0.0,
+    "graph_density": 0.2,
+    "event_mode": "clustered",
+    "event_cluster_threshold": 0.5,
+    "event_time_unit": "seconds",
+    "baseline_window": [
+      -5.5,
+      -0.5
+    ],
+    "response_windows": {
+      "early_response": [
+        0.0,
+        1.0
+      ],
+      "sustained_response": [
+        0.5,
+        5.5
+      ]
+    },
+    "psd_nperseg": null,
+    "psd_overlap": 0.5,
+    "entropy_order": 3,
+    "entropy_delay": 1,
+    "entropy_normalize": true,
+    "connectivity_segment_seconds": 0.5,
+    "connectivity_include_gamma": true,
+    "paf_prominence": 0.0,
+    "paf_min_cycles": 2.0,
+    "seed": 42,
+    "extra": {}
+  },
+  "channels": [
+    "Fp1",
+    "Fp2",
+    "F7",
+    "F3",
+    "Fz",
+    "F4",
+    "F8",
+    "T7",
+    "C3",
+    "Cz",
+    "C4",
+    "T8",
+    "P7",
+    "P3",
+    "Pz",
+    "P4",
+    "P8",
+    "O1",
+    "O2"
+  ],
+  "channel_order_validated": true,
+  "units": {
+    "signal": "V (MNE internal)",
+    "psd": "V^2/Hz",
+    "absolute_power": "uV^2"
+  },
+  "warnings": [
+    "High amplitude detected; affected fragments will be rejected: amplitude:F8, amplitude:T8, amplitude:P7"
+  ],
+  "errors": [],
+  "rejection_reasons": [],
+  "source_file": "/tmp/preprocessing/8e24831d-893f-4a88-b756-4449f28e303b/input/study/subject/run/raw_eeg.bdf",
+  "original_sfreq": 1024.0,
+  "raw_channel_names": [
+    "Fp1",
+    "AF7",
+    "AF3",
+    "F1",
+    "F3",
+    "F5",
+    "F7",
+    "FT7",
+    "FC5",
+    "FC3",
+    "FC1",
+    "C1",
+    "C3",
+    "C5",
+    "T7",
+    "TP7",
+    "CP5",
+    "CP3",
+    "CP1",
+    "P1",
+    "P3",
+    "P5",
+    "P7",
+    "P9",
+    "PO7",
+    "PO3",
+    "O1",
+    "Lz",
+    "Oz",
+    "POz",
+    "Pz",
+    "CPz",
+    "FPz",
+    "Fp2",
+    "AF8",
+    "AF4",
+    "AFz",
+    "Fz",
+    "F2",
+    "F4",
+    "F6",
+    "F8",
+    "FT8",
+    "FC6",
+    "FC4",
+    "FC2",
+    "FCz",
+    "Cz",
+    "C2",
+    "C4",
+    "C6",
+    "T8",
+    "TP8",
+    "CP6",
+    "CP4",
+    "CP2",
+    "P2",
+    "P4",
+    "P6",
+    "P8",
+    "P10",
+    "PO8",
+    "PO4",
+    "O2",
+    "Status"
+  ],
+  "raw_channel_types": [
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "eeg",
+    "stim"
+  ],
+  "target_sfreq": 256.0,
+  "n_raw_events": 30,
+  "n_analysis_events": 17,
+  "n_epochs": 17,
+  "n_rejected": 0,
+  "event_records": [
+    {
+      "event_index": 0,
+      "event": 7.8388671875,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8388671875,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 1,
+      "event": 7.8447265625,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8447265625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 2,
+      "event": 7.8505859375,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8505859375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 3,
+      "event": 7.853515625,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.853515625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 4,
+      "event": 7.861328125,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.861328125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 5,
+      "event": 7.8642578125,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8642578125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 6,
+      "event": 7.875,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.875,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 7,
+      "event": 7.8779296875,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8779296875,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 8,
+      "event": 7.8828125,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8828125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 9,
+      "event": 7.892578125,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.892578125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 10,
+      "event": 7.8955078125,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.8955078125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 11,
+      "event": 7.9052734375,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 7.9052734375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 12,
+      "event": 8.0322265625,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 8.0322265625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 13,
+      "event": 8.0341796875,
+      "cluster_id": 0,
+      "cluster_event": 7.893484933035714,
+      "cluster_size": 14,
+      "overlap_flag": true,
+      "source_event": 8.0341796875,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 14,
+      "event": 121.9150390625,
+      "cluster_id": 1,
+      "cluster_event": 121.9150390625,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 121.9150390625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 15,
+      "event": 134.0654296875,
+      "cluster_id": 2,
+      "cluster_event": 134.0654296875,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 134.0654296875,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 16,
+      "event": 146.9482421875,
+      "cluster_id": 3,
+      "cluster_event": 146.9482421875,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 146.9482421875,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 17,
+      "event": 159.9814453125,
+      "cluster_id": 4,
+      "cluster_event": 159.9814453125,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 159.9814453125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 18,
+      "event": 172.865234375,
+      "cluster_id": 5,
+      "cluster_event": 172.865234375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 172.865234375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 19,
+      "event": 185.59765625,
+      "cluster_id": 6,
+      "cluster_event": 185.59765625,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 185.59765625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 20,
+      "event": 198.2646484375,
+      "cluster_id": 7,
+      "cluster_event": 198.2646484375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 198.2646484375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 21,
+      "event": 211.3974609375,
+      "cluster_id": 8,
+      "cluster_event": 211.3974609375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 211.3974609375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 22,
+      "event": 224.4814453125,
+      "cluster_id": 9,
+      "cluster_event": 224.4814453125,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 224.4814453125,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 23,
+      "event": 236.9306640625,
+      "cluster_id": 10,
+      "cluster_event": 236.9306640625,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 236.9306640625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 24,
+      "event": 249.1640625,
+      "cluster_id": 11,
+      "cluster_event": 249.1640625,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 249.1640625,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 25,
+      "event": 261.380859375,
+      "cluster_id": 12,
+      "cluster_event": 261.380859375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 261.380859375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 26,
+      "event": 274.1474609375,
+      "cluster_id": 13,
+      "cluster_event": 274.1474609375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 274.1474609375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 27,
+      "event": 287.0302734375,
+      "cluster_id": 14,
+      "cluster_event": 287.0302734375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 287.0302734375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 28,
+      "event": 299.380859375,
+      "cluster_id": 15,
+      "cluster_event": 299.380859375,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 299.380859375,
+      "event_time_unit": "seconds"
+    },
+    {
+      "event_index": 29,
+      "event": 312.48046875,
+      "cluster_id": 16,
+      "cluster_event": 312.48046875,
+      "cluster_size": 1,
+      "overlap_flag": false,
+      "source_event": 312.48046875,
+      "event_time_unit": "seconds"
+    }
+  ],
+  "feature_diagnostics": [
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 8.327309049611984e-13,
+        "max": 3.872749176609313e-10
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0414891931879934e-12,
+        "max": 1.571648170387542e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.010905235607664e-12,
+        "max": 4.8732306422720244e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 6.564079032521532e-13,
+        "max": 4.609414318830168e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 6.564079032521532e-13,
+        "max": 4.609414318830168e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.8132471122800916e-11,
+        "max": 4.566631249915698e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.019997241973964266,
+        "max": 0.11274853163839679,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.00248948757838669,
+        "max": 0.05763242069732698,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0011851547229394385,
+        "max": 0.14251633426507998,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 2,
+        "min": 11.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 14,
+        "min": 0.27753239104092814,
+        "max": 2.412733697041294
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.5210849069958718,
+        "max": 34.065397609900366
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.7382836088039226,
+        "max": 0.8392861320523872,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0017607172064812e-12,
+        "max": 7.645481754095218e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 7.789437855439624e-13,
+        "max": 1.869437968389005e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.8806208362892004e-12,
+        "max": 3.1805250869504746e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.964192563272081e-13,
+        "max": 2.282763416417068e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.964192563272081e-13,
+        "max": 2.282763416417068e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6161944926214653e-11,
+        "max": 1.0353241750929796e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.02341988430686784,
+        "max": 0.1874301253730457,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.013512500833370253,
+        "max": 0.3755932420467067,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.023096054075045155,
+        "max": 0.41121886388540047,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 9,
+        "min": 10.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 0.08593716124627038,
+        "max": 5.076300252269708
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.08554357887809326,
+        "max": 4.128546795226361
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.7820446867730052,
+        "max": 0.8534164449420236,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.550041890743806e-12,
+        "max": 5.596551625562141e-10
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 6.199811114069353e-12,
+        "max": 1.3922023013870454e-10
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.9904481219173386e-12,
+        "max": 4.150871342072156e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.856849401375629e-13,
+        "max": 2.552776024213377e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.856849401375629e-13,
+        "max": 2.552776024213377e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.384431350518622e-11,
+        "max": 2.9122197363288436e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.021257019588536246,
+        "max": 0.21927446579170692,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.012480385107172467,
+        "max": 0.36600875250508463,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0010620518615511519,
+        "max": 0.19453677039821798,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 10,
+        "min": 10.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 0.10411269108338203,
+        "max": 6.340235664430736
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.3416124466231795,
+        "max": 8.168522486695176
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6205551375691262,
+        "max": 0.8443528406389211,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6976492649762344e-12,
+        "max": 8.8628831744006e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.369436649738294e-12,
+        "max": 1.2569201755910187e-10
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.318500856513145e-12,
+        "max": 4.121357780090506e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.2156305882717974e-13,
+        "max": 1.9276657800981404e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.2156305882717974e-13,
+        "max": 1.9276657800981404e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6277383196483083e-11,
+        "max": 1.4984173588336458e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.022187858417353747,
+        "max": 0.2575922322540733,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.03772638669686534,
+        "max": 0.838831830251482,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.018016072839234048,
+        "max": 0.44849502809975467,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 16,
+        "min": 10.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 18,
+        "min": 1.109869562615568,
+        "max": 6.967566644628454
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.03336953633460065,
+        "max": 1.4083476530209336
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6867149651049848,
+        "max": 0.8485880596616903,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.4216676460296698e-12,
+        "max": 3.3632764335578484e-10
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 5.651956606962088e-13,
+        "max": 2.621007508376268e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.5944436774315862e-12,
+        "max": 1.844179645854759e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.9505844550814767e-13,
+        "max": 1.564914684393689e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.9505844550814767e-13,
+        "max": 1.564914684393689e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.195980536183373e-11,
+        "max": 1.83253765974509e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.023892745118841603,
+        "max": 0.47216091702425694,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.002914340522849845,
+        "max": 0.05302533319936352,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.002858639326164447,
+        "max": 0.19697133634332908,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 5,
+        "min": 9.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 16,
+        "min": 0.05628189990816072,
+        "max": 4.19230952098
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.5673154927674435,
+        "max": 18.235853048068353
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.7423728447950246,
+        "max": 0.8454393533800719,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.2723445256990847e-12,
+        "max": 7.531343720814119e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 5.4834121323387314e-12,
+        "max": 1.0031245503985859e-10
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.831293026359297e-12,
+        "max": 2.1139918768981628e-10
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.3270891561121026e-12,
+        "max": 3.686259093983386e-10
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.3270891561121026e-12,
+        "max": 3.686259093983386e-10
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.2385955744139856e-11,
+        "max": 5.294964743854628e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.005788861676449831,
+        "max": 0.10913624686220719,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.01345804490523608,
+        "max": 0.6899715338562686,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.06633438249180688,
+        "max": 0.46571531554970397,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 10,
+        "min": 10.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 18,
+        "min": 0.28808324373952837,
+        "max": 3.988747742274716
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.04954505946955569,
+        "max": 0.48606380513288766
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.801419940580182,
+        "max": 0.864926624548564,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 9.094488186546786e-13,
+        "max": 1.8614123099185133e-11
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 5.417889843418721e-13,
+        "max": 1.2750568718040602e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.5084912527366896e-12,
+        "max": 2.3441505557243007e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.787901529793285e-13,
+        "max": 3.2061932604747546e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.787901529793285e-13,
+        "max": 3.2061932604747546e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.2841645116956867e-11,
+        "max": 1.3844081574765203e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.009927457950061641,
+        "max": 0.28700113461558013,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.012329832164018546,
+        "max": 0.5001816416259972,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.021917560355736523,
+        "max": 0.27844629800649934,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 11,
+        "min": 11.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 15,
+        "min": 1.2320450779356644,
+        "max": 11.273036670503657
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.18831595620598976,
+        "max": 4.432084177661584
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.7563738534098314,
+        "max": 0.8644991275244244,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 6.300131014950692e-13,
+        "max": 1.2592965324697005e-11
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.4265893205342083e-12,
+        "max": 7.586852431069733e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6346510312568865e-12,
+        "max": 2.1793307519962876e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.63570371564195e-13,
+        "max": 3.9434432848451245e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.63570371564195e-13,
+        "max": 3.9434432848451245e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.636219156334863e-11,
+        "max": 1.5340196926099035e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.014145393060797548,
+        "max": 0.26802296685885835,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.03693917071396288,
+        "max": 0.8084506375706835,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.026308370661905577,
+        "max": 0.48931506381875234,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 9.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.2042805707040034,
+        "max": 4.953861469185791
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.028542391977598662,
+        "max": 3.1245393252207885
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.715557337737326,
+        "max": 0.8560687944169489,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6695664115431347e-12,
+        "max": 2.5441419068286548e-11
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.283957179428849e-12,
+        "max": 1.3884718588667226e-10
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.5031302849142234e-12,
+        "max": 2.7298977470304533e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.073030618427207e-13,
+        "max": 2.084042112443937e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.073030618427207e-13,
+        "max": 2.084042112443937e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.5672614333639307e-11,
+        "max": 9.286968947020904e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.007381926164947566,
+        "max": 0.15015788986465,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.009628411031755785,
+        "max": 0.5842980547758367,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.002133388615715953,
+        "max": 0.44985584331919626,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 10.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.8879657869605687,
+        "max": 24.763232377109205
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.07129949524404618,
+        "max": 4.07412768750162
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6162580535345638,
+        "max": 0.857932439940313,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 9.208491877556479e-13,
+        "max": 8.516758850008603e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.5737237812632444e-12,
+        "max": 1.3853774314104218e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.4670290049721084e-12,
+        "max": 2.8984947736246214e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.4379356898775935e-13,
+        "max": 3.035477251284185e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.4379356898775935e-13,
+        "max": 3.035477251284185e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.7671931200603052e-11,
+        "max": 9.870410613028575e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.005478490158694092,
+        "max": 0.1947446812540933,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.00914611811693897,
+        "max": 0.5117957205794101,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.00535745459748149,
+        "max": 0.42665911277640345,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 8,
+        "min": 9.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 0.16139137010218116,
+        "max": 3.842134626641953
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.09197921987174791,
+        "max": 4.293023993306363
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.682800026723158,
+        "max": 0.8921361955705213,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 7.441448706094918e-13,
+        "max": 7.733946991539234e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.3662997643424977e-12,
+        "max": 9.020818951970087e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6348485575942556e-12,
+        "max": 1.238164380469969e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.4587845901322413e-13,
+        "max": 2.094373969629194e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.4587845901322413e-13,
+        "max": 2.094373969629194e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.4258096515216828e-11,
+        "max": 2.106090451695615e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.010494809450510274,
+        "max": 0.1903837115893305,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.03294072123530522,
+        "max": 0.7953769127479694,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.011869839978975005,
+        "max": 0.24485777452977314,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 18,
+        "min": 9.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.1967514638728083,
+        "max": 17.466785016933525
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.029648781129009913,
+        "max": 0.5811766528319106
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6581305342494537,
+        "max": 0.8493579829605399,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 6.432437744291716e-13,
+        "max": 9.323634127632258e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.0495744541025843e-12,
+        "max": 2.978539253733202e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.826101204509007e-12,
+        "max": 3.940033914744814e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 5.969998424246929e-13,
+        "max": 2.919466401621253e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 5.969998424246929e-13,
+        "max": 2.919466401621253e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.1105438178951768e-11,
+        "max": 8.057614465021037e-11
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.014252561019186505,
+        "max": 0.16904224176028612,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.043597667799831784,
+        "max": 0.6516643497644615,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.05556358710953155,
+        "max": 0.488982679904694,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 14,
+        "min": 10.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 0.23106754493308412,
+        "max": 11.34840400870427
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.09344725402807678,
+        "max": 2.607149519057456
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.786806776133833,
+        "max": 0.8561609780907317,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0873814923046903e-12,
+        "max": 9.950703752827413e-12
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 5.890568181771749e-12,
+        "max": 7.467509328814705e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.4952162540744334e-12,
+        "max": 1.7481307828381988e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.252624418299203e-13,
+        "max": 2.4249614879058828e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.252624418299203e-13,
+        "max": 2.4249614879058828e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6392782608316546e-11,
+        "max": 6.637065646300809e-10
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.004576564035042473,
+        "max": 0.13242737973920482,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.02276417440773082,
+        "max": 0.7921252202299345,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.004063922910188926,
+        "max": 0.36688911312111916,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 16,
+        "min": 10.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.19061813989228166,
+        "max": 12.624159670649812
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.045344339401724706,
+        "max": 0.9409951918447443
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6860961816025654,
+        "max": 0.8484237079200168,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 8.999639853108316e-13,
+        "max": 9.41829177091079e-11
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.595593051604278e-13,
+        "max": 1.8504488631291083e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 9.248728613507233e-13,
+        "max": 3.174432316338039e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.382248203793736e-13,
+        "max": 2.735897015890012e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.382248203793736e-13,
+        "max": 2.735897015890012e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.0953088450899346e-11,
+        "max": 2.520188362321471e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.011229562367165297,
+        "max": 0.13381932388838907,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0020090068890210215,
+        "max": 0.14617124395910905,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0008831959053356249,
+        "max": 0.3025160412653457,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 12,
+        "min": 10.0,
+        "max": 12.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 17,
+        "min": 0.12520970285632071,
+        "max": 8.42031562342012
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.09656484249956641,
+        "max": 18.601917445637035
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.725440372129105,
+        "max": 0.8467561266549446,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.3455349200540753e-12,
+        "max": 9.426146410578046e-11
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.7798006669366912e-12,
+        "max": 8.177351159400722e-11
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.805636243699047e-12,
+        "max": 2.6525199475154075e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.75202230162713e-13,
+        "max": 1.9784826976122934e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.75202230162713e-13,
+        "max": 1.9784826976122934e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.3633013472443706e-11,
+        "max": 2.3266512657882636e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.015290047181465096,
+        "max": 0.18005434698186026,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.004321129862983262,
+        "max": 0.31018851822441884,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.002330992441164784,
+        "max": 0.2621484808056106,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 10,
+        "min": 11.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.158657221435085,
+        "max": 5.149697376174426
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.09320535734450854,
+        "max": 9.37574030675982
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6681952861727727,
+        "max": 0.8654371796376613,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6361666480153776e-12,
+        "max": 2.1322771068633278e-10
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0963649455883285e-12,
+        "max": 2.061045150138259e-10
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.8248652784538587e-12,
+        "max": 7.884604112955734e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0659625736391632e-12,
+        "max": 5.894027902788983e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0659625736391632e-12,
+        "max": 5.894027902788983e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.857206642511995e-11,
+        "max": 1.0203843937431722e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0072739727791988375,
+        "max": 0.21393035864155963,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.02300493564635103,
+        "max": 0.8104292875203364,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0038958604482702934,
+        "max": 0.33403453906556124,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 16,
+        "min": 9.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6366611653896269,
+        "max": 12.43953222434683
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.07335242443708495,
+        "max": 5.8034785365926576
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.7112155779884641,
+        "max": 0.8585772157982209,
+        "out_of_expected_range": 0
+      }
+    },
+    {
+      "absolute_delta_power": {
+        "n": 19,
+        "n_finite": 0
+      },
+      "delta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "absolute_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 4.72401907822209e-12,
+        "max": 2.871196632812056e-10
+      },
+      "theta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.631014236071321e-12,
+        "max": 1.825442338666943e-10
+      },
+      "alpha_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.6289148559407685e-12,
+        "max": 2.588590271860253e-11
+      },
+      "beta_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "absolute_gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.401594466428336e-13,
+        "max": 2.7525894084462054e-11
+      },
+      "gamma_power_valid": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "gamma_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 3.401594466428336e-13,
+        "max": 2.7525894084462054e-11
+      },
+      "absolute_spectral_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 2.9714449224427564e-11,
+        "max": 1.695031564125467e-09
+      },
+      "relative_delta_power": {
+        "n": 19,
+        "n_finite": 0,
+        "out_of_expected_range": 0
+      },
+      "relative_theta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.008271389838695232,
+        "max": 0.1956105236276973,
+        "out_of_expected_range": 0
+      },
+      "relative_alpha_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.021241808162209056,
+        "max": 0.599889054983789,
+        "out_of_expected_range": 0
+      },
+      "relative_beta_power": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0051162686046064354,
+        "max": 0.22454737378186143,
+        "out_of_expected_range": 0
+      },
+      "paf_hz": {
+        "n": 19,
+        "n_finite": 15,
+        "min": 10.0,
+        "max": 11.0,
+        "out_of_expected_range": 0
+      },
+      "paf_prominence": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.026520374492577197,
+        "max": 13.993614019194114
+      },
+      "paf_quality": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "theta_alpha_ratio": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.09645213606571983,
+        "max": 4.883853116536302
+      },
+      "permutation_entropy": {
+        "n": 19,
+        "n_finite": 19,
+        "min": 0.6225412091655943,
+        "max": 0.842476195035099,
+        "out_of_expected_range": 0
+      }
+    }
+  ],
+  "pain_ratings_available": false,
+  "events_type_known": false,
+  "applied_reference": "average",
+  "reference_scope": "selected 19 EEG channels only",
+  "versions": {
+    "python": "3.11.17 (main, Oct 21 2026, 01:10:42) [GCC 12.2.0]",
+    "platform": "Linux-7.3.3-1-cachyos-x86_64-with-glibc2.36"
+  }
+}

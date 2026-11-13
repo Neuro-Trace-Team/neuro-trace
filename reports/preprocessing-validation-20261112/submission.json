@@ -1,0 +1,14 @@
+{
+  "http_status": 202,
+  "response": {
+    "examination_id": "8e24831d-893f-4a88-b756-4449f28e303b",
+    "status": "QUEUED",
+    "pipeline_version": "0.1.0",
+    "created_at": "2026-11-12T13:06:38.544581+00:00"
+  },
+  "request": {
+    "examination_id": "8e24831d-893f-4a88-b756-4449f28e303b",
+    "storage_bucket": "examinations",
+    "storage_key": "validation/8e24831d-893f-4a88-b756-4449f28e303b/raw_eeg.bdf"
+  }
+}

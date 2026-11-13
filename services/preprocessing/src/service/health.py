@@ -3,8 +3,6 @@
 import asyncio
 from time import perf_counter
 from typing import Literal
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
 
 import aio_pika
 import boto3
@@ -27,7 +25,7 @@ class ConnectionResult(BaseModel):
 
 class ConnectionsResponse(BaseModel):
     status: Literal["ok", "degraded"]
-    dependencies: dict[str, ConnectionResult]
+    connections: dict[str, ConnectionResult]
 
 
 def _check_rustfs(settings: Settings) -> None:
@@ -60,21 +58,9 @@ async def _check_rabbitmq(settings: Settings) -> None:
             )
 
 
-def _check_backend(settings: Settings) -> None:
-    with urlopen(
-        f"{settings.backend_url}/health/live", timeout=CHECK_TIMEOUT_SECONDS
-    ) as response:
-        if response.status != 200:
-            raise HTTPError(response.url, response.status, "Health check failed", {}, None)
-
-
 def _error_code(error: Exception) -> str:
     if isinstance(error, (TimeoutError, ConnectTimeoutError, ReadTimeoutError)):
         return "timeout"
-    if isinstance(error, URLError) and isinstance(error.reason, TimeoutError):
-        return "timeout"
-    if isinstance(error, HTTPError):
-        return "access_denied" if error.code in (401, 403) else "http_error"
     if isinstance(error, ClientError):
         status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
         if status in (401, 403):
@@ -111,10 +97,9 @@ async def check_connections(settings: Settings) -> ConnectionsResponse:
     results = await asyncio.gather(
         _measure(asyncio.to_thread(_check_rustfs, settings)),
         _measure(_check_rabbitmq(settings)),
-        _measure(asyncio.to_thread(_check_backend, settings)),
     )
-    dependencies = dict(zip(("rustfs", "rabbitmq", "backend"), results))
+    connections = dict(zip(("rustfs", "rabbitmq"), results))
     return ConnectionsResponse(
         status="ok" if all(result.status == "ok" for result in results) else "degraded",
-        dependencies=dependencies,
+        connections=connections,
     )

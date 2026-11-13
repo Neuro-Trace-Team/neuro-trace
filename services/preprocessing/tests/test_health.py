@@ -1,7 +1,6 @@
 import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, Mock
-from urllib.error import HTTPError
 
 import pytest
 from aiormq.exceptions import ChannelAccessRefused
@@ -20,7 +19,6 @@ def mock_checks(monkeypatch, failed=None):
         return check
 
     monkeypatch.setattr(health, "_check_rustfs", sync_check("rustfs"))
-    monkeypatch.setattr(health, "_check_backend", sync_check("backend"))
     monkeypatch.setattr(health, "_check_rabbitmq", AsyncMock(
         side_effect=ConnectionError("secret") if failed == "rabbitmq" else None
     ))
@@ -47,14 +45,15 @@ async def get(path):
     return status, json.loads(body)
 
 
-@pytest.mark.parametrize("failed", [None, "rustfs", "rabbitmq", "backend"])
+@pytest.mark.parametrize("failed", [None, "rustfs", "rabbitmq"])
 def test_connections_http_status_and_complete_results(monkeypatch, failed):
     mock_checks(monkeypatch, failed)
     status, body = asyncio.run(get("/health/connections"))
     assert status == (503 if failed else 200)
     assert body["status"] == ("degraded" if failed else "ok")
-    assert set(body["dependencies"]) == {"rustfs", "rabbitmq", "backend"}
-    for name, result in body["dependencies"].items():
+    assert set(body) == {"status", "connections"}
+    assert set(body["connections"]) == {"rustfs", "rabbitmq"}
+    for name, result in body["connections"].items():
         assert result["status"] == ("error" if name == failed else "ok")
         assert result["error"] == ("connection_failed" if name == failed else None)
         assert result["latency_ms"] >= 0
@@ -71,9 +70,8 @@ def test_timeout_keeps_other_results(monkeypatch):
     monkeypatch.setattr(health, "_check_rabbitmq", hanging_check)
     status, body = asyncio.run(get("/health/connections"))
     assert status == 503
-    assert body["dependencies"]["rabbitmq"]["error"] == "timeout"
-    assert body["dependencies"]["backend"]["status"] == "ok"
-    assert body["dependencies"]["rustfs"]["status"] == "ok"
+    assert body["connections"]["rabbitmq"]["error"] == "timeout"
+    assert body["connections"]["rustfs"]["status"] == "ok"
 
 
 @pytest.mark.parametrize("error", [None, ChannelAccessRefused("secret")])
@@ -122,21 +120,9 @@ def test_rustfs_checks_configured_bucket_without_retries(monkeypatch, error):
     client.close.assert_called_once_with()
 
 
-def test_backend_uses_liveness_url(monkeypatch):
-    response = MagicMock()
-    response.__enter__.return_value = response
-    response.status = 200
-    urlopen = MagicMock(return_value=response)
-    monkeypatch.setattr(health, "urlopen", urlopen)
-    settings = Settings.from_environment()
-    health._check_backend(settings)
-    urlopen.assert_called_once_with(f"{settings.backend_url}/health/live", timeout=3.0)
-
-
 @pytest.mark.parametrize("error,code", [
     (TimeoutError(), "timeout"),
-    (HTTPError("url", 503, "secret", {}, None), "http_error"),
-    (HTTPError("url", 401, "secret", {}, None), "access_denied"),
+    (ClientError({"ResponseMetadata": {"HTTPStatusCode": 503}}, "HeadBucket"), "http_error"),
     (ClientError({"ResponseMetadata": {"HTTPStatusCode": 403}}, "HeadBucket"), "access_denied"),
     (ClientError({"ResponseMetadata": {"HTTPStatusCode": 404}}, "HeadBucket"), "bucket_not_found"),
     (health.aio_pika.exceptions.ChannelNotFoundEntity("secret"), "queue_not_found"),

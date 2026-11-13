@@ -1,0 +1,29 @@
+{
+  "rows_per_file": 17,
+  "columns_per_file": 207,
+  "identical_cells": 1943,
+  "metadata_differences": 51,
+  "numeric_differences": 1525,
+  "numeric_columns_with_differences": 104,
+  "maximum_absolute_difference": {
+    "event_index": "0",
+    "event_time_s": "7.893484933035714",
+    "column": "early_absolute_spectral_power",
+    "reference": "512.4943630040253",
+    "service": "512.4943630040265",
+    "absolute_difference": 1.1368683772161603e-12,
+    "relative_difference": 2.2183041595859042e-15
+  },
+  "maximum_relative_difference": {
+    "event_index": "16",
+    "event_time_s": "146.9482421875",
+    "column": "sustained_spectral_power_db_change_mean_channels",
+    "reference": "-0.0049304621935214385",
+    "service": "-0.004930462193540882",
+    "absolute_difference": 1.9443648080486042e-14,
+    "relative_difference": 3.943575128911456e-12
+  },
+  "numeric_differences_above_rtol_1e_9_atol_1e_20": 0,
+  "column_order_matches": true,
+  "empty_cell_locations_match": true
+}
