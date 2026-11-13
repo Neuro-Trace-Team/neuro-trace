@@ -131,4 +131,20 @@ async def test_close_is_noop_when_not_connected_or_already_closed(publisher, con
     await publisher.close()
     connection.close.assert_not_awaited()
 
-    await RabbitMQPublisher("amqp://x", "q").close()   # never connected: no error
+    await RabbitMQPublisher("amqp://x", "q").close()
+
+
+def test_publisher_is_connected_only_while_connection_and_channel_are_open(publisher, connection, channel):
+    channel.is_closed = False
+    assert publisher.is_connected is True
+
+    channel.is_closed = True
+    assert publisher.is_connected is False
+
+    channel.is_closed = False
+    connection.is_closed = True
+    assert publisher.is_connected is False
+
+
+def test_publisher_is_not_connected_before_connect():
+    assert RabbitMQPublisher("amqp://x", "q").is_connected is False

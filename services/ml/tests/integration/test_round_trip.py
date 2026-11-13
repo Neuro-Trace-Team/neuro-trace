@@ -14,8 +14,9 @@ from infrastructure.messaging.rabbit_mq_publisher import RabbitMQPublisher
 from infrastructure.repositories.sql_alchemy_analysis_repository import (
     SqlAlchemyAnalysisRepository,
 )
-from infrastructure.services.features import FEATURE_NAMES
 from infrastructure.services.sklearn_predictor import SklearnPredictor
+
+from tests.conftest import TEST_FEATURES
 
 pytestmark = pytest.mark.integration
 
@@ -35,7 +36,7 @@ def make_event(exam, t, total, **overrides):
         "event_time_s": float(t),
         "total_analyses_count": total,
         "event_id": f"evt-{t}",
-        **{name: 0.0 for name in FEATURE_NAMES},
+        **{name: 0.0 for name in TEST_FEATURES},
     }
     payload.update(overrides)
     return payload
@@ -91,7 +92,7 @@ async def pipeline(rabbit_url, session_factory):
     suffix = uuid4().hex[:8]
     pending, completed = f"test.pending.{suffix}", f"test.completed.{suffix}"
 
-    predictor = SklearnPredictor(feature_names=FEATURE_NAMES)
+    predictor = SklearnPredictor(feature_names=TEST_FEATURES)
     predictor.model = _Model()
 
     publisher = RabbitMQPublisher(rabbit_url, completed)
@@ -110,6 +111,15 @@ async def pipeline(rabbit_url, session_factory):
 
     task = asyncio.create_task(consumer.start())
     try:
+        start_time = asyncio.get_event_loop().time()
+        while not consumer.is_connected:
+            if asyncio.get_event_loop().time() - start_time > 5.0:
+                raise TimeoutError("Consumer failed to connect in time")
+            await asyncio.sleep(0.05)
+
+        assert publisher.is_connected
+        assert consumer.is_connected
+
         yield Pipeline(pending, channel, completed_queue, session_factory)
     finally:
         task.cancel()
@@ -155,7 +165,7 @@ async def test_redelivered_event_does_not_duplicate_rows_or_completion(pipeline)
     exam = uuid4()
 
     await pipeline.send(make_event(exam, 0, total=2))
-    await pipeline.send(make_event(exam, 0, total=2))      # duplicate delivery
+    await pipeline.send(make_event(exam, 0, total=2))   # duplicate delivery
     await pipeline.send(make_event(exam, 1, total=2))
 
     await pipeline.next_completion()
@@ -185,7 +195,7 @@ async def test_poison_message_is_dropped_and_the_queue_keeps_flowing(pipeline, n
     await pipeline.send(poison)
     await pipeline.send(make_event(good_exam, 0, total=1))
 
-    await pipeline.next_completion()      # would time out if the poison blocked the queue
+    await pipeline.next_completion()
 
     assert len(await pipeline.rows(good_exam)) == 1
     assert await pipeline.pending_backlog() == 0
@@ -195,7 +205,7 @@ async def test_poison_message_is_dropped_and_the_queue_keeps_flowing(pipeline, n
 async def test_examination_with_an_invalid_event_still_completes(pipeline):
     exam = uuid4()
     bad = make_event(exam, 0, total=2)
-    bad[FEATURE_NAMES[0]] = None
+    bad[TEST_FEATURES[0]] = None
     await pipeline.send(bad)
     await pipeline.send(make_event(exam, 1, total=2))
 

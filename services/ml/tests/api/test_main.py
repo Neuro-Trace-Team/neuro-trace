@@ -1,16 +1,20 @@
 import asyncio
 import json
 import logging
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from infrastructure.services.features import FEATURE_NAMES
 import pytest
 
-from api.main import _log_consumer_exit, app, healthz, info, lifespan, readyz
+from api.main import _log_consumer_exit, app, connections, healthz, info, lifespan, readyz
 from core.config import settings
 from infrastructure.repositories.sql_alchemy_analysis_repository import (
     SqlAlchemyAnalysisRepository,
 )
+
+from tests.conftest import TEST_FEATURES
+
+
 
 
 def make_engine(execute_side_effect=None):
@@ -20,7 +24,7 @@ def make_engine(execute_side_effect=None):
 
     engine = MagicMock()
     engine.connect.return_value.__aenter__.return_value = conn
-    engine.connect.return_value.__aexit__.return_value = False  # don't swallow exceptions
+    engine.connect.return_value.__aexit__.return_value = False
     return engine, conn
 
 
@@ -147,6 +151,9 @@ async def test_lifespan_startup_and_shutdown(
         assert app.state.engine is mock_engine
         assert app.state.session_factory is mock_session_factory
 
+        assert app.state.publisher is mock_publisher
+        assert app.state.consumer is mock_consumer
+
     mock_consumer.close.assert_awaited_once()
     mock_publisher.close.assert_awaited_once()
     mock_engine.dispose.assert_awaited_once()
@@ -213,11 +220,6 @@ async def test_lifespan_cancels_running_consumer_on_shutdown(
     mock_create_engine.return_value.dispose.assert_awaited_once()
 
 
-def test_module_predictor_is_configured_with_feature_names():
-    from api.main import predictor
-    assert predictor.feature_names == FEATURE_NAMES          # bug 1
-
-
 @pytest.mark.asyncio
 @patch("api.main.predictor")
 async def test_readyz_not_ready_when_consumer_task_is_dead(mock_predictor):
@@ -250,10 +252,10 @@ async def test_readyz_times_out_on_hanging_database(mock_predictor, monkeypatch)
 
 @pytest.mark.asyncio
 async def test_consumer_crash_is_logged(caplog):
-    async def boom():
+    async def make_error():
         raise OSError("broker down")
 
-    task = asyncio.create_task(boom())
+    task = asyncio.create_task(make_error())
     await asyncio.sleep(0)
 
     with caplog.at_level(logging.CRITICAL):
@@ -294,3 +296,82 @@ async def test_info_describes_model_without_leaking_the_filesystem_path(client):
         r = await client.get("/info")
     assert r.json() == {"app_name": settings.app_name, "model": {"loaded": True, "estimator": "X"}}
     assert settings.model_path not in r.text
+
+
+@pytest.fixture
+def wired_app(monkeypatch):
+    engine, conn = make_engine()
+    wiring = SimpleNamespace(
+        engine=engine,
+        conn=conn,
+        consumer=MagicMock(is_connected=True),
+        publisher=MagicMock(is_connected=True),
+        task=MagicMock(**{"done.return_value": False}),
+    )
+    for name, value in {
+        "engine": engine, "consumer": wiring.consumer,
+        "publisher": wiring.publisher, "consumer_task": wiring.task,
+    }.items():
+        monkeypatch.setattr(app.state, name, value, raising=False)
+    return wiring
+
+
+async def test_connections_all_up(client, wired_app):
+    r = await client.get("/connections")
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert {k: v["status"] for k, v in body["connections"].items()} == {
+        "database": "up", "rabbitmq_consumer": "up", "rabbitmq_publisher": "up",
+    }
+    assert isinstance(body["connections"]["database"]["latency_ms"], int)
+
+
+@pytest.mark.parametrize("break_it, down", [
+    (lambda w: setattr(w.consumer, "is_connected", False), "rabbitmq_consumer"),
+    (lambda w: w.task.done.configure_mock(return_value=True), "rabbitmq_consumer"),
+    (lambda w: setattr(w.publisher, "is_connected", False), "rabbitmq_publisher"),
+    (lambda w: setattr(w.conn, "execute", AsyncMock(side_effect=ConnectionError("db down"))), "database"),
+])
+async def test_connections_reports_only_the_broken_one_as_down(client, wired_app, break_it, down):
+    break_it(wired_app)
+
+    r = await client.get("/connections")
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "degraded"
+    assert {k for k, v in body["connections"].items() if v["status"] == "down"} == {down}
+
+
+async def test_connections_does_not_leak_error_details(client, wired_app):
+    wired_app.conn.execute = AsyncMock(side_effect=ConnectionError("password=hunter2 host=10.0.0.5"))
+
+    r = await client.get("/connections")
+
+    assert "hunter2" not in r.text and "10.0.0.5" not in r.text
+    assert settings.queue_url not in r.text
+
+
+async def test_connections_database_timeout_is_reported_down(client, wired_app, monkeypatch):
+    monkeypatch.setattr("api.main.READINESS_DB_TIMEOUT_S", 0.01)
+
+    async def hang(*args, **kwargs):
+        await asyncio.sleep(10)
+
+    wired_app.conn.execute = hang
+
+    r = await client.get("/connections")
+
+    assert r.json()["connections"]["database"] == {"status": "down"}
+
+
+@pytest.mark.asyncio
+async def test_connections_before_startup_reports_everything_down_instead_of_failing():
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))   # lifespan never ran
+
+    body = await connections(request)
+
+    assert body["status"] == "degraded"
+    assert all(c["status"] == "down" for c in body["connections"].values())

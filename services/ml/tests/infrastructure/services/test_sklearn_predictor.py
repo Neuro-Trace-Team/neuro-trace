@@ -3,11 +3,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from infrastructure.event_handlers.prediction_event_handler import METADATA_KEYS, PredictionEventHandler
-from infrastructure.services.features import FEATURE_NAMES
 import numpy as np
 import pytest
 
 from infrastructure.services.sklearn_predictor import FeatureValidationError, SklearnPredictor
+
+from tests.conftest import MODEL_PATH, TEST_FEATURES
 
 
 class DummyModelWithProba:
@@ -229,30 +230,10 @@ def test_predict_returns_json_friendly_lists():
     assert isinstance(result["prediction"], list)
     assert isinstance(result["probabilities"], list)
 
-MODEL_PATH = Path(__file__).parents[3] / "models" / "model.joblib"
-
-
-@pytest.mark.skipif(not MODEL_PATH.exists(), reason="model artifact not available")
-def test_shipped_model_matches_configured_feature_names():
-    p = SklearnPredictor(str(MODEL_PATH), FEATURE_NAMES)
-    p.load_model()
-
-    result = p.predict({name: 0.0 for name in FEATURE_NAMES})
-
-    assert len(result["prediction"]) == 1
-    assert hasattr(p.model, "feature_names_in_"), "artifact doesn't record its feature order"
 
 def test_load_rejects_artifact_without_predict(load_with):
     with pytest.raises(RuntimeError, match="not an estimator"):
         load_with({"model": object()})
-
-
-def test_feature_names_are_unique():
-    assert len(FEATURE_NAMES) == len(set(FEATURE_NAMES))
-
-
-def test_no_feature_is_stripped_as_metadata():
-    assert set(FEATURE_NAMES) & METADATA_KEYS == set()
 
 
 def test_model_artifact_is_not_an_lfs_pointer():
@@ -295,3 +276,23 @@ def test_model_info_before_load():
 def test_describe_truncates_long_feature_lists():
     err = FeatureValidationError("x", invalid=[f"f{i}" for i in range(12)])
     assert PredictionEventHandler._describe(err).endswith("(+2 more)")
+
+
+def test_require_feature_names_rejects_model_without_names(load_with):
+    with pytest.raises(RuntimeError, match="feature_names_in_"):
+        load_with(DummyModelWithProba(), require_feature_names=True)
+
+
+def test_require_feature_names_accepts_model_with_names(load_with):
+    p = load_with(NamedModel(names=["a", "b"]), require_feature_names=True)
+    assert p.feature_names == ["a", "b"]
+
+
+def test_adopted_names_are_plain_strings(load_with):
+    p = load_with(NamedModel(names=["a", "b"]))
+    assert all(type(n) is str for n in p.feature_names)
+
+
+def test_service_predictor_requires_feature_names():
+    from api.main import predictor
+    assert predictor.require_feature_names is True

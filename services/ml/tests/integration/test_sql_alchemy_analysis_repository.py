@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from testcontainers.community.postgres import PostgresContainer
 
-from common import find_project_root
+from tests.common import find_project_root
 
 pytestmark = pytest.mark.integration
 
