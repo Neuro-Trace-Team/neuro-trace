@@ -1,7 +1,259 @@
 {
-  "version": "<release tag or date>",
-  "target": "<what the model predicts>",
-  "trained_on_tasks": ["<task>"],
-  "trained_with_sklearn": "<x.y.z>",
-  "cv_within_intensity_subject_r": "<value from the old bundle>"
+  "version": "2026-11-13",
+  "target": "Pain rating rescaled to a common 0-10 scale (absolute rating)",
+  "rating_scale_original": {
+    "26ByBiosemi": [
+      0.0,
+      10.0
+    ],
+    "29ByBP": [
+      0.0,
+      10.0
+    ],
+    "29ByANT": [
+      0.0,
+      10.0
+    ]
+  },
+  "trained_on_tasks": [
+    "26ByBiosemi",
+    "29ByANT",
+    "29ByBP"
+  ],
+  "trained_with_sklearn": "1.9.1",
+  "cv_within_intensity_subject_r": 0.199,
+  "cv_mae_0_10": 1.978,
+  "cv_mae_baseline": 2.064,
+  "cv_skill_vs_mean": 0.042,
+  "cv_by_task": {
+    "26ByBiosemi": {
+      "MAE": 1.844,
+      "MAE_baseline": 1.847,
+      "skill_MAE": 0.001,
+      "RMSE": 2.32,
+      "R2_vs_baseline": 0.037,
+      "r": 0.218,
+      "within_r": 0.255
+    },
+    "29ByANT": {
+      "MAE": 1.994,
+      "MAE_baseline": 2.053,
+      "skill_MAE": 0.029,
+      "RMSE": 2.358,
+      "R2_vs_baseline": 0.057,
+      "r": 0.239,
+      "within_r": 0.186
+    },
+    "29ByBP": {
+      "MAE": 1.974,
+      "MAE_baseline": 2.101,
+      "skill_MAE": 0.061,
+      "RMSE": 2.406,
+      "R2_vs_baseline": 0.117,
+      "r": 0.401,
+      "within_r": 0.165
+    }
+  },
+  "uses_laser_power": false,
+  "model": "ridge",
+  "params": {
+    "model__alpha": "100000.0",
+    "qt__output_distribution": "normal"
+  },
+  "confidence": {
+    "pairwise_slope": 1.3461728725960544,
+    "residual_bins": {
+      "inner_edges": [
+        4.684382152557373,
+        4.935990619659424,
+        5.15498628616333,
+        5.449479007720948
+      ],
+      "q80": [
+        3.2543091773986825,
+        3.2218564033508303,
+        3.069413185119629,
+        3.310605525970459,
+        3.265253067016602
+      ],
+      "q90": [
+        3.673411464691162,
+        3.8955761909484865,
+        4.021438407897949,
+        3.820206928253174,
+        3.862097549438477
+      ],
+      "within1": [
+        0.3283496262219667,
+        0.2806210465784934,
+        0.28349626221966645,
+        0.2645198389879241,
+        0.2650948821161587
+      ],
+      "within2": [
+        0.59401955146636,
+        0.5457159286946521,
+        0.5710178263369753,
+        0.5468660149511213,
+        0.5514663599769982
+      ],
+      "n": [
+        1739,
+        1739,
+        1739,
+        1739,
+        1739
+      ]
+    },
+    "fitted_on": "out-of-fold predictions",
+    "same_intensity_only": false,
+    "threshold": {
+      "value": 5.0,
+      "intercept": -5.575175910460688,
+      "slope": 1.1566940239568066
+    },
+    "calibration_check": {
+      "intervals_held_out_subjects": {
+        "coverage_80": 0.7954,
+        "coverage_90": 0.8981,
+        "mean_width_80": 6.4274,
+        "p_within1_stated": 0.2842,
+        "p_within1_observed": 0.2844,
+        "p_within2_stated": 0.5618,
+        "p_within2_observed": 0.5618
+      },
+      "pairwise_held_out_subjects": {
+        "n_pairs": 176317.0,
+        "pairwise_auc": 0.7007,
+        "accuracy": 0.6437,
+        "brier": 0.2193,
+        "brier_chance": 0.25,
+        "log_loss": 0.6279,
+        "ece": 0.0044,
+        "mean_confidence": 0.6431
+      },
+      "intervals_held_out_tasks": {
+        "coverage_80": 0.8039,
+        "coverage_90": 0.9001,
+        "mean_width_80": 6.5057,
+        "p_within1_stated": 0.2847,
+        "p_within1_observed": 0.2844,
+        "p_within2_stated": 0.5618,
+        "p_within2_observed": 0.5618
+      },
+      "pairwise_held_out_tasks": {
+        "n_pairs": 176317.0,
+        "pairwise_auc": 0.7007,
+        "accuracy": 0.6437,
+        "brier": 0.2244,
+        "brier_chance": 0.25,
+        "log_loss": 0.642,
+        "ece": 0.0269,
+        "mean_confidence": 0.6402
+      }
+    },
+    "max_row_nan_frac": 0.9052631578947369
+  },
+  "feature_cols": [
+    "baseline_gamma_power",
+    "baseline_paf",
+    "baseline_paf_hz",
+    "baseline_paf_prominence",
+    "baseline_permutation_entropy",
+    "baseline_relative_alpha_power",
+    "baseline_relative_beta_power",
+    "baseline_relative_delta_power",
+    "baseline_relative_theta_power",
+    "baseline_theta_alpha_ratio",
+    "db_change_absolute_alpha_power",
+    "db_change_absolute_beta_power",
+    "db_change_absolute_gamma_power",
+    "db_change_absolute_spectral_power",
+    "db_change_absolute_theta_power",
+    "db_change_gamma_power",
+    "early_alpha_power_db_change_global",
+    "early_alpha_power_db_change_mean_channels",
+    "early_alpha_power_relative_change_global",
+    "early_alpha_power_relative_change_mean_channels",
+    "early_beta_power_db_change_global",
+    "early_beta_power_db_change_mean_channels",
+    "early_beta_power_relative_change_global",
+    "early_beta_power_relative_change_mean_channels",
+    "early_gamma_power",
+    "early_gamma_power_db_change_global",
+    "early_gamma_power_db_change_mean_channels",
+    "early_gamma_power_relative_change_global",
+    "early_gamma_power_relative_change_mean_channels",
+    "early_paf",
+    "early_paf_change",
+    "early_paf_prominence",
+    "early_permutation_entropy",
+    "early_permutation_entropy_change",
+    "early_relative_alpha_power",
+    "early_relative_beta_power",
+    "early_relative_theta_power",
+    "early_spectral_power_db_change_global",
+    "early_spectral_power_db_change_mean_channels",
+    "early_spectral_power_relative_change_global",
+    "early_spectral_power_relative_change_mean_channels",
+    "early_theta_alpha_ratio",
+    "early_theta_power_db_change_global",
+    "early_theta_power_db_change_mean_channels",
+    "early_theta_power_relative_change_global",
+    "early_theta_power_relative_change_mean_channels",
+    "gamma_power",
+    "paf_hz",
+    "paf_prominence",
+    "permutation_entropy",
+    "relative_alpha_power",
+    "relative_beta_power",
+    "relative_change_absolute_alpha_power",
+    "relative_change_absolute_beta_power",
+    "relative_change_absolute_gamma_power",
+    "relative_change_absolute_spectral_power",
+    "relative_change_absolute_theta_power",
+    "relative_change_gamma_power",
+    "relative_theta_power",
+    "sustained_alpha_power_db_change_global",
+    "sustained_alpha_power_db_change_mean_channels",
+    "sustained_alpha_power_relative_change_global",
+    "sustained_alpha_power_relative_change_mean_channels",
+    "sustained_beta_power_db_change_global",
+    "sustained_beta_power_db_change_mean_channels",
+    "sustained_beta_power_relative_change_global",
+    "sustained_beta_power_relative_change_mean_channels",
+    "sustained_delta_power_db_change_global",
+    "sustained_delta_power_db_change_mean_channels",
+    "sustained_delta_power_relative_change_global",
+    "sustained_delta_power_relative_change_mean_channels",
+    "sustained_gamma_power",
+    "sustained_gamma_power_db_change_global",
+    "sustained_gamma_power_db_change_mean_channels",
+    "sustained_gamma_power_relative_change_global",
+    "sustained_gamma_power_relative_change_mean_channels",
+    "sustained_paf",
+    "sustained_paf_change",
+    "sustained_paf_prominence",
+    "sustained_permutation_entropy",
+    "sustained_permutation_entropy_change",
+    "sustained_relative_alpha_power",
+    "sustained_relative_beta_power",
+    "sustained_relative_delta_power",
+    "sustained_relative_theta_power",
+    "sustained_spectral_power_db_change_global",
+    "sustained_spectral_power_db_change_mean_channels",
+    "sustained_spectral_power_relative_change_global",
+    "sustained_spectral_power_relative_change_mean_channels",
+    "sustained_theta_alpha_ratio",
+    "sustained_theta_power_db_change_global",
+    "sustained_theta_power_db_change_mean_channels",
+    "sustained_theta_power_relative_change_global",
+    "sustained_theta_power_relative_change_mean_channels",
+    "theta_alpha_ratio"
+  ],
+  "feature_hash": "f22b0d45d7",
+  "preproc_version": "v1",
+  "n_trials": 8695,
+  "n_subjects": 83,
+  "trained_at": "2026-11-13 08:52:24"
 }
