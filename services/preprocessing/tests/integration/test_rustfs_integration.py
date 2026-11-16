@@ -28,7 +28,7 @@ def test_backend_timestamps_are_downloaded_in_pipeline_format(tmp_path: Path) ->
     )
 
     assert eeg_path.read_bytes() == objects["exam/recording.bdf"]
-    assert events_path.name == "events.json"
+    assert events_path.name == "timestamps.json"
     assert _read_event_onsets(destination) == [0.0, 83.456]
 
 
@@ -61,6 +61,6 @@ def test_rustfs_download_uses_backend_storage_coordinates(tmp_path: Path) -> Non
     )
 
     assert calls == [
-        ("exam-bucket", "study-001/events.json", str(tmp_path / "recording" / "events.json")),
+        ("exam-bucket", "study-001/timestamps.json", str(tmp_path / "recording" / "timestamps.json")),
         ("exam-bucket", "study-001/eeg_data.bdf", str(tmp_path / "recording" / "eeg_data.bdf")),
     ]

@@ -24,14 +24,14 @@ class FakeRaw:
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_json_timestamps_convert_milliseconds_preserving_order_and_duplicates(tmp_path, wrapped):
     values = [2500, 0, 500.5, 2500]
-    (tmp_path / "events.json").write_text(json.dumps({"timestamps": values} if wrapped else values))
+    (tmp_path / "timestamps.json").write_text(json.dumps({"timestamps": values} if wrapped else values))
 
     assert _read_event_onsets(tmp_path) == [2.5, 0.0, 0.5005, 2.5]
 
 
 @pytest.mark.parametrize("content", ["[]", '{"timestamps": []}'])
 def test_empty_json_timestamp_list(tmp_path, content):
-    (tmp_path / "events.json").write_text(content)
+    (tmp_path / "timestamps.json").write_text(content)
 
     assert _read_event_onsets(tmp_path) == []
 
@@ -45,7 +45,7 @@ def test_empty_json_timestamp_list(tmp_path, content):
     '{"timestamps": [Infinity]}', '{"timestamps": [null]}',
 ])
 def test_invalid_json_timestamps_are_rejected(tmp_path, content):
-    (tmp_path / "events.json").write_text(content)
+    (tmp_path / "timestamps.json").write_text(content)
 
     with pytest.raises(ValueError):
         _read_event_onsets(tmp_path)
@@ -54,13 +54,13 @@ def test_invalid_json_timestamps_are_rejected(tmp_path, content):
 def test_csv_is_not_used_as_fallback(tmp_path):
     (tmp_path / "events.csv").write_text("onset\n0.5\n")
 
-    with pytest.raises(FileNotFoundError, match="events.json"):
+    with pytest.raises(FileNotFoundError, match="timestamps.json"):
         _read_event_onsets(tmp_path)
 
 
 @pytest.mark.parametrize("content", ["[500]", '{"timestamps": [500]}'])
 def test_json_timestamps_produce_same_preprocessing_as_seconds(monkeypatch, tmp_path, content):
-    (tmp_path / "events.json").write_text(content)
+    (tmp_path / "timestamps.json").write_text(content)
     monkeypatch.setattr("eeg_pipeline.preprocessing._filter", lambda data, sfreq, cfg: data)
     cfg = PipelineConfig(mode="event", tmin=0, tmax=0.1, target_sfreq=None)
 
@@ -85,7 +85,7 @@ def test_loader_reads_events_from_json_and_ignores_configuration(monkeypatch, tm
     run = tmp_path / "run"
     run.mkdir()
     (run / "recording.bdf").write_bytes(b"not read")
-    (run / "events.json").write_text("[2500]")
+    (run / "timestamps.json").write_text("[2500]")
     (run / "configuration.json").write_text(json.dumps({"events": [2.5], "reference": "Cz", "sampling_frequency": 1}))
     fake_mne = type("MNE", (), {"io": type("IO", (), {"read_raw_bdf": staticmethod(lambda *args, **kwargs: FakeRaw())})})
     monkeypatch.setitem(__import__("sys").modules, "mne", fake_mne)
@@ -93,7 +93,7 @@ def test_loader_reads_events_from_json_and_ignores_configuration(monkeypatch, tm
     recording = load_recording(run)
 
     assert recording.events_seconds == [2.5]
-    assert recording.config == {"events_json": str(run / "events.json")}
+    assert recording.config == {"events_json": str(run / "timestamps.json")}
     assert recording.raw.info["sfreq"] == 100.0
     assert recording.raw.ch_names == EEG_CHANNELS
 
@@ -102,7 +102,7 @@ def test_loader_does_not_use_channels_sidecar(monkeypatch, tmp_path):
     run = tmp_path / "run"
     run.mkdir()
     (run / "recording.bdf").write_bytes(b"not read")
-    (run / "events.json").write_text("[500]")
+    (run / "timestamps.json").write_text("[500]")
     (run / "recording_channels.tsv").write_text("name\ttype\n" + "\n".join(f"{name}\tEEG" for name in EEG_CHANNELS))
     fake_mne = type("MNE", (), {"io": type("IO", (), {"read_raw_bdf": staticmethod(lambda *args, **kwargs: FakeRaw())})})
     monkeypatch.setitem(__import__("sys").modules, "mne", fake_mne)
@@ -117,7 +117,7 @@ def test_loader_rejects_missing_channel_types(monkeypatch, tmp_path):
     run = tmp_path / "run"
     run.mkdir()
     (run / "recording.bdf").write_bytes(b"not read")
-    (run / "events.json").write_text("[500]")
+    (run / "timestamps.json").write_text("[500]")
     raw = FakeRaw()
     raw.get_channel_types = lambda: []
     fake_mne = type("MNE", (), {"io": type("IO", (), {"read_raw_bdf": staticmethod(lambda *args, **kwargs: raw)})})

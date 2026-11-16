@@ -1,5 +1,5 @@
 from __future__ import annotations
-import csv
+import json
 import logging
 import math
 from dataclasses import dataclass, field
@@ -25,36 +25,35 @@ def _find_eeg_file(directory: Path) -> Optional[Path]:
     return sorted(files)[0] if files else None
 
 def _read_event_onsets(directory: Path, *, rejected_rows=None) -> list[float]:
-    """Read event onset times, in seconds, from the recording's events.csv."""
-    path = directory / "events.csv"
+    """Read event timestamps from timestamps.json and convert milliseconds to seconds."""
+    path = directory / "timestamps.json"
     if not path.is_file():
-        raise FileNotFoundError(f"Missing events.csv in {directory}")
+        raise FileNotFoundError(f"Missing timestamps.json in {directory}")
+
+    def reject_nonstandard_constant(value):
+        raise ValueError(f"Invalid JSON timestamp value: {value}")
+
     try:
-        with path.open(newline="", encoding="utf-8-sig") as stream:
-            reader = csv.DictReader(stream)
-            if not reader.fieldnames or "onset" not in {name.strip().lower() for name in reader.fieldnames}:
-                raise ValueError(f"events.csv must contain an 'onset' column: {path}")
-            onset_name = next(name for name in reader.fieldnames if name.strip().lower() == "onset")
-            onsets = []
-            for row_number, row in enumerate(reader, start=2):
-                value = row.get(onset_name, "")
-                if value is None or not value.strip():
-                    message = f'Missing onset at row {row_number} in {path}'
-                    if rejected_rows is None:
-                        raise ValueError(message)
-                    rejected_rows.append(dict(source_csv_row=row_number, reason='missing_onset'))
-                    LOGGER.warning(message)
-                    continue
-                try:
-                    onset = float(value)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError(f"Invalid onset at row {row_number} in {path}: {value!r}") from exc
-                if not math.isfinite(onset) or onset < 0:
-                    raise ValueError(f"Invalid onset at row {row_number} in {path}: {value!r}")
-                onsets.append(onset)
-            return onsets
+        with path.open(encoding="utf-8-sig") as stream:
+            payload = json.load(stream, parse_constant=reject_nonstandard_constant)
     except OSError as exc:
         raise OSError(f"Could not read {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
+
+    timestamps = payload.get("timestamps") if isinstance(payload, dict) else payload
+    if not isinstance(timestamps, list):
+        raise ValueError(f"{path} must contain a JSON list of timestamps or an object with a 'timestamps' list")
+
+    onsets = []
+    for index, value in enumerate(timestamps):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Invalid timestamp at index {index} in {path}: {value!r}")
+        timestamp = float(value)
+        if not math.isfinite(timestamp) or timestamp < 0:
+            raise ValueError(f"Invalid timestamp at index {index} in {path}: {value!r}")
+        onsets.append(timestamp / 1000.0)
+    return onsets
 
 def _validate_bdf_metadata(raw, eeg_path: Path) -> None:
     """Ensure all metadata needed by preprocessing comes from the BDF/MNE object."""
@@ -103,22 +102,13 @@ def load_recording(directory: str | Path, preload: bool = False) -> Recording:
         except Exception as exc:
             rating_warnings.append(f'Could not read pain ratings: {exc}')
             LOGGER.warning(rating_warnings[-1])
-    recording = Recording(eeg_path, raw, {"events_csv": str(directory / "events.csv")}, events, ratings)
+    recording = Recording(eeg_path, raw, {"events_json": str(directory / "timestamps.json")}, events, ratings)
     recording.warnings.extend(rating_warnings)
     recording.rejected_event_rows = rejected_rows
-    recording.warnings.extend(f"Missing onset at source_csv_row={r['source_csv_row']}" for r in rejected_rows)
-    with (directory / "events.csv").open(newline="", encoding="utf-8-sig") as stream:
-        for source_row, row in enumerate(csv.DictReader(stream), start=2):
-            normalized = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
-            if normalized.get("onset"):
-                recording.event_metadata.append(dict(source_csv_row=source_row,
-                    source_event_index=len(recording.event_metadata), event_id=normalized.get('event_id'),
-                    **{key: normalized[key].lower() for key in
-                       ("stimulation_side", "stimulation_site") if normalized.get(key)}))
     return recording
 
 def match_pain_rating(record, records, metadata, ratings):
-    """Exact join only: event_id, source_csv_row, or onset in events.csv units.
+    """Exact join only: event_id, source_csv_row, or onset in seconds.
 
     Multiple-marker clusters and duplicate event/rating keys are deliberately ambiguous.
     """

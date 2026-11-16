@@ -56,7 +56,7 @@ class RustFSStorage:
     def download_recording_inputs(
         self, bucket: str, storage_key: str, destination: Path
     ) -> tuple[Path, Path]:
-        """Download EEG and sibling timestamps.json, saved locally as events.json."""
+        """Download the EEG file and sibling timestamps.json for the pipeline."""
         if not isinstance(bucket, str) or not bucket.strip():
             raise ValueError("storage_bucket must not be blank")
         if not isinstance(storage_key, str) or not storage_key.strip():
@@ -71,11 +71,11 @@ class RustFSStorage:
 
         destination.mkdir(parents=True, exist_ok=True)
         eeg_path = destination / filename
-        events_path = destination / "events.json"
+        timestamps_path = destination / "timestamps.json"
         client = self._client()
         client.download_file(bucket, storage_key, str(eeg_path))
-        client.download_file(bucket, event_key, str(events_path))
-        return eeg_path, events_path
+        client.download_file(bucket, event_key, str(timestamps_path))
+        return eeg_path, timestamps_path
 
     def upload_result(self, csv_path: Path, bucket: str, storage_key: str) -> None:
         """Upload the pipeline output unchanged to backend-provided storage."""

@@ -94,7 +94,7 @@ The service downloads the EEG object directly from RustFS using the supplied
 bucket and sibling object directory. For example, a key of
 `examinations/patient/examination/raw_eeg.bdf` results in downloads of that key
 and `examinations/patient/examination/timestamps.json`. The timestamps file is
-saved locally as `events.json` for the pipeline. Backend uploads use the JSON
+saved locally as `timestamps.json` for the pipeline. Backend uploads use the JSON
 shape `{"timestamps": [0, 83456]}` (milliseconds).
 
 Example preprocessing submission:
@@ -131,14 +131,14 @@ The job execution process is as follows:
    examination UUID and current status.
 4. Preprocessing downloads the EEG object and
    sibling `timestamps.json` from RustFS using `RustFSStorage.download_recording_inputs`,
-   saving the latter locally as `events.json`.
+   saving the latter locally as `timestamps.json`.
    It does not fetch source-file coordinates from the backend.
 5. Both files are stored in the pipeline's existing local input directory:
 
    ```text
    /tmp/preprocessing/<examination_id>/input/study/subject/run/
    ├── raw_eeg.bdf
-   └── events.json
+   └── timestamps.json
    ```
 
 6. `JobManager` runs `python -m eeg_pipeline.cli` with the `--input`,
@@ -204,7 +204,7 @@ eeg-data/
 
 `eeg_data.bdf` must be a BioSemi BDF file, and `timestamps.json` must contain a
 JSON list of timestamps in milliseconds or an object wrapping that list under
-`timestamps`. It is downloaded as `events.json`, as required by the pipeline
+`timestamps`. It is downloaded as `timestamps.json`, as required by the pipeline
 contract described below. Connecting
 to RustFS only requires a valid endpoint, credentials, bucket name, and S3 read
 permissions for the objects.
@@ -239,7 +239,7 @@ are marked invalid/contaminated instead of being silently shortened.
 Preprocessing requires two files:
 
 - one EEG file in BioSemi `.bdf` format;
-- an `events.json` file containing event timestamps.
+- a `timestamps.json` file containing event timestamps.
 
 The files should be located in one recording directory. The pipeline does not
 require additional parent directories such as `experiment`, `subject`, or
@@ -248,10 +248,10 @@ require additional parent directories such as `experiment`, `subject`, or
 ```text
 recording/
 ├── eeg_data.bdf
-└── events.json
+└── timestamps.json
 ```
 
-`events.json` must contain a JSON list (or an object with a `timestamps` list)
+`timestamps.json` must contain a JSON list (or an object with a `timestamps` list)
 of numeric event timestamps in
 milliseconds from the beginning of the recording. The loader converts them to
 seconds for preprocessing. List order determines `event_index` in the output;
@@ -261,7 +261,7 @@ invalid, non-finite, or negative values cause a recording-loading error.
 [7800, 121900]
 ```
 
-If `events.json` is missing, no substitute events are created.
+If `timestamps.json` is missing, no substitute events are created.
 `configuration.json` is no longer a source of events or metadata required for
 analysis.
 
@@ -271,7 +271,7 @@ The main stages are implemented in the following files:
 
 1. `eeg_pipeline/data_loader.py` searches for `.bdf` files, opens them with
    MNE, and reads the sampling frequency, channel names, and channel types from
-   the BDF header. It also reads event onsets from `events.json`. Files such as
+   the BDF header. It also reads event onsets from `timestamps.json`. Files such as
    `*_channels.tsv` are not used; channels must be described unambiguously in
    the BDF header.
 2. `eeg_pipeline/preprocessing.py` selects the required 19 channels, applies
