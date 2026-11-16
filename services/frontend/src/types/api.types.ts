@@ -134,3 +134,16 @@ export interface BackendReadiness {
   status: string;
   dependencies: Record<string, string>;
 }
+
+export interface SystemStatus {
+  status: "ok" | "degraded";
+  backend: { status: "up" | "down" };
+  databases: Record<string, { status: "up" | "down" }>;
+  preprocessing: ExternalServiceStatus;
+  ml: ExternalServiceStatus;
+}
+
+interface ExternalServiceStatus {
+  status: "ok" | "degraded" | "down";
+  connections: Record<string, { status: string; latency_ms?: number | null; error?: string | null }>;
+}
