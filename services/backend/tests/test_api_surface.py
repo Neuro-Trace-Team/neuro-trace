@@ -14,6 +14,7 @@ def test_openapi_exposes_current_examination_contract() -> None:
     assert "/api/v1/examinations/{examination_id}/results" in paths
     assert "/api/v1/storage/usage" in paths
     assert "/api/v1/admin/app-activity" in paths
+    assert "/api/v1/admin/system-status" in paths
     assert "/api/v1/examinations/statuses" in paths
     assert "get" in paths["/api/v1/examinations/{examination_id}/results"]
     assert "post" not in paths["/api/v1/examinations/{examination_id}/results"]
@@ -47,6 +48,13 @@ def test_openapi_exposes_admin_app_activity_metrics() -> None:
         "period_started_at", "active_users_last_24h", "failed_login_attempts_last_24h",
         "examinations_uploaded_last_24h", "storage",
     } <= properties.keys()
+
+
+def test_openapi_exposes_admin_system_status() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+    properties = schemas["SystemStatusResponse"]["properties"]
+
+    assert {"status", "backend", "databases", "preprocessing", "ml"} <= properties.keys()
 
 
 def test_list_endpoints_expose_filtering_sorting_and_pagination_contracts() -> None:
@@ -106,7 +114,7 @@ def test_every_protected_endpoint_rejects_anonymous_frontend_client() -> None:
         ("GET", "/api/v1/me/recent/patients", {}), ("GET", "/api/v1/me/recent/examinations", {}), ("GET", "/api/v1/storage/usage", {}),
         ("POST", "/api/v1/patients", {}), ("GET", "/api/v1/patients", {}), ("GET", "/api/v1/patients/stats", {}), ("GET", f"/api/v1/patients/{uid}", {}), ("GET", f"/api/v1/patients/{uid}/stats", {}), ("GET", f"/api/v1/patients/{uid}/examinations", {}),
         ("POST", "/api/v1/examinations", {"data": {"patient_id": uid}, "files": {"file": ("test.eeg", b"x")}}), ("GET", "/api/v1/examinations", {}), ("GET", "/api/v1/examinations/statuses", {}), ("GET", f"/api/v1/examinations/{uid}", {}), ("PATCH", f"/api/v1/examinations/{uid}", {"json": {"examination_date": None}}), ("DELETE", f"/api/v1/examinations/{uid}", {}), ("GET", f"/api/v1/examinations/{uid}/preprocessing-status", {}), ("GET", f"/api/v1/examinations/{uid}/results", {}),
-        ("POST", "/api/v1/examinations/bulk-delete", {"json": {"examination_ids": [uid]}}), ("POST", "/api/v1/examinations/bulk-export", {"json": {"examination_ids": [uid]}}), ("GET", "/api/v1/admin/audit-logs", {}), ("GET", f"/api/v1/admin/audit-logs/{uid}", {}), ("GET", "/api/v1/admin/app-activity", {}),
+        ("POST", "/api/v1/examinations/bulk-delete", {"json": {"examination_ids": [uid]}}), ("POST", "/api/v1/examinations/bulk-export", {"json": {"examination_ids": [uid]}}), ("GET", "/api/v1/admin/audit-logs", {}), ("GET", f"/api/v1/admin/audit-logs/{uid}", {}), ("GET", "/api/v1/admin/app-activity", {}), ("GET", "/api/v1/admin/system-status", {}),
     ]
     for method, path, kwargs in requests:
         response = client.request(method, path, **kwargs)
