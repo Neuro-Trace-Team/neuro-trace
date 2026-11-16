@@ -9,7 +9,7 @@ def channelwise_changes(event_power, baseline_power):
     """Return mean-of-channel relative and dB changes, preserving invalid data."""
     event = np.asarray(event_power, dtype=float)
     baseline = np.asarray(baseline_power, dtype=float)
-    valid = np.isfinite(event) & np.isfinite(baseline) & (baseline > 0)
+    valid = np.isfinite(event) & np.isfinite(baseline) & (baseline > 0) & (event >= 0)
     relative = np.full(np.broadcast_shapes(event.shape, baseline.shape), np.nan)
     db = np.full_like(relative, np.nan)
     relative[valid] = (event[valid] - baseline[valid]) / baseline[valid]
@@ -23,7 +23,7 @@ def global_changes(event_power, baseline_power):
     """Aggregate valid channels first, then calculate relative and dB change."""
     event = np.asarray(event_power, dtype=float)
     baseline = np.asarray(baseline_power, dtype=float)
-    valid = np.isfinite(event) & np.isfinite(baseline) & (baseline > 0)
+    valid = np.isfinite(event) & np.isfinite(baseline) & (baseline > 0) & (event >= 0)
     if not np.any(valid):
         return np.nan, np.nan
     event_mean = float(np.nanmean(event[valid]))
