@@ -13,7 +13,7 @@ from src.repositories import audit as audit_repository
 from src.schemas.activity import AppActivityResponse
 from src.schemas.audit import AuditLogListResponse, AuditLogResponse
 from src.schemas.storage import StorageUnavailableResponse, StorageUsageResponse
-from src.schemas.system_status import ComponentStatus, SystemStatusResponse
+from src.schemas.system_status import SystemStatusResponse
 from src.services import system_status as system_status_service
 from src.services.storage import ObjectStorageError, RustFSStorage
 
@@ -38,17 +38,18 @@ def _to_response(log: AuditLog, event_code: str) -> AuditLogResponse:
 @router.get("/system-status", response_model=SystemStatusResponse, dependencies=[admin_only])
 def get_system_status() -> SystemStatusResponse:
     """Aggregate existing health diagnostics for the administrator frontend."""
-    databases, preprocessing, ml = system_status_service.system_status()
+    backend, databases, preprocessing, ml = system_status_service.system_status()
     overall = (
         "ok"
-        if all(item.status == "up" for item in databases.values())
+        if all(item.status == "up" for item in backend.connections.values())
+        and all(item.status == "up" for item in databases.values())
         and preprocessing.status == "ok"
         and ml.status == "ok"
         else "degraded"
     )
     return SystemStatusResponse(
         status=overall,
-        backend=ComponentStatus(status="up"),
+        backend=backend,
         databases=databases,
         preprocessing=preprocessing,
         ml=ml,

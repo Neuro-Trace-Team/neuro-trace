@@ -3,7 +3,11 @@ import json
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from src.messaging.ml_completion_consumer import MLCompletionConsumer
+from src.messaging.ml_completion_consumer import (
+    MLCompletionConsumer,
+    completion_consumer_status,
+    set_active_completion_consumer,
+)
 
 
 class Message:
@@ -32,3 +36,22 @@ def test_invalid_completion_event_is_rejected(monkeypatch):
     message = Message({"event_type": "unexpected", "examination_id": str(uuid4())})
     asyncio.run(consumer._dispatch_message(message))
     assert message.rejected and not message.acked
+
+
+def test_completion_consumer_status_requires_active_amqp_connection():
+    class Connection:
+        def __init__(self) -> None:
+            self.is_closed = False
+            self.connected = asyncio.Event()
+            self.connected.set()
+
+    consumer = MLCompletionConsumer(queue_url="amqp://test", queue_name="completed", session_factory=MagicMock())
+    consumer.connection = Connection()
+    consumer._is_listening = True
+    set_active_completion_consumer(consumer)
+    try:
+        assert completion_consumer_status() == "up"
+        consumer.connection.connected.clear()
+        assert completion_consumer_status() == "down"
+    finally:
+        set_active_completion_consumer(None)

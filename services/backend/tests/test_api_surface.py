@@ -55,6 +55,8 @@ def test_openapi_exposes_admin_system_status() -> None:
     properties = schemas["SystemStatusResponse"]["properties"]
 
     assert {"status", "backend", "databases", "preprocessing", "ml"} <= properties.keys()
+    backend_schema = schemas[properties["backend"]["$ref"].split("/")[-1]]
+    assert "connections" in backend_schema["properties"]
 
 
 def test_list_endpoints_expose_filtering_sorting_and_pagination_contracts() -> None:

@@ -18,7 +18,7 @@ from src.api.v1.recent import router as recent_router
 from src.api.v1.storage import router as storage_router
 from src.api.v1.users import router as users_router
 from src.db import sessions
-from src.messaging.ml_completion_consumer import MLCompletionConsumer
+from src.messaging.ml_completion_consumer import MLCompletionConsumer, set_active_completion_consumer
 from src.services.storage import ObjectStorageError, RustFSStorage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -31,6 +31,7 @@ async def lifespan(_: FastAPI):
         queue_name=sessions.settings.completed_analysis_queue_name,
         session_factory=sessions.MedicalSession,
     )
+    set_active_completion_consumer(consumer)
     consumer_task = asyncio.create_task(consumer.run())
     try:
         yield
@@ -41,6 +42,7 @@ async def lifespan(_: FastAPI):
         except asyncio.CancelledError:
             pass
         await consumer.close()
+        set_active_completion_consumer(None)
 
 
 app = FastAPI(title="NeuroTrace Backend", version="0.1.0", lifespan=lifespan)

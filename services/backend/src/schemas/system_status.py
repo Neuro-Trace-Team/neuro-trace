@@ -3,8 +3,16 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class ComponentStatus(BaseModel):
-    status: Literal["up", "down"]
+class ConnectionStatus(BaseModel):
+    status: Literal["up", "down", "unknown"]
+
+
+class ComponentStatus(ConnectionStatus):
+    pass
+
+
+class BackendStatus(ComponentStatus):
+    connections: dict[str, ConnectionStatus] = Field(default_factory=dict)
 
 
 class ExternalConnectionStatus(BaseModel):
@@ -24,7 +32,7 @@ class SystemStatusResponse(BaseModel):
     """Administrator-facing aggregate of the deployed service topology."""
 
     status: Literal["ok", "degraded"]
-    backend: ComponentStatus
+    backend: BackendStatus
     databases: dict[str, ComponentStatus]
     preprocessing: ExternalServiceStatus
     ml: ExternalServiceStatus

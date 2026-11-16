@@ -10,11 +10,32 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from src.config import get_settings
 from src.db import sessions
+from src.messaging.ml_completion_consumer import completion_consumer_status
 from src.schemas.system_status import (
+    BackendStatus,
     ComponentStatus,
+    ConnectionStatus,
     ExternalConnectionStatus,
     ExternalServiceStatus,
 )
+from src.services.storage import ObjectStorageError, RustFSStorage
+
+
+def backend_status() -> BackendStatus:
+    """Diagnose connections that are owned directly by the backend process."""
+    try:
+        RustFSStorage().check_available()
+        rustfs = ConnectionStatus(status="up")
+    except ObjectStorageError:
+        rustfs = ConnectionStatus(status="down")
+    except Exception:
+        rustfs = ConnectionStatus(status="unknown")
+
+    consumer = ConnectionStatus(status=completion_consumer_status())
+    return BackendStatus(
+        status="up",
+        connections={"rustfs": rustfs, "rabbitmq_consumer": consumer},
+    )
 
 
 def database_statuses() -> dict[str, ComponentStatus]:
@@ -70,11 +91,12 @@ def external_service_status(url: str) -> ExternalServiceStatus:
     return ExternalServiceStatus(status=source_status, connections=connections)
 
 
-def system_status() -> tuple[dict[str, ComponentStatus], ExternalServiceStatus, ExternalServiceStatus]:
+def system_status() -> tuple[BackendStatus, dict[str, ComponentStatus], ExternalServiceStatus, ExternalServiceStatus]:
     settings = get_settings()
+    backend = backend_status()
     databases = database_statuses()
     preprocessing = external_service_status(
         f"{settings.preprocessing_url.rstrip('/')}/health/connections"
     )
     ml = external_service_status(f"{settings.ml_url.rstrip('/')}/connections")
-    return databases, preprocessing, ml
+    return backend, databases, preprocessing, ml

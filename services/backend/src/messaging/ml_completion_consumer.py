@@ -15,6 +15,20 @@ from src.services.examinations import mark_examination_ready
 
 logger = logging.getLogger(__name__)
 _EVENT_TYPE = "examination_completed"
+_active_consumer: "MLCompletionConsumer | None" = None
+
+
+def set_active_completion_consumer(consumer: "MLCompletionConsumer | None") -> None:
+    """Expose the lifespan-owned consumer for read-only diagnostics."""
+    global _active_consumer
+    _active_consumer = consumer
+
+
+def completion_consumer_status() -> str:
+    """Return the state of the actual completion-event consumer, not a broker probe."""
+    if _active_consumer is None:
+        return "unknown"
+    return "up" if _active_consumer.is_listening else "down"
 
 
 class MLCompletionConsumer:
@@ -23,16 +37,30 @@ class MLCompletionConsumer:
         self.queue_name = queue_name
         self.session_factory = session_factory
         self.connection: aio_pika.abc.AbstractRobustConnection | None = None
+        self._is_listening = False
+
+    @property
+    def is_listening(self) -> bool:
+        """Whether the registered consumer currently has an active AMQP transport."""
+        if not self._is_listening or self.connection is None or self.connection.is_closed:
+            return False
+        connected = getattr(self.connection, "connected", None)
+        return bool(connected is not None and connected.is_set())
 
     async def start(self) -> None:
+        self._is_listening = False
         logger.info("Connecting backend ML completion consumer to queue '%s'", self.queue_name)
         self.connection = await aio_pika.connect_robust(self.queue_url)
         channel = await self.connection.channel()
         await channel.set_qos(prefetch_count=1)
         queue = await channel.declare_queue(self.queue_name, durable=True)
         await queue.consume(self._dispatch_message)
+        self._is_listening = True
         logger.info("Backend ML completion consumer is listening on '%s'", self.queue_name)
-        await asyncio.Future()
+        try:
+            await asyncio.Future()
+        finally:
+            self._is_listening = False
 
     async def run(self) -> None:
         """Reconnect after broker outages without taking down the HTTP API."""
@@ -70,6 +98,7 @@ class MLCompletionConsumer:
             await message.nack(requeue=True)
 
     async def close(self) -> None:
+        self._is_listening = False
         if self.connection and not self.connection.is_closed:
             await self.connection.close()
         self.connection = None
