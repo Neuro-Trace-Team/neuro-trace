@@ -1,0 +1,55 @@
+﻿import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DataTable from "../../components/DataTable";
+import ExaminationStatus from "../../components/ExaminationStatus";
+import PageTitle from "../../components/PageTitle";
+import SectionTitle from "../../components/SectionTitle";
+import Surface from "../../components/Surface";
+import { useAuth } from "../../context/useAuth";
+import { formatExaminationDate } from "../../services/api";
+import { apiClient, getApiErrorMessage } from "../../services/apiClient";
+import type { Examination, RecentPatient } from "../../types/api.types";
+
+export default function DoctorDashboardPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [history, setHistory] = useState<Examination[]>([]);
+  const [patients, setPatients] = useState<RecentPatient[]>([]);
+  const [examinationsError, setExaminationsError] = useState("");
+  const [patientsError, setPatientsError] = useState("");
+  const [examinationsLoading, setExaminationsLoading] = useState(true);
+  const [patientsLoading, setPatientsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    apiClient.get<Examination[]>("/me/recent/examinations")
+      .then(({ data }) => { if (active) setHistory(data); })
+      .catch((error: unknown) => { if (active) setExaminationsError(getApiErrorMessage(error, "Could not load recent examinations.")); })
+      .finally(() => { if (active) setExaminationsLoading(false); });
+    apiClient.get<RecentPatient[]>("/me/recent/patients")
+      .then(({ data }) => { if (active) setPatients(data); })
+      .catch((error: unknown) => { if (active) setPatientsError(getApiErrorMessage(error, "Could not load recent patients.")); })
+      .finally(() => { if (active) setPatientsLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <div className="mx-auto max-w-[1100px]">
+      <PageTitle>Welcome back, {user?.firstName || "?"}</PageTitle>
+      <div className="space-y-3">
+        <Surface>
+          <SectionTitle>Recently Viewed Examinations</SectionTitle>
+          {examinationsLoading ? <p role="status">Loading recent examinations...</p> : examinationsError ? <p role="alert">{examinationsError}</p> : (
+            <DataTable columns={["Examination ID", "Patient ID", "Examination date", "Status"]} rows={history.map((item) => [item.id, item.patient_id, formatExaminationDate(item.examination_date), item.status])} renderCell={(value, index) => index === 3 ? <ExaminationStatus status={value} /> : value} onRowClick={(row) => navigate(`/doctor/examinations/${row[0]}`)} sortable={false} selectable={false} showPagination={false} showToolbar={false} />
+          )}
+        </Surface>
+        <Surface>
+          <SectionTitle>Recently Viewed Patients</SectionTitle>
+          {patientsLoading ? <p role="status">Loading recent patients...</p> : patientsError ? <p role="alert">{patientsError}</p> : (
+            <DataTable columns={["Patient ID", "Examination count", "First examination date", "Last examination date"]} rows={patients.map((patient) => [patient.id, String(patient.examination_count), formatExaminationDate(patient.first_examination_date), formatExaminationDate(patient.last_examination_date)])} onRowClick={(row) => navigate(`/doctor/examinations?patient_id=${encodeURIComponent(row[0])}`)} sortable={false} selectable={false} showPagination={false} showToolbar={false} />
+          )}
+        </Surface>
+      </div>
+    </div>
+  );
+}
