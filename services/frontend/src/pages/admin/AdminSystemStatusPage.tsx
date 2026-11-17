@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import { apiClient } from "../../services/apiClient";
+import type { SystemStatus } from "../../types/api.types";
+import ButtonSecondary from "../../components/ButtonSecondary";
 import PageTitle from "../../components/PageTitle";
 import SectionTitle from "../../components/SectionTitle";
 import Surface from "../../components/Surface";
@@ -21,24 +25,59 @@ const services: Service[] = [
   { name: "Model DB", description: "ANALYSIS RESULTS", x: 805, y: 45, width: 150, kind: "data" },
 ];
 
-// Placeholder data until connection monitoring is available.
-const connections: Connection[] = [
-  { from: "Frontend", to: "Backend", label: "API", path: "M164 301 H215", status: "connected" },
-  { from: "Backend", to: "Auth DB", label: "Accounts", path: "M235 265 V225 H87 V117", status: "connected" },
-  { from: "Backend", to: "Medical DB", label: "Examinations", path: "M295 265 V195 H247 V117", status: "connected" },
-  { from: "Backend", to: "Audit DB", label: "Audit logs", path: "M335 265 V145 H407 V117", status: "connected" },
-  { from: "Backend", to: "RustFS", label: "Examination files", path: "M375 282 H460", status: "connected" },
-  { from: "Backend", to: "Preprocessing", label: "Processing requests", path: "M375 320 H415 V421 H460", status: "connected" },
-  { from: "Preprocessing", to: "RustFS", label: "Recording and output files", path: "M535 385 V318", status: "connected" },
-  { from: "Preprocessing", to: "RabbitMQ", label: "Analysis tasks", path: "M615 421 H665", status: "connected" },
-  { from: "RabbitMQ", to: "ML service", label: "Analysis tasks and completion events", path: "M810 421 H880 V267", status: "connected" },
-  { from: "ML service", to: "Model DB", label: "Analysis results", path: "M880 195 V117", status: "disconnected" },
-  { from: "Backend", to: "ML service", label: "Results API", path: "M375 275 H405 V170 H780 V231 H805", status: "unknown" },
-  { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337", status: "connected" },
+const connectionLayout: Omit<Connection, "status">[] = [
+  { from: "Frontend", to: "Backend", label: "API", path: "M164 301 H215" },
+  { from: "Backend", to: "Auth DB", label: "Accounts", path: "M235 265 V225 H87 V117" },
+  { from: "Backend", to: "Medical DB", label: "Examinations", path: "M295 265 V195 H247 V117" },
+  { from: "Backend", to: "Audit DB", label: "Audit logs", path: "M335 265 V145 H407 V117" },
+  { from: "Backend", to: "RustFS", label: "Examination files", path: "M375 282 H460" },
+  { from: "Backend", to: "Preprocessing", label: "Diagnostics endpoint", path: "M375 320 H415 V421 H460" },
+  { from: "Preprocessing", to: "RustFS", label: "Recording and output files", path: "M535 385 V318" },
+  { from: "Preprocessing", to: "RabbitMQ", label: "Analysis tasks", path: "M615 421 H665" },
+  { from: "RabbitMQ", to: "ML service", label: "Analysis tasks and completion events", path: "M810 421 H880 V267" },
+  { from: "ML service", to: "Model DB", label: "Analysis results", path: "M880 195 V117" },
+  { from: "Backend", to: "ML service", label: "Diagnostics endpoint", path: "M375 275 H405 V170 H780 V231 H805" },
+  { from: "RabbitMQ", to: "Backend", label: "Analysis completion", path: "M738 457 V510 H295 V337" },
 ];
+
+function connectionStatus(status: string | undefined): ConnectionStatus {
+  if (status === "up" || status === "ok") return "connected";
+  if (status === "down" || status === "error") return "disconnected";
+  return "unknown";
+}
 
 function AdminSystemStatusPage() {
   const storage = useStorageUsage();
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    apiClient.get<SystemStatus>("/admin/system-status")
+      .then(({ data }) => { if (active) { setSystemStatus(data); setError(false); } })
+      .catch(() => { if (active) { setSystemStatus(null); setError(true); } })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [refresh]);
+
+  const mlRabbit = [systemStatus?.ml.connections.rabbitmq_consumer?.status, systemStatus?.ml.connections.rabbitmq_publisher?.status].map(connectionStatus);
+  const statuses: Record<string, ConnectionStatus> = {
+    "Frontend-Backend": systemStatus ? "connected" : "unknown",
+    "Backend-Auth DB": connectionStatus(systemStatus?.databases.auth_db?.status),
+    "Backend-Medical DB": connectionStatus(systemStatus?.databases.medical_db?.status),
+    "Backend-Audit DB": connectionStatus(systemStatus?.databases.audit_db?.status),
+    "Backend-RustFS": connectionStatus(systemStatus?.backend.connections?.rustfs?.status),
+    "RabbitMQ-Backend": connectionStatus(systemStatus?.backend.connections?.rabbitmq_consumer?.status),
+    "Backend-Preprocessing": systemStatus ? (systemStatus.preprocessing.status === "down" ? "disconnected" : "connected") : "unknown",
+    "Preprocessing-RustFS": connectionStatus(systemStatus?.preprocessing.connections.rustfs?.status),
+    "Preprocessing-RabbitMQ": connectionStatus(systemStatus?.preprocessing.connections.rabbitmq?.status),
+    "RabbitMQ-ML service": mlRabbit.includes("disconnected") ? "disconnected" : mlRabbit.every((status) => status === "connected") ? "connected" : "unknown",
+    "ML service-Model DB": connectionStatus(systemStatus?.ml.connections.database?.status),
+    "Backend-ML service": systemStatus ? (systemStatus.ml.status === "down" ? "disconnected" : "connected") : "unknown",
+  };
+  const connections: Connection[] = connectionLayout.map((connection) => ({ ...connection, status: statuses[`${connection.from}-${connection.to}`] ?? "unknown" }));
   const disconnected = connections.filter((connection) => connection.status === "disconnected");
   return (
     <div className="mx-auto max-w-[1100px]">
@@ -54,27 +93,25 @@ function AdminSystemStatusPage() {
             <div className="rounded-xl border border-white/80 bg-white/45 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_3px_10px_rgba(8,38,76,0.06)]">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#62798a]">Used space</p>
               <p className="mt-3 font-heading text-2xl font-extrabold text-[#102d58]">{storage.bucket_exists ? formatBytes(storage.used_bytes) : "—"}</p>
-              <p className="mt-1 text-xs text-[#62798a]">Stored in this bucket</p>
             </div>
             <div className="rounded-xl border border-white/80 bg-white/45 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_3px_10px_rgba(8,38,76,0.06)]">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#62798a]">Objects</p>
               <p className="mt-3 font-heading text-2xl font-extrabold text-[#102d58]">{storage.bucket_exists ? storage.object_count.toLocaleString() : "—"}</p>
-              <p className="mt-1 text-xs text-[#62798a]">Objects in this bucket</p>
             </div>
           </div>
         )}
       </Surface>
       <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 p-4 shadow-[0_6px_18px_rgba(8,38,76,0.09)] sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-          <div>
             <SectionTitle>System connections</SectionTitle>
-            </div>
-          <span className="rounded-lg border border-white/80 bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#52677b]">Example data</span>
+          <ButtonSecondary type="button" onClick={() => { setLoading(true); setRefresh((value) => value + 1); }} disabled={loading}>{loading ? "Checking..." : "Refresh"}</ButtonSecondary>
         </div>
+        {error && <p role="alert" className="mb-4 rounded-lg border border-[#e6a5aa] bg-[#fff1f1] px-4 py-3 text-sm text-[#8d1d29]">System status is unavailable. Try refreshing.</p>}
+        {!error && systemStatus && <p className="mb-4 text-sm text-[#52677b]" role="status">Overall status: <strong>{systemStatus.status === "ok" ? "Operational" : "Degraded"}</strong></p>}
         <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/35">
           <svg className="block h-auto min-w-[850px] w-full" viewBox="0 0 980 550" role="img" aria-labelledby="system-diagram-title system-diagram-description">
             <title id="system-diagram-title">System connections diagram</title>
-            <desc id="system-diagram-description">Example connection statuses for frontend, backend, databases, file storage, preprocessing, RabbitMQ and the ML service. All statuses are simulated.</desc>
+            <desc id="system-diagram-description">Connection statuses reported by system diagnostics. Connections without a dedicated check are unknown.</desc>
             <defs>
               <linearGradient id="node-glass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="white" stopOpacity="0.8" /><stop offset="1" stopColor="#e7f5f6" stopOpacity="0.65" /></linearGradient>
               <linearGradient id="node-primary" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f7ffff" stopOpacity="0.95" /><stop offset="1" stopColor="#c9edf0" stopOpacity="0.8" /></linearGradient>
@@ -82,7 +119,7 @@ function AdminSystemStatusPage() {
             </defs>
             {connections.map((connection) => (
               <path key={`${connection.from}-${connection.to}`} d={connection.path} fill="none" stroke={connection.status === "connected" ? "#47a984" : connection.status === "disconnected" ? "#b42332" : "#687783"} strokeWidth={connection.status === "disconnected" ? 5 : 2.5} strokeDasharray={connection.status === "connected" ? undefined : connection.status === "disconnected" ? "8 4" : "2 5"} strokeLinecap="round" strokeLinejoin="round">
-                <title>{`${connection.from} to ${connection.to}: ${connection.label} — ${connection.status} (example)`}</title>
+                <title>{`${connection.from} to ${connection.to}: ${connection.label} — ${connection.status}`}</title>
               </path>
             ))}
             {services.map((service) => (
@@ -99,7 +136,7 @@ function AdminSystemStatusPage() {
           <span className="flex items-center gap-2"><span className="h-0.5 w-6 rounded-full bg-[#47a984]" /> Connected</span>
           <span className="flex items-center gap-2 font-bold text-[#a51d2b]"><span className="w-6 border-t-4 border-dashed border-[#b42332]" /> Disconnected</span>
           <span className="flex items-center gap-2"><span className="w-6 border-t-2 border-dotted border-[#687783]" /> Unknown</span>
-          <span className="sm:ml-auto">Connection statuses are simulated.</span>
+          <span className="sm:ml-auto">Unknown means no diagnostic result is available.</span>
         </div>
         {disconnected.length > 0 && (
           <div className="mt-4 rounded-lg border border-[#e6a5aa] bg-[#fff1f1] px-4 py-3 text-sm text-[#8d1d29]">
@@ -109,7 +146,7 @@ function AdminSystemStatusPage() {
             </ul>
           </div>
         )}
-        <ul className="sr-only" aria-label="Example connection statuses">
+        <ul className="sr-only" aria-label="Connection statuses">
           {connections.map((connection) => <li key={`${connection.from}-${connection.to}`}>{connection.from} to {connection.to}, {connection.label}: {connection.status}.</li>)}
         </ul>
       </Surface>
