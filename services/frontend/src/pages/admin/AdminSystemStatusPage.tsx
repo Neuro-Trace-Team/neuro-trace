@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../../services/apiClient";
 import type { SystemStatus } from "../../types/api.types";
+import ButtonSecondary from "../../components/ButtonSecondary";
 import PageTitle from "../../components/PageTitle";
 import SectionTitle from "../../components/SectionTitle";
 import Surface from "../../components/Surface";
@@ -67,6 +68,8 @@ function AdminSystemStatusPage() {
     "Backend-Auth DB": connectionStatus(systemStatus?.databases.auth_db?.status),
     "Backend-Medical DB": connectionStatus(systemStatus?.databases.medical_db?.status),
     "Backend-Audit DB": connectionStatus(systemStatus?.databases.audit_db?.status),
+    "Backend-RustFS": connectionStatus(systemStatus?.backend.connections?.rustfs?.status),
+    "RabbitMQ-Backend": connectionStatus(systemStatus?.backend.connections?.rabbitmq_consumer?.status),
     "Backend-Preprocessing": systemStatus ? (systemStatus.preprocessing.status === "down" ? "disconnected" : "connected") : "unknown",
     "Preprocessing-RustFS": connectionStatus(systemStatus?.preprocessing.connections.rustfs?.status),
     "Preprocessing-RabbitMQ": connectionStatus(systemStatus?.preprocessing.connections.rabbitmq?.status),
@@ -101,7 +104,7 @@ function AdminSystemStatusPage() {
       <Surface className="border-white/80 bg-gradient-to-br from-white/65 to-[#e9f5f7]/55 p-4 shadow-[0_6px_18px_rgba(8,38,76,0.09)] sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
             <SectionTitle>System connections</SectionTitle>
-          <button type="button" onClick={() => { setLoading(true); setRefresh((value) => value + 1); }} disabled={loading} className="rounded-lg border border-white/80 bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#52677b] disabled:opacity-50">{loading ? "Checking..." : "Refresh"}</button>
+          <ButtonSecondary type="button" onClick={() => { setLoading(true); setRefresh((value) => value + 1); }} disabled={loading}>{loading ? "Checking..." : "Refresh"}</ButtonSecondary>
         </div>
         {error && <p role="alert" className="mb-4 rounded-lg border border-[#e6a5aa] bg-[#fff1f1] px-4 py-3 text-sm text-[#8d1d29]">System status is unavailable. Try refreshing.</p>}
         {!error && systemStatus && <p className="mb-4 text-sm text-[#52677b]" role="status">Overall status: <strong>{systemStatus.status === "ok" ? "Operational" : "Degraded"}</strong></p>}
