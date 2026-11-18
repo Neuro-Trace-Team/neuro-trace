@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 LOGGER = logging.getLogger(__name__)
-SUPPORTED_EXTENSIONS = {".bdf"}
+SUPPORTED_EXTENSIONS = {".bdf", ".edf"}
 
 @dataclass
 class Recording:
@@ -88,10 +88,23 @@ def load_recording(directory: str | Path, preload: bool = False) -> Recording:
         import mne
     except ImportError as exc:
         raise ImportError("Reading EEG files requires mne (pip install -r requirements.txt)") from exc
-    raw = mne.io.read_raw_bdf(eeg_path, preload=preload, verbose="ERROR")
+    reader = mne.io.read_raw_edf if eeg_path.suffix.lower() == '.edf' else mne.io.read_raw_bdf
+    raw = reader(eeg_path, preload=preload, verbose="ERROR")
     _validate_bdf_metadata(raw, eeg_path)
     rejected_rows = []
-    events = _read_event_onsets(directory, rejected_rows=rejected_rows)
+    event_metadata = []
+    if (directory / 'timestamps.json').is_file():
+        events = _read_event_onsets(directory, rejected_rows=rejected_rows)
+        event_source = str(directory / 'timestamps.json')
+    elif (directory / 'events.csv').is_file():
+        from .event_input import read_csv_events
+        events, event_metadata, rejected_rows, boundaries, event_source = read_csv_events(directory)
+        if boundaries:
+            # Append in Raw's annotation time coordinate, retaining existing BADs.
+            raw.annotations.append([t + raw.first_time for t in boundaries],
+                                   [0.] * len(boundaries), ['EDGE recording_boundary'] * len(boundaries))
+    else:
+        raise FileNotFoundError(f'Missing timestamps.json or events.csv in {directory}')
     ratings = None
     rating_warnings = []
     ratings_path = directory / "pain_ratings.csv"
@@ -102,7 +115,12 @@ def load_recording(directory: str | Path, preload: bool = False) -> Recording:
         except Exception as exc:
             rating_warnings.append(f'Could not read pain ratings: {exc}')
             LOGGER.warning(rating_warnings[-1])
-    recording = Recording(eeg_path, raw, {"events_json": str(directory / "timestamps.json")}, events, ratings)
+    source_config = ({'events_json': event_source} if event_source.endswith('timestamps.json')
+                     else {'event_source': event_source})
+    recording = Recording(eeg_path, raw, source_config, events, ratings)
+    recording.event_metadata = event_metadata
+    if events and not any(m.get('event_type_known') for m in event_metadata) and not event_source.endswith('timestamps.json'):
+        recording.warnings.append('Event types unavailable: supplied timestamps are assumed to be stimulus onsets')
     recording.warnings.extend(rating_warnings)
     recording.rejected_event_rows = rejected_rows
     return recording

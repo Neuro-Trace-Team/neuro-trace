@@ -21,6 +21,17 @@ class FakeRaw:
         return rng.normal(size=(len(picks), 100)) * 1e-7
 
 
+def analytical_raw():
+    import mne
+    data = np.random.default_rng(1).normal(size=(len(EEG_CHANNELS), 15000)) * 1e-7
+    return mne.io.RawArray(data, mne.create_info(EEG_CHANNELS, 500., 'eeg'), verbose='ERROR')
+
+
+def analytical_config():
+    return PipelineConfig(tmin=0, tmax=0.1, target_sfreq=None, enable_ica=False,
+                          bad_channel_auto_detect=False, tfr={'enabled': False})
+
+
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_json_timestamps_convert_milliseconds_preserving_order_and_duplicates(tmp_path, wrapped):
     values = [2500, 0, 500.5, 2500]
@@ -58,27 +69,27 @@ def test_csv_is_not_used_as_fallback(tmp_path):
         _read_event_onsets(tmp_path)
 
 
-@pytest.mark.parametrize("content", ["[500]", '{"timestamps": [500]}'])
+@pytest.mark.parametrize("content", ["[10000]", '{"timestamps": [10000]}'])
 def test_json_timestamps_produce_same_preprocessing_as_seconds(monkeypatch, tmp_path, content):
     (tmp_path / "timestamps.json").write_text(content)
     monkeypatch.setattr("eeg_pipeline.preprocessing._filter", lambda data, sfreq, cfg: data)
-    cfg = PipelineConfig(mode="event", tmin=0, tmax=0.1, target_sfreq=None)
+    cfg = analytical_config()
 
-    actual = preprocess_raw(FakeRaw(), cfg, _read_event_onsets(tmp_path))
-    expected = preprocess_raw(FakeRaw(), cfg, [0.5])
+    actual = preprocess_raw(analytical_raw(), cfg, _read_event_onsets(tmp_path))
+    expected = preprocess_raw(analytical_raw(), cfg, [10.0])
 
     np.testing.assert_array_equal(actual.epochs, expected.epochs)
     assert actual.event_records == expected.event_records
-    assert actual.event_windows == expected.event_windows
+    np.testing.assert_equal(actual.event_windows, expected.event_windows)
 
 
 def test_event_samples_use_raw_sampling_frequency(monkeypatch):
-    raw = FakeRaw()
+    raw = analytical_raw()
     monkeypatch.setattr("eeg_pipeline.preprocessing._filter", lambda data, sfreq, cfg: data)
-    cfg = PipelineConfig(mode="event", tmin=0, tmax=0.1, target_sfreq=None)
-    prepared = preprocess_raw(raw, cfg, events_seconds=[0.5])
-    assert prepared.sfreq == 100.0
-    assert prepared.epochs[0].shape == (19, 10)
+    cfg = analytical_config()
+    prepared = preprocess_raw(raw, cfg, events_seconds=[10.0])
+    assert prepared.sfreq == 500.0
+    assert prepared.epochs[0].shape == (19, 50)
 
 
 def test_loader_reads_events_from_json_and_ignores_configuration(monkeypatch, tmp_path):
@@ -127,11 +138,8 @@ def test_loader_rejects_missing_channel_types(monkeypatch, tmp_path):
         load_recording(run)
 
 
-def test_preprocessing_rejects_required_channel_with_non_eeg_type(monkeypatch):
-    raw = FakeRaw()
-    channel_types = ["eeg"] * len(raw.ch_names)
-    channel_types[0] = "eog"
-    raw.get_channel_types = lambda: channel_types
-
-    with pytest.raises(ValueError, match="not marked as EEG"):
-        preprocess_raw(raw, PipelineConfig(target_sfreq=None), events_seconds=[])
+def test_preprocessing_rejects_required_channel_with_non_eeg_type():
+    raw = analytical_raw()
+    raw.set_channel_types({'Fp1': 'eog'})
+    with pytest.raises(ValueError, match='not marked as EEG'):
+        preprocess_raw(raw, analytical_config(), events_seconds=[])

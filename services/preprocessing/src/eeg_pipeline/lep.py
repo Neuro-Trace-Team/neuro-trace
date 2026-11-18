@@ -24,8 +24,9 @@ class LEPConfig:
     p2_window: tuple = (0.30, 0.50)
     widths_s: tuple = (0.025, 0.035, 0.055)
     onset_policy: str = 'reject_ambiguous'
-    stimulation_side: str | None = None
-    stimulation_site: str | None = None
+    stimulation_side: str | None = 'left'
+    stimulation_site: str | None = 'hand_dorsum'
+    n1_montage: str = 'central'
     allow_interpolated: bool = False
     min_amplitude_uv: float = 1.0
     min_snr: float = 2.0
@@ -37,6 +38,8 @@ class LEPConfig:
     max_nfev: int = 300
 
     def __post_init__(self):
+        if self.n1_montage not in ('central', 'temporal'):
+            raise ValueError('LEP n1_montage must be central or temporal')
         if type(self.enabled) is not bool or type(self.allow_interpolated) is not bool:
             raise ValueError('LEP enabled/allow_interpolated must be boolean')
         if self.stimulation_site is not None and not isinstance(self.stimulation_site, str):
@@ -237,8 +240,9 @@ def window_peak(times, signal_uv, window, positive=False):
                 valid=reason is None, reason=reason, boundary=boundary)
 
 
-def n1_montage(data, names, side):
-    channel = {'right': 'T7', 'left': 'T8'}.get(side)
+def n1_montage(data, names, side, montage='central'):
+    channel = ({'right': 'C3', 'left': 'C4'} if montage == 'central'
+               else {'right': 'T7', 'left': 'T8'}).get(side)
     if channel is None:
         return None, None, 'missing_stimulation_side'
     if channel not in names or 'Fz' not in names:
@@ -342,7 +346,8 @@ def extract_lep(prep, pipeline_config, event_metadata=(), annotations=(), filter
         for c in COMPONENTS:
             _put(row, c, _empty(reason or 'not_evaluated'))
             _put(row, c, _empty(reason or 'not_evaluated'), 'lep_peak')
-        row['lep_n1_channel'] = {'right': 'T7', 'left': 'T8'}.get(side)
+        row['lep_n1_channel'] = ({'right': 'C3', 'left': 'C4'} if cfg.n1_montage == 'central'
+                                 else {'right': 'T7', 'left': 'T8'}).get(side)
         bad = prep.channel_diagnostics.get('interpolated_channels', [])
         measured = [name for name in prep.channel_names if name not in bad and
                     name not in prep.channel_diagnostics.get('missing_n1_channels', [])]
@@ -366,7 +371,7 @@ def extract_lep(prep, pipeline_config, event_metadata=(), annotations=(), filter
                     _put(row, c, _empty('insufficient_baseline_samples'))
                     _put(row, c, _empty('insufficient_baseline_samples'), 'lep_peak')
             else:
-                n1, channel, n1reason = n1_montage(block, prep.channel_names, side)
+                n1, channel, n1reason = n1_montage(block, prep.channel_names, side, cfg.n1_montage)
                 if channel in prep.channel_diagnostics.get('missing_n1_channels', []) or 'Fz' in prep.channel_diagnostics.get('missing_n1_channels', []):
                     n1reason = 'missing_n1_electrode'
                 if n1reason is None and site != 'hand_dorsum':
@@ -413,6 +418,7 @@ def extract_lep(prep, pipeline_config, event_metadata=(), annotations=(), filter
             _pair(row, prefix)
         rows[record['event_index']] = row
     report = dict(method=METHOD, parameters=asdict(cfg), template_provenance='fixed analytical Gaussians; no training data',
+        n1_montage=cfg.n1_montage, n1_reference='Fz',
         gaussian_definition='signed fitted heights and continuous centers; same fit and conservative legacy QC',
         amplitude_definition='signed extrema of summed reconstructed waveform on sample grid, baseline-relative uV',
         filtering='no additional filter; cleaned continuous analytical branch', filter_guard_seconds=filter_guard_s,
@@ -429,16 +435,17 @@ def extract_lep(prep, pipeline_config, event_metadata=(), annotations=(), filter
 
 
 def continuous_filter_guard(sfreq, cfg):
-    """Conservative support of cascaded existing zero-double FIR filters."""
+    """Support of the actual cascaded FIR filters, including resampling."""
     import mne
     from .preprocessing import transition_width, notch_frequencies
     kernel = mne.filter.create_filter(None, sfreq, cfg.highpass, cfg.lowpass,
         l_trans_bandwidth=min(cfg.highpass, 2.), h_trans_bandwidth=transition_width(cfg.lowpass),
-        phase='zero-double', verbose='ERROR')
-    guard = (len(kernel)-1)/sfreq
+        phase=cfg.filter_phase, verbose='ERROR')
+    factor = 1. if cfg.filter_phase == 'zero-double' else .5
+    guard = factor * (len(kernel)-1)/sfreq
     if notch_frequencies(cfg, sfreq):
         # Existing notch uses 1 Hz transitions (trans_bandwidth / 2).
-        guard += np.ceil(3.3*sfreq)/sfreq
+        guard += factor * np.ceil(3.3*sfreq)/sfreq
     if cfg.target_sfreq and not np.isclose(cfg.target_sfreq, sfreq):
         from fractions import Fraction
         ratio = Fraction(cfg.target_sfreq/sfreq).limit_denominator(1000)

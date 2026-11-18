@@ -61,6 +61,6 @@ def test_rustfs_download_uses_backend_storage_coordinates(tmp_path: Path) -> Non
     )
 
     assert calls == [
+        ("exam-bucket", "study-001/source.bdf", str(tmp_path / "recording" / "source.bdf")),
         ("exam-bucket", "study-001/timestamps.json", str(tmp_path / "recording" / "timestamps.json")),
-        ("exam-bucket", "study-001/eeg_data.bdf", str(tmp_path / "recording" / "eeg_data.bdf")),
     ]

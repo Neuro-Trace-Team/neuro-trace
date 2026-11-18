@@ -18,7 +18,9 @@ METHOD = 'morlet_total_db_v2'
 @dataclass
 class TFRConfig:
     enabled: bool = True
-    baseline: tuple | None = None
+    # Local reference on the separate branch, protected against wavelet and
+    # anti-alias support and previous stimulus responses, per frequency.
+    baseline: tuple | None = (-4.0, -0.5)
     frequencies: tuple = tuple(range(2, 31)) + tuple(range(60, 91, 2))
     n_cycles: tuple = (3.,)*6 + (5.,)*23 + (7.,)*16
     bands: dict = field(default_factory=lambda: {
@@ -138,6 +140,11 @@ def extract_tfr(prep, pipeline_config, event_metadata=(), annotations=(),
                 filter_guard_s=0., source_band=None, output_dir=None):
     annotations = list(annotations) + [(a,b) for a,b,_ in prep.channel_diagnostics.get('source_artifact_intervals', [])]
     cfg = TFRConfig(**pipeline_config.tfr)
+    branch_data = getattr(prep, 'tfr_data', None)
+    branch_info = getattr(prep, 'tfr_preprocessing', {}) if branch_data is not None else {}
+    if branch_info:
+        filter_guard_s = branch_info['filter_guard_seconds']
+        source_band = branch_info['source_band']
     baseline_cfg = replace(pipeline_config, baseline_window=cfg.baseline) if cfg.baseline is not None else pipeline_config
     onset_cfg = LEPConfig(**pipeline_config.lep)
     fs = prep.sfreq
@@ -147,13 +154,16 @@ def extract_tfr(prep, pipeline_config, event_metadata=(), annotations=(),
     sigma = np.asarray(cfg.n_cycles)/(2*np.pi*freqs)
     names = list(dict.fromkeys(['C3', 'Cz', 'C4', *cfg.central_roi]))
     present = [n for n in names if n in prep.channel_names]
-    data = prep.data[[prep.channel_names.index(n) for n in present]]
+    data = (branch_data if branch_data is not None else prep.data)[[prep.channel_names.index(n) for n in present]]
     n = data.shape[-1]
     times = np.arange(n)/fs
     low, high = source_band or (pipeline_config.highpass, pipeline_config.lowpass)
-    supported = (freqs >= max(low, pipeline_config.highpass)) & (freqs <= min(high, pipeline_config.lowpass)) & (freqs < fs/2)
+    applied_low, applied_high = ((low, high) if branch_info else
+                                (max(low, pipeline_config.highpass), min(high, pipeline_config.lowpass)))
+    supported = (freqs >= applied_low) & (freqs <= applied_high) & (freqs < fs/2)
     report = dict(method=METHOD, mne_version=mne.__version__, parameters=asdict(cfg),
         onset_policy=onset_cfg.onset_policy, filter_guard_seconds=filter_guard_s,
+        preprocessing=branch_info or {'branch': 'caller_supplied', 'filter_guard_seconds': filter_guard_s},
         normalization='10 log10(power / arithmetic temporal baseline power), per trial/channel/frequency; no epsilon',
         aggregation='arithmetic mean dB over time, then frequencies, then channels; strict complete ROI',
         power_type='single-trial total; no evoked subtraction; no ITPC',
@@ -299,7 +309,7 @@ def extract_tfr(prep, pipeline_config, event_metadata=(), annotations=(),
                 prefix = f'tfr_{band}_{w[0]*1000:g}_{w[1]*1000:g}ms'
                 fi = np.flatnonzero((freqs >= lo) & (freqs <= hi))
                 ti = np.flatnonzero((t-onset >= w[0]-1e-12) & (t-onset < w[1]-1e-12))
-                band_ok = lo >= max(low,pipeline_config.highpass) and hi <= min(high,pipeline_config.lowpass) and hi < fs/2
+                band_ok = lo >= applied_low and hi <= applied_high and hi < fs/2
                 for ch in names:
                     reason = global_reason
                     value = np.nan

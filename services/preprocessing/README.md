@@ -1,6 +1,6 @@
 # EEG Pain Pipeline
 
-An MNE/NumPy pipeline for EEG preprocessing and neurophysiological feature extraction. It accepts BioSemi `.bdf` files as EEG input. The analysis uses 19 channels:
+An MNE/NumPy pipeline for EEG preprocessing and neurophysiological feature extraction. It accepts EDF `.edf` and BioSemi `.bdf` files as EEG input. The analysis uses 19 channels:
 
 ```text
 Fp1 Fp2 F7 F3 Fz F4 F8 T7 C3 Cz C4 T8 P7 P3 Pz P4 P8 O1 O2
@@ -11,7 +11,7 @@ The pipeline does not interpolate missing channels. A recording whose channels c
 ## Installation and running
 
 ```bash
-cd /home/marek/Projects/zpi-pipeline
+cd services/preprocessing
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -31,9 +31,9 @@ Configuration is read at startup from the following environment variables
 
 | Variable | Default value | Meaning |
 |---|---|---|
-| `RUSTFS_ENDPOINT_URL` | `http://rustfs:9000` | RustFS S3 endpoint available in the Compose network |
-| `RUSTFS_ACCESS_KEY_ID` | empty | S3 access key |
-| `RUSTFS_SECRET_ACCESS_KEY` | empty | S3 secret key |
+| `RUSTFS_ENDPOINT` | `http://rustfs:9000` | RustFS S3 endpoint available in the Compose network |
+| `RUSTFS_ACCESS_KEY` | empty | S3 access key |
+| `RUSTFS_SECRET_KEY` | empty | S3 secret key |
 | `RUSTFS_BUCKET` | `eeg-data` | Bucket containing study data |
 | `PREPROCESSING_WORK_ROOT` | `/tmp/preprocessing` | Working directory for individual jobs |
 | `PIPELINE_LOG_LEVEL` | `INFO` | Pipeline log level |
@@ -229,7 +229,7 @@ python -m eeg_pipeline.cli \
 ```
 
 Event-based analysis uses configurable windows: `baseline=(-5.5,-0.5)`,
-`early_response=(0,1)`, and `sustained_response=(0.5,5.5)` seconds. Windows are
+`early_response=(0,1)`, and `sustained_response=(1,3)` seconds. Windows are
 calculated after resampling, and the output preserves one row per event
 cluster. Windows outside the recording or overlapping with the next stimulus
 are marked invalid/contaminated instead of being silently shortened.
@@ -261,7 +261,15 @@ invalid, non-finite, or negative values cause a recording-loading error.
 [7800, 121900]
 ```
 
-If `timestamps.json` is missing, no substitute events are created.
+If `timestamps.json` is missing, local dataset processing can read `events.csv`
+with `onset` in **seconds**. JSON retains priority and uses **milliseconds**.
+Typed CSV markers preserve metadata; impedance and boundary markers are not
+stimuli. Boundaries become EDGE annotations for separate filtering of segments.
+For converted datasets with `_original_bids` alongside experiment directories,
+an onset-only CSV is enriched from a unique matching original events TSV, only
+when every onset agrees. `task-26ByBiosemi` selects documented `condition 54`
+markers. Without type metadata, supplied onsets are assumed to be stimuli.
+No substitute events are generated from signal peaks or missing files.
 `configuration.json` is no longer a source of events or metadata required for
 analysis.
 
@@ -288,7 +296,7 @@ The main stages are implemented in the following files:
 5. `eeg_pipeline/feature_export.py` writes the results, while
    `feature_merge.py` creates the combined table.
 
-The default preprocessing parameters are a `0.5–45 Hz` band-pass filter, a
+The default preprocessing parameters are a `0.5–100 Hz` band-pass filter, a
 `50 Hz` notch filter, resampling to `256 Hz`, and average reference. The
 pipeline calculates, among other features, delta/theta/alpha/beta band power,
 PAF, theta/alpha ratio, gamma, permutation entropy, dwPLI, microstates, and
@@ -336,3 +344,78 @@ Randomized clustering operations use fixed seeds. Missing or incomplete data
 required for preprocessing causes an error, and channels are not filled in.
 Connectivity may contain `NaN` values when an epoch contains too little data.
 The timestamp list does not specify event types or map them to pain ratings.
+
+### Dataset quality controls (November 2026)
+
+Analytical filtering now defaults to delay-compensated, single-pass FIR
+`filter_phase="zero"`. `zero-double` is still configurable for reproducing old
+filter settings. Filter-support guards are computed from the selected phase;
+no guard is arbitrarily truncated. The separate TFR baseline defaults to
+`(-4, -0.5)` seconds. Its coefficients must still have sufficient uncontaminated
+support before the current stimulus and outside earlier responses. Short ISIs
+can therefore leave TFR unavailable even when PSD features are valid.
+
+The source artifact screen now has its own configurable threshold:
+`source_artifact_peak_to_peak_uv=2000`. It retains conservative filter-support
+exclusions for gross raw artifacts. The residual epoch threshold remains
+`epoch_peak_to_peak_uv=200` after filtering and ICA. These thresholds are
+empirical settings, not clinical quality guarantees. Recording discontinuities,
+BAD annotations, non-finite data and overlaps with subsequent stimuli remain
+reasons to reject windows. An ICA-repaired blink below the source corruption
+threshold no longer creates a permanent exclusion merely for exceeding 200 µV
+before cleaning.
+
+`preprocessing_status=success` describes execution. Inspect the separate
+`data_quality_status`, `usable_spectral_event_count`, `feature_availability` and
+`connectivity_window_requirements` before using results. `partial` and
+`no_usable_data` are normal quality outcomes, not exceptions to hide. The current
+1 s/2 s response windows do **not** support eight 0.5 s dwPLI observations.
+Missing connectivity remains missing with `dwpli_invalid_reason`; do not lower
+this requirement merely to obtain numeric values. Longer connectivity windows
+or across-trial estimates require a separately specified protocol. Missing pain
+ratings or stimulation-side metadata are not inferred.
+
+Install the complete `requirements.txt` before running ICA. The validated MNE
+version is pinned because ICA convergence tracing depends on its log interface.
+A six-recording evaluation can be reproduced from the repository root using
+`reports/preprocessing-fixes-2026-11-17/validate_dataset.py`; it writes new results
+under `/tmp/neuro-preprocessing-fixed-2026-11-17`, leaving source and old outputs
+untouched.
+
+
+### Service execution and diagnostics
+
+Only `.edf` and `.bdf` input keys are accepted (case insensitive). Other formats
+are rejected with HTTP 422 before a job is queued. Each attempt has a separate
+working directory, so retries never reuse an earlier CSV. Requests for an already
+queued or running examination return HTTP 409. File locks coordinate workers
+sharing the same `PREPROCESSING_WORK_ROOT`.
+
+Status is atomically persisted under `PREPROCESSING_WORK_ROOT/jobs`. It survives
+process/container restarts while that filesystem is retained. An interrupted job
+is reported as FAILED on the next status lookup; it can then be submitted again.
+Recreating the container requires a persistent volume at this path to retain
+history. Jobs are not automatically resumed after a crash.
+
+The worker checks `preprocessing_report.json` in addition to the process exit
+code before uploading a CSV or publishing features. Empty timestamp lists, empty
+CSV files and invalid or duplicate analysis timestamps fail explicitly, because
+the ML protocol needs at least one message per examination. Nonempty rows with
+missing scientific features still reach ML as JSON nulls; QC logic is unchanged.
+
+The CSV and report are uploaded to the input bucket at
+`preprocessing/{examination_id}/combined_features.csv` and
+`preprocessing/{examination_id}/preprocessing_report.json`. On failure the worker
+also attempts to upload diagnostics; the status includes `error` and any
+`report_upload_error`. A failed service stage is recorded as `service_status`
+and `service_error` without changing the pipeline's scientific status/metrics.
+The status endpoint additionally exposes artifact keys, warnings and
+`data_quality_status` when available.
+
+`RABBITMQ_QUEUE` takes precedence over the Compose-compatible alias
+`RABBITMQ_PENDING_ANALYSIS_QUEUE`. Without either setting the queue defaults to
+`preprocessing.combined_features`. An absent or empty `RABBITMQ_ROUTING_KEY`
+defaults to the resolved queue name. With the default exchange, queue and routing
+key must match. `PIPELINE_TIMEOUT_SECONDS` defaults to 3600.
+
+Run all checks with `PYTHONPATH=src .venv/bin/python -m pytest -q tests`.

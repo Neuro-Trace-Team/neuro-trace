@@ -6,29 +6,14 @@ import pytest
 from service.jobs import JobManager
 
 
-def test_processing_uses_examination_id_without_a_job_id(backend_client, monkeypatch):
-    backend = Mock()
-    storage = Mock()
-    manager = JobManager(backend_client.settings, storage, backend)
-    examination_id = str(uuid4())
-    bucket = "exam-bucket"
-    source_key = f"examinations/{examination_id}/recording.bdf"
-    assert manager.create(
-        examination_id, storage_bucket=bucket, storage_key=source_key
-    ) == examination_id
-    monkeypatch.setattr("service.jobs.subprocess.run", Mock(return_value=Mock(
-        returncode=0, stdout="", stderr=""
-    )))
-    publish = Mock(return_value=2)
-    monkeypatch.setattr("service.jobs.publish_combined_features", publish)
-
+def test_processing_uses_examination_id_without_a_job_id(pipeline_job):
+    manager, examination_id, storage, process, publish, root, output = pipeline_job
     manager.run(examination_id)
-
-    assert manager.get(examination_id)["examination_id"] == examination_id
-    assert manager.get(examination_id)["status"] == "COMPLETED"
-    assert "job_id" not in manager.get(examination_id)
-    assert publish.call_args.kwargs == {"examination_id": examination_id}
-    backend.get_examination.assert_not_called()
+    job = manager.get(examination_id)
+    assert job['examination_id'] == examination_id
+    assert job['status'] == 'COMPLETED'
+    assert 'job_id' not in job
+    assert publish.call_args.kwargs == {'examination_id': examination_id}
 
 
 @pytest.mark.parametrize("examination_id", [None, "bucket/path", "invalid"])

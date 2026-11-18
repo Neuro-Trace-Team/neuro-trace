@@ -24,6 +24,7 @@ class PipelineConfig:
     lowpass: float = 100.0
     notch: Optional[float] = 50.0
     filter_method: str = "fir"
+    filter_phase: str = "zero"
     notch_harmonics: bool = True
     target_sfreq: float = 256.0
     reference: str = "average"
@@ -37,7 +38,10 @@ class PipelineConfig:
     high_gamma_band: Optional[Tuple[float, float]] = (60.0, 90.0)
     gamma_band: Tuple[float, float] = (30.0, 45.0)
     # Keyword-only to prevent interpreting an old positional amplitude as PTP.
-    epoch_peak_to_peak_uv: float = field(default=150.0, kw_only=True)
+    epoch_peak_to_peak_uv: float = field(default=200.0, kw_only=True)
+    # Gross source corruption has a separate screen from residual epoch QC.
+    # Ordinary blinks are assessed after ICA, not permanently masked before it.
+    source_artifact_peak_to_peak_uv: float = 2000.0
     amplitude_uv: InitVar[object] = _UNSET
     flat_std_uv: float = 1e-6
     # Bad-channel detection thresholds are starting points for empirical
@@ -136,6 +140,8 @@ class PipelineConfig:
                              "(per-channel max(x)-min(x)); no universal conversion exists")
         if self.filter_method != "fir":
             raise ValueError("Only zero-phase FIR filtering is supported")
+        if self.filter_phase not in {'zero', 'zero-double'}:
+            raise ValueError('filter_phase must be zero or zero-double')
         if not all(math.isfinite(v) for v in (self.highpass, self.lowpass)) or not 0 < self.highpass < self.lowpass:
             raise ValueError("Invalid analytical filter band")
         if self.target_sfreq is not None and (not math.isfinite(self.target_sfreq) or self.target_sfreq <= 0):
@@ -147,6 +153,7 @@ class PipelineConfig:
                 raise ValueError(f"Invalid {name} band")
         from .window_quality import validate_threshold
         validate_threshold(self.epoch_peak_to_peak_uv)
+        validate_threshold(self.source_artifact_peak_to_peak_uv)
         for key in ("enable_ica", "ica_allow_band_deviation", "ica_export_diagnostics"):
             if not isinstance(getattr(self, key), bool):
                 raise ValueError(f"{key} must be boolean")

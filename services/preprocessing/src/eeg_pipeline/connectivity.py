@@ -62,6 +62,8 @@ def connectivity_pair_rows(epoch, sfreq, event_id, event_timestamp, window_type,
                              "window_type": window_type, "frequency_band": band_name,
                              "channel_1": channel_names[i], "channel_2": channel_names[j],
                              "dwpli": matrix[i, j], "n_valid_observations": n_obs,
+                             "dwpli_invalid_reason": (None if valid and np.isfinite(matrix[i, j]) else
+                                 'insufficient_observations' if not valid else 'undefined_estimator'),
                              "dwpli_valid": bool(valid and np.isfinite(matrix[i, j]))})
     return rows
 

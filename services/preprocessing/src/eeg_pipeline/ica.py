@@ -173,7 +173,7 @@ def signal_metrics(data):
 
 
 def clean_with_ica(working, analytical, original, bad_names, cfg, channel_report,
-                   prepare_branch, diagnostic_dir=None):
+                   prepare_branch, diagnostic_dir=None, *, tfr_target=None):
     from .preprocessing import PreprocessingError
     report = dict(status='in_progress', stage='prepare', failure_reason=None,
                   requested={k: v for k, v in vars(cfg).items() if k.startswith('ica_')},
@@ -270,6 +270,14 @@ def clean_with_ica(working, analytical, original, bad_names, cfg, channel_report
         if cfg.ica_export_diagnostics:
             export_review(ica, training, analytical, cleaned, report, cfg, diagnostic_dir)
         report['stage'] = 'complete'
+        if tfr_target is not None:
+            validate_transfer(training, tfr_target)
+            tfr_cleaned = (ica.apply(tfr_target.copy(), n_pca_components=len(tfr_target.ch_names), verbose='ERROR')
+                           if excluded else tfr_target.copy())
+            values = tfr_cleaned.get_data()
+            if values.shape != before.shape or not np.isfinite(values).all():
+                raise ValueError('TFR ICA reconstruction failed shape/finiteness checks')
+            tfr_target._data[:] = values
         return after, report
     except Exception as exc:
         report.update(removed_muscle_components=[], removed_muscle_count=0)

@@ -25,6 +25,8 @@ class Preprocessed:
     ica_diagnostics: dict = field(default_factory=dict)
     legacy_window_diagnostics: list[dict] = field(default_factory=list)
     isi_diagnostics: dict = field(default_factory=dict)
+    tfr_data: np.ndarray | None = None
+    tfr_preprocessing: dict = field(default_factory=dict)
 
 
 class PreprocessingError(ValueError):
@@ -193,11 +195,11 @@ def _filter(data, sfreq, cfg, boundaries=()):
         data, sfreq, l_freq=cfg.highpass, h_freq=cfg.lowpass,
         l_trans_bandwidth=min(cfg.highpass, 2.0),
         h_trans_bandwidth=transition_width(cfg.lowpass),
-        method="fir", phase="zero-double", verbose="ERROR")
+        method="fir", phase=cfg.filter_phase, verbose="ERROR")
     freqs = notch_frequencies(cfg, sfreq)
     if freqs:
         data = mne.filter.notch_filter(data, sfreq, freqs=freqs, notch_widths=1.0,
-            trans_bandwidth=2.0, method="fir", phase="zero-double", verbose="ERROR")
+            trans_bandwidth=2.0, method="fir", phase=cfg.filter_phase, verbose="ERROR")
     return data
 
 
@@ -233,7 +235,7 @@ def _finish_cluster(cluster, cluster_id):
     return [{**item, "cluster_id": cluster_id, "cluster_event": representative,
              "cluster_size": size, "overlap_flag": size > 1} for item in cluster]
 
-def prepare_branch(working, data, bad_names, cfg):
+def prepare_branch(working, data, bad_names, cfg, *, apply_filter=True):
     """Filter original good channels, interpolate once per branch, then reference.
 
     Copying the selected Raw preserves annotations, first_samp and geometry.
@@ -243,8 +245,9 @@ def prepare_branch(working, data, bad_names, cfg):
     good_idx = [i for i, name in enumerate(branch.ch_names) if name not in bad_names]
     filtered = np.zeros_like(data)
     boundaries = [t for a, b, kind in annotation_intervals(branch) if kind == "edge" for t in (a, b)]
-    filtered[good_idx] = (_filter(data[good_idx], branch.info['sfreq'], cfg, boundaries) if boundaries
+    filtered[good_idx] = ((_filter(data[good_idx], branch.info['sfreq'], cfg, boundaries) if boundaries
                           else _filter(data[good_idx], branch.info['sfreq'], cfg))
+                         if apply_filter else data[good_idx])
     branch._data[:] = filtered
     branch.info["bads"] = list(bad_names)
     if bad_names:
@@ -252,9 +255,10 @@ def prepare_branch(working, data, bad_names, cfg):
     if cfg.reference == "average":
         branch.set_eeg_reference("average", projection=False, verbose="ERROR")
     # filter_data works on arrays, so update Raw's filter metadata explicitly.
-    with branch.info._unlock():
-        branch.info["highpass"] = cfg.highpass
-        branch.info["lowpass"] = cfg.lowpass
+    if apply_filter:
+        with branch.info._unlock():
+            branch.info["highpass"] = cfg.highpass
+            branch.info["lowpass"] = cfg.lowpass
     if not np.isfinite(branch.get_data()).all():
         raise ValueError("Non-finite samples after interpolation")
     from .lep import continuous_filter_guard
@@ -361,7 +365,7 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
             raise PreprocessingError("Too few good EEG channels remain for interpolation", diagnostics)
         try:
             source_artifacts = artifact_intervals(data[[i for i,n in enumerate(selected_names) if n not in bad_names]],
-                                                  sfreq, cfg.epoch_peak_to_peak_uv)
+                                                  sfreq, cfg.source_artifact_peak_to_peak_uv)
             analytical = prepare_branch(working, data, bad_names, cfg)
         except Exception as exc:
             raise PreprocessingError(f"interpolation_failed: {exc}", diagnostics) from exc
@@ -382,6 +386,9 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
         diagnostics["failure_reason"] = str(exc)
         raise
     warnings = []
+    from .tfr import TFRConfig
+    tfr_branch = (prepare_branch(working, working.get_data(), bad_names, cfg, apply_filter=False)
+                  if TFRConfig(**cfg.tfr).enabled else None)
     if cfg.reference not in {"average", "none", "unknown", None}:
         LOGGER.warning("Reference %s not applied", cfg.reference)
     ica_diagnostics = {"status": "disabled"}
@@ -389,12 +396,14 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
         from .ica import clean_with_ica
         data, ica_diagnostics = clean_with_ica(
             working, analytical, working.get_data(), bad_names, cfg,
-            diagnostics, prepare_branch, diagnostic_dir)
+            diagnostics, prepare_branch, diagnostic_dir, tfr_target=tfr_branch)
         if ica_diagnostics["status"] == "skipped_due_to_failure":
             warnings.append("ICA skipped after failure: " + ica_diagnostics["failure_reason"])
     removed_muscle = [c["index"] for c in ica_diagnostics.get("components", [])
         if c["remove"] and c["label"] == "muscle artifact"] if ica_diagnostics.get("status") == "applied" else []
     ica_diagnostics.update(removed_muscle_components=removed_muscle, removed_muscle_count=len(removed_muscle))
+    tfr_data = tfr_branch.get_data() if tfr_branch is not None else None
+    tfr_guard = 0.
     if cfg.target_sfreq and abs(cfg.target_sfreq - sfreq) > 1e-9:
         try:
             from scipy.signal import resample_poly
@@ -404,6 +413,9 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
             if not np.isclose(actual_sfreq, cfg.target_sfreq, rtol=0, atol=1e-8):
                 raise ValueError(f"Resampling ratio cannot represent target {cfg.target_sfreq} Hz exactly; actual={actual_sfreq}")
             data = resample_poly(data, ratio.numerator, ratio.denominator, axis=-1)
+            if tfr_data is not None:
+                tfr_data = resample_poly(tfr_data, ratio.numerator, ratio.denominator, axis=-1)
+                tfr_guard = 10*max(ratio.numerator, ratio.denominator)/(source_sfreq*ratio.numerator)
             sfreq = actual_sfreq
         except ImportError as exc: raise ImportError("Resampling requires scipy") from exc
     if not np.isfinite(data).all():
@@ -432,6 +444,8 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
     guard = continuous_filter_guard(source_sfreq, cfg)
     exclusions = processing_intervals(data.shape[1]/sfreq, annotation_intervals(working) + source_artifacts, guard)
     diagnostics['source_artifact_intervals'] = source_artifacts
+    diagnostics['source_artifact_threshold_uv'] = cfg.source_artifact_peak_to_peak_uv
+    diagnostics['residual_epoch_threshold_uv'] = cfg.epoch_peak_to_peak_uv
     diagnostics['processing_guard_seconds'] = guard
     diagnostics['quality_exclusions'] = exclusions
     legacy_diagnostics = []
@@ -485,13 +499,15 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
                 reasons.append("baseline_too_short")
             if previous_overlaps and cfg.baseline_overlap_policy == "reject":
                 reasons.append("baseline_previous_response_overlap")
-            quality.update(valid=not reasons, reason=reasons[0] if reasons else None, reasons=reasons)
-            if not quality["valid"]:
-                block = None
             overlaps = [other["cluster_event"] for other in analysis_records
                         if other["cluster_id"] != record["cluster_id"]
                         and float(event) < other["cluster_event"]
                         and float(event) + relative_start <= other["cluster_event"] < float(event) + relative_end]
+            if overlaps:
+                reasons.append('next_stimulus_overlap')
+            quality.update(valid=not reasons, reason=reasons[0] if reasons else None, reasons=reasons)
+            if not quality['valid']:
+                block = None
             windows[name] = {"data": block, "start": start, "stop": stop,
                              "relative_start": relative_start, "relative_end": relative_end,
                              "sample_start_s": start / sfreq, "sample_stop_s": stop / sfreq,
@@ -510,5 +526,12 @@ def preprocess_raw(raw, config: PipelineConfig | None = None, events_seconds=Non
             rejected.append({"event_index": event_index, "event": event,
                              "reason": early["reason"] if early else "missing_early_response"})
     return Preprocessed(data, sfreq, EEG_CHANNELS.copy(), epochs, times, epoch_event_indices,
-                        rejected, warnings, event_records, event_windows, diagnostics, ica_diagnostics, legacy_diagnostics, isi_diagnostics)
+                        rejected, warnings, event_records, event_windows, diagnostics, ica_diagnostics, legacy_diagnostics, isi_diagnostics,
+                        tfr_data=tfr_data, tfr_preprocessing=dict(
+                            branch='before_analytical_filter', additional_bandpass=False, additional_notch=False,
+                            filter_guard_seconds=tfr_guard,
+                            source_band=[raw.info.get('highpass', 0.), raw.info.get('lowpass', source_sfreq/2)],
+                            interpolation='same decisions and spatial operator as analytical branch',
+                            reference=cfg.reference, ica='same fitted decomposition and exclusions',
+                            resampling='scipy resample_poly with anti-alias filter'))
 

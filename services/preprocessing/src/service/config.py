@@ -22,6 +22,7 @@ class Settings:
     rabbitmq_exchange: str = ""
     rabbitmq_routing_key: str = "preprocessing.combined_features"
     rabbitmq_queue: str = "preprocessing.combined_features"
+    pipeline_timeout_seconds: float = 3600.0
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -35,6 +36,8 @@ class Settings:
             f"{quote(rabbitmq_user, safe='')}:{quote(rabbitmq_password, safe='')}"
             f"@{rabbitmq_host}:{rabbitmq_port}/"
         )
+        queue = (os.getenv("RABBITMQ_QUEUE") or os.getenv("RABBITMQ_PENDING_ANALYSIS_QUEUE")
+                 or "preprocessing.combined_features")
         return cls(
             backend_url=os.getenv("BACKEND_URL", "http://backend:8080").rstrip("/"),
             backend_token=os.getenv("BACKEND_TOKEN", ""),
@@ -48,10 +51,7 @@ class Settings:
             pipeline_log_level=os.getenv("PIPELINE_LOG_LEVEL", "INFO"),
             rabbitmq_url=rabbitmq_url,
             rabbitmq_exchange=os.getenv("RABBITMQ_EXCHANGE", ""),
-            rabbitmq_routing_key=os.getenv(
-                "RABBITMQ_ROUTING_KEY", "preprocessing.combined_features"
-            ),
-            rabbitmq_queue=os.getenv(
-                "RABBITMQ_QUEUE", "preprocessing.combined_features"
-            ),
+            rabbitmq_routing_key=os.getenv("RABBITMQ_ROUTING_KEY") or queue,
+            rabbitmq_queue=queue,
+            pipeline_timeout_seconds=float(os.getenv("PIPELINE_TIMEOUT_SECONDS", "3600")),
         )

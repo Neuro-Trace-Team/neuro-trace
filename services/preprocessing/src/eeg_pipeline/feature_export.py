@@ -38,7 +38,7 @@ def export_recording(output_dir, channel_rows, feature_rows, micro_rows, network
             'node_degree', 'node_strength', 'clustering_coefficient', 'betweenness_centrality'])
         for frame, name in [(channel,'channel_features'), (features,'features'), (micro,'microstates'), (network,'network_metrics')]:
             frame.to_csv(output/(name+'.csv'), index=False)
-        pd.DataFrame(connectivity_rows or [], columns=["event_id", "event_timestamp", "window_type", "frequency_band", "channel_1", "channel_2", "dwpli", "n_valid_observations", "dwpli_valid"]).to_csv(output/"connectivity_dwpli.csv", index=False)
+        pd.DataFrame(connectivity_rows or [], columns=["event_id", "event_timestamp", "window_type", "frequency_band", "channel_1", "channel_2", "dwpli", "n_valid_observations", "dwpli_valid", "dwpli_invalid_reason"]).to_csv(output/"connectivity_dwpli.csv", index=False)
         combined = combine_feature_tables(features, micro, network)
         combined.to_csv(output/"combined_features.csv", index=False)
     except ImportError as exc: raise ImportError("CSV export requires pandas") from exc

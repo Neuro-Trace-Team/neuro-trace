@@ -90,7 +90,7 @@ def _window_features(row, name, block, prep, cfg):
 
 def _baseline_changes(row, baseline_sf, baseline_ent, response_sf, response_ent, response_name):
     prefix = "early" if response_name == "early_response" else "sustained"
-    row[f"{prefix}_baseline_valid"] = baseline_sf is not None
+    row[f"{prefix}_baseline_valid"] = baseline_sf is not None and response_sf is not None
     if baseline_sf is None or response_sf is None:
         return
     for feature, base_values in baseline_sf.items():
@@ -134,6 +134,7 @@ def _baseline_changes(row, baseline_sf, baseline_ent, response_sf, response_ent,
 def process_recording(directory, output_dir, experiment_id="", subject_id="", recording_id="", config=None):
     cfg = config or PipelineConfig()
     report = {"parameters": vars(cfg), "feature_schema_version": "2.1",
+              "processing_recipe_version": "2026-11-17.2",
               "experiment_id": experiment_id, "subject_id": subject_id, "recording_id": recording_id,
               "preprocessing_status": "failed", "channels": EEG_CHANNELS,
               "channel_order_validated": True,
@@ -154,7 +155,7 @@ def process_recording(directory, output_dir, experiment_id="", subject_id="", re
             "source_filter_metadata_caveat": "Header metadata may be incomplete; sampling rate does not prove high gamma availability",
             "relative_power_normalization_hz": cfg.analysis_band,
             "spectral_bands_hz": cfg.spectral_bands,
-            "phase": "zero-double", "method": "FIR firwin Hamming",
+            "phase": cfg.filter_phase, "method": "FIR firwin Hamming",
             "low_transition_hz": min(cfg.highpass, 2.0),
             "high_transition_hz": transition_width(cfg.lowpass),
             "notch_hz": [], "notch_width_hz": 1.0, "notch_transition_hz": 2.0,
@@ -185,13 +186,24 @@ def process_recording(directory, output_dir, experiment_id="", subject_id="", re
                        if a['description'].lower().startswith(('bad', 'edge'))]
     lep_rows, report['lep'] = extract_lep(prep, cfg, getattr(rec, 'event_metadata', ()),
         bad_annotations, continuous_filter_guard(rec.raw.info['sfreq'], cfg), rec.raw.info['sfreq'])
+    from .lep import LEPConfig
+    if (cfg.lep.get('enabled', True) and not LEPConfig(**cfg.lep).stimulation_side
+            and not any(meta.get('stimulation_side') for meta in getattr(rec, 'event_metadata', ()))):
+        report['warnings'].append(
+            'LEP N1 unavailable: stimulation_side is absent from event metadata and LEP configuration')
     report['lep']['upstream_filtering'] = report['filtering'].copy()
     from .tfr import extract_tfr, preprocessing_guard
     tfr_rows, report['tfr'] = extract_tfr(prep, cfg, getattr(rec, 'event_metadata', ()),
         bad_annotations, preprocessing_guard(rec.raw.info['sfreq'], cfg),
         (rec.raw.info.get('highpass', 0.), min(rec.raw.info.get('lowpass', rec.raw.info['sfreq']/2),
                                              rec.raw.info['sfreq']/2)), output_dir)
-    report['tfr']['upstream_filtering'] = report['filtering'].copy()
+    tfr_alpha_valid = sum(row.get('tfr_alpha_300_1000ms_central_roi_valid', False)
+                          for row in tfr_rows.values())
+    if tfr_rows and tfr_alpha_valid < len(tfr_rows):
+        report['warnings'].append(
+            f'Central-ROI alpha TFR is valid for {tfr_alpha_valid}/{len(tfr_rows)} events; '
+            'inspect per-frequency baseline/filter-support reasons in the TFR report')
+    report['tfr']['upstream_filtering'] = prep.tfr_preprocessing.copy()
     report["high_gamma_review"] = []
     channels, features, micros, networks, connectivity_rows = [], [], [], [], []
     conns = {"channel_names": np.array(EEG_CHANNELS)}
@@ -207,7 +219,10 @@ def process_recording(directory, output_dir, experiment_id="", subject_id="", re
         from .data_loader import match_pain_rating
         row.update(match_pain_rating(event_info, prep.event_records, getattr(rec, 'event_metadata', ()), rec.pain_ratings))
         row['source_csv_row'] = getattr(rec, 'event_metadata', ())[event_info['event_index']].get('source_csv_row') if event_info['event_index'] < len(getattr(rec, 'event_metadata', ())) else None
-        row['source_event_index'] = event_info['event_index']
+        metadata = getattr(rec, 'event_metadata', ())
+        source_meta = metadata[event_info['event_index']] if event_info['event_index'] < len(metadata) else {}
+        row['source_event_index'] = source_meta.get('source_event_index', event_info['event_index'])
+        row['source_event_marker'] = source_meta.get('marker')
         row['feature_schema_version'] = '2.1'
         row.update(lep_rows[event_info["event_index"]])
         row.update(tfr_rows.get(event_info["event_index"], {}))
@@ -358,7 +373,8 @@ def process_recording(directory, output_dir, experiment_id="", subject_id="", re
                    "n_rejected": len(prep.rejected), "rejection_reasons": prep.rejected,
                    "event_records": prep.event_records, "feature_diagnostics": feature_diagnostics,
                    "warnings": report["warnings"] + rec.warnings + prep.warnings, "pain_ratings_available": rec.pain_ratings is not None,
-                   "events_type_known": False, "requested_reference": cfg.reference,
+                   "events_type_known": bool(rec.event_metadata) and all(m.get('event_type_known') for m in rec.event_metadata),
+                   "event_source": rec.config.get('event_source', rec.config.get('events_json')), "requested_reference": cfg.reference,
                    "applied_reference": 'average' if cfg.reference == 'average' else 'none',
                    "rejected_event_rows": getattr(rec, 'rejected_event_rows', []),
                    "feature_schema_version": '2.1',
@@ -369,6 +385,33 @@ def process_recording(directory, output_dir, experiment_id="", subject_id="", re
     report['quality_metadata_columns'].extend(sorted({key for row in features for key in row
         if key.startswith('tfr_') and not key.endswith('_db')}))
     report['tfr']['high_gamma_review_reference'] = 'high_gamma_review and ica_diagnostics in this report'
+    # Completion and scientific usability are different outcomes. Keep the
+    # transport success contract, but make partial / empty data explicit.
+    feature_counts = {name: sum(bool(np.isfinite(row.get(name, np.nan))) for row in features)
+                      for name in ('early_absolute_alpha_power', 'baseline_absolute_alpha_power',
+                                   'sustained_absolute_alpha_power', 'early_alpha_power_db_change_global',
+                                   'lep_n1_amplitude_uv', 'lep_n2_cz_amplitude_uv', 'lep_p2_cz_amplitude_uv')}
+    feature_counts.update({key: sum(bool(row.get(key, False)) for row in features)
+                           for key in sorted({key for row in features for key in row
+                                              if key.startswith('tfr_') and key.endswith('_valid')})})
+    feature_counts['dwpli_pairs'] = sum(row['dwpli_valid'] for row in connectivity_rows)
+    report['feature_availability'] = feature_counts
+    usable = sum(any(row.get(f'{prefix}_window_valid', False)
+                     for prefix in ('baseline', 'early', 'sustained')) for row in features)
+    report['data_quality_status'] = ('no_usable_data' if not any(feature_counts.values()) else 'partial'
+        if usable < len(features) or not all(feature_counts.values()) else 'usable')
+    report['usable_spectral_event_count'] = usable
+    report['connectivity_window_requirements'] = {
+        name: {'seconds': end-start,
+               'minimum_seconds': cfg.connectivity_min_observations * cfg.connectivity_segment_seconds,
+               'supported': end-start >= cfg.connectivity_min_observations * cfg.connectivity_segment_seconds}
+        for name, (start, end) in cfg.response_windows.items()}
+    if not all(v['supported'] for v in report['connectivity_window_requirements'].values()):
+        report['warnings'].append('Response windows are too short for configured dwPLI; connectivity and graphs are unavailable. Use a separately justified longer window or across-trial estimator.')
+    if report['tfr'].get('baseline_preflight', {}).get('reason'):
+        report['warnings'].append('TFR baseline is incompatible with filter/wavelet support; see tfr.baseline_preflight')
+    if report['data_quality_status'] == 'no_usable_data':
+        report['warnings'].append('No usable spectral windows; processing completion does not imply usable data')
     export_recording(output_dir, channels, features, micros, networks, conns, report, connectivity_rows)
     return report
 
