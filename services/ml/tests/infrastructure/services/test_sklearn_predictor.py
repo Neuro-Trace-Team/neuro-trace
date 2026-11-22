@@ -17,6 +17,8 @@ from tests.conftest import MODEL_PATH, TEST_FEATURES
 
 NO_CONFIDENCE = {"confidence": None, "confidence_kind": None, "interval": None}
 
+from tests.conftest import MODEL_PATH, TEST_FEATURES
+
 
 class DummyModelWithProba:
     def predict(self, X):

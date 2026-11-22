@@ -156,6 +156,21 @@ successful `LOGIN` audit event, `FAILED_LOGIN_ATTEMPT` count,
 the storage endpoint. Audit events are used as the source of truth; no metrics
 are duplicated into another database table.
 
+## Administrator system status
+
+`GET /api/v1/admin/system-status` is restricted to the `ADMIN` role and is the
+single frontend endpoint for operational status. It reports the backend,
+`auth_db`, `medical_db`, and `audit_db` directly. `backend.connections.rustfs`
+checks the backend-owned RustFS client, while
+`backend.connections.rabbitmq_consumer` reflects the actual ML-completion
+consumer after it has subscribed to its queue. Both return `up`, `down`, or
+`unknown`; either `down` or `unknown` makes the aggregate status `degraded`.
+It also forwards the existing diagnostics from preprocessing (`/health/connections`: RustFS and RabbitMQ) and
+ML (`/connections`: model database plus RabbitMQ consumer and publisher). The
+model database is deliberately reported by ML, not probed directly by backend.
+The endpoint always returns `200`; its top-level `status` is `ok` only when all
+reported components are healthy, otherwise it is `degraded`.
+
 ## Tests
 
 Run unit and API-contract tests from `services/backend` with:

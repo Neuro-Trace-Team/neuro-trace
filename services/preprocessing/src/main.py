@@ -4,10 +4,11 @@ from contextlib import asynccontextmanager
 
 from uuid import UUID
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from service.config import Settings
+from service.health import ConnectionsResponse, check_connections
 from service.jobs import JobManager
 from service.jobs import NeuroTraceClient
 from service.storage import RustFSStorage
@@ -61,6 +62,14 @@ app = FastAPI(title="EEG preprocessing service", version="0.1.0", lifespan=lifes
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/health/connections", response_model=ConnectionsResponse)
+async def health_connections(response: Response) -> ConnectionsResponse:
+    result = await check_connections(settings)
+    if result.status == "degraded":
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return result
 
 
 @app.post(
