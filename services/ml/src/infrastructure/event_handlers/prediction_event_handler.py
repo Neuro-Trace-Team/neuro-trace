@@ -8,7 +8,7 @@ from uuid import UUID
 
 from domain.entities.analysis import NewAnalysis
 from domain.repositories.ianalysis_repository import IAnalysisRepository
-from domain.services.ieventpublisher import IEventPublisher
+from domain.services.ievent_publisher import IEventPublisher
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from infrastructure.event_handlers.ievent_handler import IEventHandler
