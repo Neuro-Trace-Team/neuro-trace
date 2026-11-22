@@ -114,7 +114,8 @@ services:
       RABBITMQ_PENDING_ANALYSIS_QUEUE: ${PENDING_ANALYSIS_QUEUE_NAME}
       RABBITMQ_COMPLETED_ANALYSIS_QUEUE: ${COMPLETED_ANALYSIS_QUEUE_NAME}
       
-      ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN}
+      MODEL_PATH: /app/models/lgbm_v3_2026-11-22.joblib
+      CQR_BASE_PATH: /app/models/cqr_lgbm_a20_v3_2026-11-22
 
     depends_on:
       rabbitmq:

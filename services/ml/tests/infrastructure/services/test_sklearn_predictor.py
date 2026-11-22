@@ -1,14 +1,21 @@
 import hashlib
+import json
 from pathlib import Path
 from unittest.mock import patch
 
 from infrastructure.event_handlers.prediction_event_handler import METADATA_KEYS, PredictionEventHandler
+from infrastructure.services.confidence_services import CqrConfidence, ProbabilityConfidence
+import joblib
 import numpy as np
 import pytest
 
 from infrastructure.services.sklearn_predictor import FeatureValidationError, SklearnPredictor
+from sklearn.linear_model import Ridge
 
 from tests.conftest import MODEL_PATH, TEST_FEATURES
+
+
+NO_CONFIDENCE = {"confidence": None, "confidence_kind": None, "interval": None}
 
 
 class DummyModelWithProba:
@@ -18,9 +25,11 @@ class DummyModelWithProba:
     def predict_proba(self, X):
         return np.array([[0.2, 0.8]])
 
+
 class DummyModelNoProba:
     def predict(self, X):
         return np.array([0])
+
 
 def test_init():
     predictor = SklearnPredictor(model_path="dummy_path.pkl")
@@ -28,21 +37,25 @@ def test_init():
     assert predictor.model is None
     assert predictor.has_model() is False
 
+
 def test_load_model_no_path():
     predictor_none = SklearnPredictor(model_path=None)
     with pytest.raises(ValueError, match="Model path is not configured."):
         predictor_none.load_model()
+
 
 def test_load_model_empty_path():
     predictor_empty = SklearnPredictor(model_path="")
     with pytest.raises(ValueError, match="Model path is not configured."):
         predictor_empty.load_model()
 
+
 @patch("os.path.exists", return_value=False)
 def test_load_model_file_not_found(mock_exists):
     predictor = SklearnPredictor(model_path="non_existent.pkl")
     with pytest.raises(FileNotFoundError, match="Model file not found at"):
         predictor.load_model()
+
 
 @patch("joblib.load")
 def test_load_model_success(mock_joblib_load, model_file):
@@ -56,10 +69,12 @@ def test_load_model_success(mock_joblib_load, model_file):
     assert predictor.model == dummy_model
     assert predictor.has_model() is True
 
+
 def test_predict_without_loading():
     predictor = SklearnPredictor(model_path="model.pkl")
     with pytest.raises(RuntimeError, match="Model has not been loaded. Call load_model\\(\\) first."):
         predictor.predict([1.0, 2.0])
+
 
 def test_predict_with_dict_features():
     predictor = SklearnPredictor(feature_names=["feature1", "feature2"])
@@ -67,10 +82,11 @@ def test_predict_with_dict_features():
 
     result = predictor.predict({"feature1": 1.5, "feature2": 2.5})
 
-    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]]}
+    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]], **NO_CONFIDENCE}
     assert result == {
         "prediction": [1],
-        "probabilities": [[0.2, 0.8]]
+        "probabilities": [[0.2, 0.8]], 
+        **NO_CONFIDENCE
     }
 
 def test_predict_with_list_1d_features():
@@ -82,7 +98,8 @@ def test_predict_with_list_1d_features():
 
     assert result == {
         "prediction": [1],
-        "probabilities": [[0.2, 0.8]]
+        "probabilities": [[0.2, 0.8]], 
+        **NO_CONFIDENCE
     }
 
 def test_predict_with_list_2d_features():
@@ -94,7 +111,8 @@ def test_predict_with_list_2d_features():
 
     assert result == {
         "prediction": [1],
-        "probabilities": [[0.2, 0.8]]
+        "probabilities": [[0.2, 0.8]], 
+        **NO_CONFIDENCE
     }
 
 def test_predict_without_predict_proba():
@@ -106,7 +124,8 @@ def test_predict_without_predict_proba():
 
     assert result == {
         "prediction": [0],
-        "probabilities": None
+        "probabilities": None, 
+        **NO_CONFIDENCE
     }
 
 class RecordingModel:
@@ -155,9 +174,9 @@ def model_file(tmp_path):
 @pytest.fixture
 def load_with(model_file):
     def _load(model, **kwargs):
+        joblib.dump(model, model_file)          # a real artifact at the real path
         p = SklearnPredictor(model_path=str(model_file), **kwargs)
-        with patch("joblib.load", return_value=model):
-            p.load_model()
+        p.load_model()                          # no patching: LFS guard, hashing, CQR all run for real
         return p
     return _load
 
@@ -259,13 +278,13 @@ def test_model_info_describes_loaded_model(load_with, model_file):
 
 
 def test_model_info_includes_sidecar_metadata(load_with, model_file):
-    model_file.with_suffix(".meta.json").write_text('{"version": "v1"}')
+    model_file.with_suffix(".json").write_text('{"version": "v1"}')
     assert load_with(DummyModelWithProba()).model_info()["metadata"] == {"version": "v1"}
 
 
 @pytest.mark.parametrize("content", ["{broken", "[1, 2]"])
 def test_unreadable_sidecar_is_ignored(load_with, model_file, content):
-    model_file.with_suffix(".meta.json").write_text(content)
+    model_file.with_suffix(".json").write_text(content)
     assert load_with(DummyModelWithProba()).model_info()["metadata"] == {}
 
 
@@ -294,5 +313,31 @@ def test_adopted_names_are_plain_strings(load_with):
 
 
 def test_service_predictor_requires_feature_names():
-    from api.main import predictor
+    from api.main import predictor, settings
     assert predictor.require_feature_names is True
+    assert predictor.cqr_base_path == settings.cqr_base_path
+
+
+def test_regressor_without_cqr_has_no_confidence(load_with):
+    assert load_with(DummyModelNoProba()).confidence_estimator is None
+
+
+def test_classifier_gets_probability_confidence(load_with):
+    assert isinstance(load_with(DummyModelWithProba()).confidence_estimator, ProbabilityConfidence)
+
+
+def test_configured_cqr_is_loaded(load_with, cqr_files):
+    p = load_with(NamedModel(names=["a", "b"]), cqr_base_path=str(cqr_files()))
+    assert isinstance(p.confidence_estimator, CqrConfidence)
+    assert isinstance(p.confidence_estimator.lo, Ridge) 
+
+
+def test_cqr_trained_on_other_features_fails_at_load(load_with, cqr_files):
+    with pytest.raises(RuntimeError, match="different feature"):
+        load_with(NamedModel(names=["b", "a"]), cqr_base_path=str(cqr_files()))
+
+
+def test_cqr_version_mismatch_with_point_sidecar_fails_at_load(load_with, model_file, cqr_files):
+    model_file.with_suffix(".json").write_text(json.dumps({"preproc_version": "OTHER"}))
+    with pytest.raises(RuntimeError, match="preproc_version"):
+        load_with(NamedModel(names=["a", "b"]), cqr_base_path=str(cqr_files()))

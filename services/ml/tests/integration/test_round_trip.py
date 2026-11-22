@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import aio_pika
+from infrastructure.services.confidence_services import ProbabilityConfidence
 import numpy as np
 import pytest
 import pytest_asyncio
@@ -94,6 +95,7 @@ async def pipeline(rabbit_url, session_factory):
 
     predictor = SklearnPredictor(feature_names=TEST_FEATURES)
     predictor.model = _Model()
+    predictor.confidence_estimator = ProbabilityConfidence()
 
     publisher = RabbitMQPublisher(rabbit_url, completed)
     await publisher.connect()

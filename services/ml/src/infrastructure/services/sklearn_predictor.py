@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from domain.services.iconfidence_estimator import Confidence, IConfidenceEstimator
+from infrastructure.services.confidence_services import build_confidence_estimator
 import joblib
 import numpy as np
 import pandas as pd
@@ -15,14 +17,23 @@ import sklearn
 
 logger = logging.getLogger(__name__)
 
+INFO_METADATA_KEYS = ("version", "target", "preproc_version", "target_version", "n_trials", "n_subjects", "trained_at", "metrics")
+
 class SklearnPredictor(IPredictor):
-    def __init__(self, model_path: str | None = None, feature_names: Sequence[str] | None = None, require_feature_names: bool = False):
+    def __init__(self, 
+                 model_path: str | None = None, 
+                 feature_names: Sequence[str] | None = None, 
+                 require_feature_names: bool = False, 
+                 cqr_base_path = None
+        ):
         self.model_path = model_path
         self.feature_names = list(feature_names) if feature_names else None
         self.model = None
         self._artifact_sha256: str | None = None
         self._metadata: dict[str, Any] = {}
         self.require_feature_names = require_feature_names
+        self.cqr_base_path = cqr_base_path
+        self.confidence_estimator: IConfidenceEstimator | None = None
 
     def load_model(self) -> None:
         """Loads a pre-trained scikit-learn model from the disk."""
@@ -50,6 +61,15 @@ class SklearnPredictor(IPredictor):
         self._metadata = self._read_metadata()
         logger.info("Model metadata successfully loaded.")
 
+        logger.info("Setting up confidence estimator(s)...")
+        self.confidence_estimator = build_confidence_estimator(
+            self.model, 
+            feature_names=self.feature_names, 
+            cqr_base_path=self.cqr_base_path, 
+            point_meta=self._metadata,
+        )
+        logger.info("Successfully set up confidence estimation.")
+
     def predict(self, features: List[float] | Dict[str, Any] | List[List[float]]) -> Dict[str, Any]:
         if self.model is None:
             raise RuntimeError("Model has not been loaded. Call load_model() first.")
@@ -68,14 +88,24 @@ class SklearnPredictor(IPredictor):
                 )
 
         prediction = self.model.predict(X)
-        probabilities = (
-            self.model.predict_proba(X).tolist()
-            if hasattr(self.model, "predict_proba") else None
-        )
+        probabilities = self.model.predict_proba(X) if hasattr(self.model, "predict_proba") else None
+        confidence = self._estimate_confidence(X, prediction, probabilities)
         return {
             "prediction": prediction.tolist(),
-            "probabilities": probabilities
+            "probabilities": None if probabilities is None else probabilities.tolist(),
+            "confidence": None if confidence is None else confidence.values,
+            "confidence_kind": None if confidence is None else confidence.kind,
+            "interval": None if confidence is None else confidence.interval,
         }
+
+    def _estimate_confidence(self, X, prediction, probabilities) -> Confidence | None:
+        if self.confidence_estimator is None:
+            return None
+        try:
+            return self.confidence_estimator.estimate(X, prediction, probabilities)
+        except Exception:
+            logger.exception("Confidence estimation failed; returning the prediction without confidence")
+            return None
         
     def has_model(self) -> bool:
         return self.model is not None
@@ -151,7 +181,7 @@ class SklearnPredictor(IPredictor):
         return sha.hexdigest()
 
     def _read_metadata(self) -> dict[str, Any]:
-        path = Path(self.model_path).with_suffix(".meta.json")
+        path = Path(self.model_path).with_suffix(".json")
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
@@ -172,6 +202,7 @@ class SklearnPredictor(IPredictor):
             "has_probabilities": hasattr(self.model, "predict_proba"),
             "sklearn_version": sklearn.__version__,
             "artifact_sha256": self._artifact_sha256,
-            "metadata": self._metadata,
+            "metadata": {k: v for k, v in self._metadata.items() if k in INFO_METADATA_KEYS},
             "feature_names_sha256": hashlib.sha256("\n".join(self.feature_names or []).encode()).hexdigest(),
+            "confidence": self.confidence_estimator.info() if self.confidence_estimator else None,
         }
