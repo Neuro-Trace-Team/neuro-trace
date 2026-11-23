@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 from domain.services.ipredictor import FeatureValidationError
+from infrastructure.services.confidence_services import ProbabilityConfidence
 from infrastructure.services.sklearn_predictor import SklearnPredictor
 import numpy as np
 import pytest
@@ -54,7 +55,7 @@ def make_saved(total=3):
 @pytest.fixture
 def predictor():
     predictor = MagicMock()
-    predictor.predict.return_value = {"prediction": [1.0], "probabilities": [[0.1, 0.9]]}
+    predictor.predict.return_value = {"prediction": [1.0], "confidence": [0.9]}
     return predictor
 
 
@@ -311,11 +312,9 @@ async def test_publisher_failure_propagates(handler, repo, publisher):
     "result, expected",
     [
         ({"prediction": 1}, None),
-        ({"prediction": 1, "probabilities": None}, None),
-        ({"prediction": 1, "probabilities": []}, None),
-        ({"prediction": 1, "probabilities": [[]]}, None),
-        ({"prediction": 1, "probabilities": [[0.1, 0.9]]}, 0.9),
-        ({"prediction": 1, "probabilities": [[0.3, 0.3, 0.4]]}, 0.4),
+        ({"prediction": 1, "confidence": None}, None),
+        ({"prediction": 1, "confidence": []}, None),
+        ({"prediction": 1, "confidence": [0.9]}, 0.9),
     ],
 )
 def test_extract_confidence(result, expected):
@@ -341,6 +340,7 @@ async def test_handler_works_with_real_sklearn_predictor(
 ):
     predictor = SklearnPredictor(feature_names=["feature_1", "feature_2"])
     predictor.model = Model()
+    predictor.confidence_estimator = ProbabilityConfidence()
     handler = PredictionEventHandler(
         predictor, session_factory, publisher, repo_factory
     )
@@ -421,7 +421,7 @@ async def test_unusable_or_out_of_range_output_is_invalid(handler, predictor, re
 @pytest.mark.asyncio
 @pytest.mark.parametrize("value", [0.0, 10.0])
 async def test_range_boundaries_are_valid(handler, predictor, repo, value):
-    predictor.predict.return_value = {"prediction": [value], "probabilities": [[0.1, 0.9]]}
+    predictor.predict.return_value = {"prediction": [value], "confidence": [0.9]}
 
     await handler.handle(make_payload())
 
@@ -431,7 +431,7 @@ async def test_range_boundaries_are_valid(handler, predictor, repo, value):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("confidence", [1.01, -0.1, float("nan")])
 async def test_out_of_range_confidence_is_dropped_but_result_kept(handler, predictor, repo, confidence):
-    predictor.predict.return_value = {"prediction": [1.0], "probabilities": [[confidence]]}
+    predictor.predict.return_value = {"prediction": [1.0], "confidence": [confidence]}
 
     await handler.handle(make_payload())
 

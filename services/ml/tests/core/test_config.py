@@ -7,7 +7,8 @@ ENV_KEYS = [
     "RABBITMQ_HOST", "RABBITMQ_PORT", "RABBITMQ_USER", "RABBITMQ_PASSWORD",
     "QUEUE_URL", "RABBITMQ_URL",
     "PENDING_ANALYSIS_QUEUE_NAME", "RABBITMQ_PENDING_ANALYSIS_QUEUE",
-    "COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE",
+    "COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE", 
+    "CQR_BASE_PATH", "MODEL_PATH",
 ]
 
 
@@ -86,3 +87,19 @@ def test_first_alias_wins_when_both_are_set(make_settings):
     s = make_settings(PENDING_ANALYSIS_QUEUE_NAME="first",
                       RABBITMQ_PENDING_ANALYSIS_QUEUE="second")
     assert s.pending_analysis_queue_name == "first"
+
+
+def test_model_path_is_read_from_env(make_settings):
+    assert make_settings(MODEL_PATH="/app/models/model").model_path == "/app/models/model"
+
+
+def test_cqr_base_path_is_optional(make_settings):
+    assert make_settings().cqr_base_path is None
+
+
+def test_blank_cqr_base_path_means_disabled(make_settings):
+    assert make_settings(CQR_BASE_PATH="").cqr_base_path is None
+
+
+def test_cqr_base_path_is_read_from_env(make_settings):
+    assert make_settings(CQR_BASE_PATH="/app/models/cqr_x").cqr_base_path == "/app/models/cqr_x"

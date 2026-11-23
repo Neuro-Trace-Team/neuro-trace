@@ -8,7 +8,7 @@ from uuid import UUID
 
 from domain.entities.analysis import NewAnalysis
 from domain.repositories.ianalysis_repository import IAnalysisRepository
-from domain.services.ieventpublisher import IEventPublisher
+from domain.services.ievent_publisher import IEventPublisher
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from infrastructure.event_handlers.ievent_handler import IEventHandler
@@ -172,5 +172,5 @@ class PredictionEventHandler(IEventHandler):
 
     @staticmethod
     def _extract_confidence(result: Dict[str, Any]) -> float | None:
-        probabilities = result.get("probabilities")
-        return float(max(probabilities[0])) if probabilities and probabilities[0] else None
+        confidence = result.get("confidence")
+        return float(confidence[0]) if confidence else None

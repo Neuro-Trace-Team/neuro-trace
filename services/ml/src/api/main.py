@@ -32,7 +32,8 @@ def _log_consumer_exit(task: asyncio.Task) -> None:
 setup_logging()
 logger = logging.getLogger(__name__)
 
-predictor: IPredictor = SklearnPredictor(model_path=settings.model_path, require_feature_names=True)
+predictor: IPredictor = SklearnPredictor(model_path=settings.model_path, require_feature_names=True, 
+                                         cqr_base_path=settings.cqr_base_path)
 
 
 @asynccontextmanager
