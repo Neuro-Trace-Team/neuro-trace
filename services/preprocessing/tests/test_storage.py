@@ -59,7 +59,7 @@ def test_download_recording_inputs_fetches_eeg_and_sibling_timestamps_json(tmp_p
         destination,
     )
 
-    assert result == (destination / "raw_eeg.bdf", destination / "events.json")
+    assert result == (destination / "raw_eeg.bdf", destination / "timestamps.json")
     assert client.download_file.call_args_list == [
         call(
             "backend-bucket",
@@ -69,7 +69,7 @@ def test_download_recording_inputs_fetches_eeg_and_sibling_timestamps_json(tmp_p
         call(
             "backend-bucket",
             "examinations/patient/exam/timestamps.json",
-            str(destination / "events.json"),
+            str(destination / "timestamps.json"),
         ),
     ]
 

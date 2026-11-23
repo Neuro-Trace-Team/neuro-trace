@@ -2,8 +2,6 @@ from __future__ import annotations
 import json
 import logging
 import math
-import shutil
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -19,36 +17,42 @@ class Recording:
     events_seconds: list[float] = field(default_factory=list)
     pain_ratings: Any = None
     warnings: list[str] = field(default_factory=list)
+    event_metadata: list[dict] = field(default_factory=list)
+    rejected_event_rows: list[dict] = field(default_factory=list)
 
 def _find_eeg_file(directory: Path) -> Optional[Path]:
     files = [p for p in directory.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS]
     return sorted(files)[0] if files else None
 
-def _read_event_onsets(directory: Path) -> list[float]:
-    """Read millisecond timestamps from events.json and return seconds."""
-    path = directory / "events.json"
+def _read_event_onsets(directory: Path, *, rejected_rows=None) -> list[float]:
+    """Read event timestamps from timestamps.json and convert milliseconds to seconds."""
+    path = directory / "timestamps.json"
     if not path.is_file():
-        raise FileNotFoundError(f"Missing events.json in {directory}")
+        raise FileNotFoundError(f"Missing timestamps.json in {directory}")
+
+    def reject_nonstandard_constant(value):
+        raise ValueError(f"Invalid JSON timestamp value: {value}")
+
     try:
         with path.open(encoding="utf-8-sig") as stream:
-            values = json.load(stream)
+            payload = json.load(stream, parse_constant=reject_nonstandard_constant)
     except OSError as exc:
         raise OSError(f"Could not read {path}: {exc}") from exc
-    if isinstance(values, dict):
-        values = values.get("timestamps")
-    if not isinstance(values, list):
-        raise ValueError(f"events.json must contain a list of timestamps: {path}")
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
+
+    timestamps = payload.get("timestamps") if isinstance(payload, dict) else payload
+    if not isinstance(timestamps, list):
+        raise ValueError(f"{path} must contain a JSON list of timestamps or an object with a 'timestamps' list")
+
     onsets = []
-    for index, value in enumerate(values):
+    for index, value in enumerate(timestamps):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ValueError(f"Invalid onset at index {index} in {path}: {value!r}")
-        try:
-            onset = float(value)
-        except (ValueError, OverflowError) as exc:
-            raise ValueError(f"Invalid onset at index {index} in {path}: {value!r}") from exc
-        if not math.isfinite(onset) or onset < 0:
-            raise ValueError(f"Invalid onset at index {index} in {path}: {value!r}")
-        onsets.append(onset / 1000.0)
+            raise ValueError(f"Invalid timestamp at index {index} in {path}: {value!r}")
+        timestamp = float(value)
+        if not math.isfinite(timestamp) or timestamp < 0:
+            raise ValueError(f"Invalid timestamp at index {index} in {path}: {value!r}")
+        onsets.append(timestamp / 1000.0)
     return onsets
 
 def _validate_bdf_metadata(raw, eeg_path: Path) -> None:
@@ -84,31 +88,87 @@ def load_recording(directory: str | Path, preload: bool = False) -> Recording:
         import mne
     except ImportError as exc:
         raise ImportError("Reading EEG files requires mne (pip install -r requirements.txt)") from exc
-    with eeg_path.open("rb") as stream:
-        is_edf = stream.read(8) == b"0       "
-    if is_edf and eeg_path.suffix.lower() != ".edf":
-        # MNE requires an .edf suffix even when the header identifies EDF.
-        # Load all samples before removing the temporary copy so later reads
-        # do not depend on a file that no longer exists.
-        with tempfile.TemporaryDirectory(prefix="eeg-edf-") as temporary_dir:
-            edf_path = Path(temporary_dir) / "eeg_data.edf"
-            shutil.copyfile(eeg_path, edf_path)
-            raw = mne.io.read_raw_edf(edf_path, preload=True, verbose="ERROR")
-    elif eeg_path.suffix.lower() == ".edf":
-        raw = mne.io.read_raw_edf(eeg_path, preload=preload, verbose="ERROR")
-    else:
-        raw = mne.io.read_raw_bdf(eeg_path, preload=preload, verbose="ERROR")
+    reader = mne.io.read_raw_edf if eeg_path.suffix.lower() == '.edf' else mne.io.read_raw_bdf
+    raw = reader(eeg_path, preload=preload, verbose="ERROR")
     _validate_bdf_metadata(raw, eeg_path)
-    events = _read_event_onsets(directory)
+    rejected_rows = []
+    event_metadata = []
+    if (directory / 'timestamps.json').is_file():
+        events = _read_event_onsets(directory, rejected_rows=rejected_rows)
+        event_source = str(directory / 'timestamps.json')
+    elif (directory / 'events.csv').is_file():
+        from .event_input import read_csv_events
+        events, event_metadata, rejected_rows, boundaries, event_source = read_csv_events(directory)
+        if boundaries:
+            # Append in Raw's annotation time coordinate, retaining existing BADs.
+            raw.annotations.append([t + raw.first_time for t in boundaries],
+                                   [0.] * len(boundaries), ['EDGE recording_boundary'] * len(boundaries))
+    else:
+        raise FileNotFoundError(f'Missing timestamps.json or events.csv in {directory}')
     ratings = None
+    rating_warnings = []
     ratings_path = directory / "pain_ratings.csv"
     if ratings_path.exists():
         try:
             import pandas as pd
             ratings = pd.read_csv(ratings_path)
-        except Exception as exc: LOGGER.warning("Could not read pain ratings: %s", exc)
-    recording = Recording(eeg_path, raw, {"events_json": str(directory / "events.json")}, events, ratings)
+        except Exception as exc:
+            rating_warnings.append(f'Could not read pain ratings: {exc}')
+            LOGGER.warning(rating_warnings[-1])
+    source_config = ({'events_json': event_source} if event_source.endswith('timestamps.json')
+                     else {'event_source': event_source})
+    recording = Recording(eeg_path, raw, source_config, events, ratings)
+    recording.event_metadata = event_metadata
+    if events and not any(m.get('event_type_known') for m in event_metadata) and not event_source.endswith('timestamps.json'):
+        recording.warnings.append('Event types unavailable: supplied timestamps are assumed to be stimulus onsets')
+    recording.warnings.extend(rating_warnings)
+    recording.rejected_event_rows = rejected_rows
     return recording
+
+def match_pain_rating(record, records, metadata, ratings):
+    """Exact join only: event_id, source_csv_row, or onset in seconds.
+
+    Multiple-marker clusters and duplicate event/rating keys are deliberately ambiguous.
+    """
+    result = dict(pain_rating=float('nan'), pain_rating_status='missing', pain_rating_source_csv_row=None)
+    members = [r for r in records if r['cluster_id'] == record['cluster_id']]
+    if ratings is None:
+        return result
+    if len(members) != 1:
+        return {**result, 'pain_rating_status':'ambiguous_cluster'}
+    import pandas as pd
+    frame = ratings.rename(columns=lambda c: str(c).strip().lower())
+    if not frame.columns.is_unique or 'rating' not in frame:
+        return {**result, 'pain_rating_status':'unsupported_schema'}
+    meta = metadata[record['event_index']] if record['event_index'] < len(metadata) else {}
+    if 'event_id' in frame and meta.get('event_id'):
+        key, value = 'event_id', str(meta['event_id'])
+        candidates = frame[key].astype(str) == value
+        unique = sum(str(m.get(key)) == value for m in metadata) == 1
+    elif 'source_csv_row' in frame:
+        key, value = 'source_csv_row', meta.get('source_csv_row')
+        candidates = pd.to_numeric(frame[key], errors='coerce') == value
+        unique = value is not None
+    elif 'onset' in frame:
+        value = record.get('source_event', record['event'])
+        candidates = pd.to_numeric(frame['onset'], errors='coerce') == value
+        unique = sum(r.get('source_event', r['event']) == value for r in records) == 1
+    else:
+        return {**result, 'pain_rating_status':'unsupported_schema'}
+    indices = [i for i, match in enumerate(candidates) if match]
+    if not unique or len(indices) > 1:
+        return {**result, 'pain_rating_status':'ambiguous_match'}
+    if not indices:
+        return result
+    i = indices[0]
+    try:
+        rating = float(frame.iloc[i]['rating'])
+    except (TypeError, ValueError):
+        rating = float('nan')
+    if not math.isfinite(rating):
+        return {**result, 'pain_rating_status':'invalid_rating', 'pain_rating_source_csv_row':i+2}
+    return dict(pain_rating=rating, pain_rating_status='matched', pain_rating_source_csv_row=i+2)
+
 
 def iter_recording_dirs(input_root: str | Path, experiment: Optional[str] = None, subject: Optional[str] = None):
     root = Path(input_root)

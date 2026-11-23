@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import threading
+import fcntl
 import json
 import uuid
 from datetime import datetime, timezone
@@ -65,132 +66,169 @@ class NeuroTraceClient:
             "GET", f"/api/v1/internal/preprocessing/examinations/{examination_id}"
         )
 
+class JobConflictError(ValueError):
+    """The examination already has an active preprocessing attempt."""
+
+
 class JobManager:
-    def __init__(
-        self,
-        settings: Settings,
-        storage: RustFSStorage,
-        backend: NeuroTraceClient | None = None,
-    ):
+    def __init__(self, settings: Settings, storage: RustFSStorage,
+                 backend: NeuroTraceClient | None = None):
         self.settings = settings
         self.storage = storage
-        self.backend = backend
-        self._jobs: dict[str, dict] = {}
-        self._storage_coordinates: dict[str, tuple[str | None, str | None]] = {}
-        self._lock = threading.Lock()
+        self.backend = backend  # Retained for callers; inputs come from POST coordinates.
+        self._lock = threading.RLock()
+        self._leases = {}
 
-    def create(
-        self,
-        examination_id: str,
-        *,
-        storage_bucket: str | None = None,
-        storage_key: str | None = None,
-    ) -> str:
+    def _state_path(self, examination_id):
+        return self.settings.work_root / 'jobs' / f'{uuid.UUID(examination_id)}.json'
+
+    def _acquire(self, examination_id):
+        path = self._state_path(examination_id).with_suffix('.lock')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lease = path.open('a')
         try:
-            examination_uuid = uuid.UUID(examination_id)
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            lease.close()
+            raise JobConflictError('Preprocessing is already queued or running for this examination')
+        return lease
+
+    def _save(self, job):
+        path = self._state_path(job['examination_id'])
+        temporary = path.with_suffix(f'.{uuid.uuid4().hex}.tmp')
+        temporary.write_text(json.dumps(job), encoding='utf-8')
+        temporary.replace(path)
+
+    def create(self, examination_id: str, *, storage_bucket=None, storage_key=None) -> str:
+        try:
+            examination_id = str(uuid.UUID(examination_id))
         except (ValueError, AttributeError, TypeError) as exc:
-            raise ValueError("examination_id must be a UUID") from exc
-        examination_id = str(examination_uuid)
+            raise ValueError('examination_id must be a UUID') from exc
         if storage_bucket is None or storage_key is None:
-            raise ValueError("storage_bucket and storage_key must be provided together")
-        if not storage_bucket.strip():
-            raise ValueError("storage_bucket must not be blank")
-        if not storage_key.strip():
-            raise ValueError("storage_key must not be blank")
+            raise ValueError('storage_bucket and storage_key must be provided together')
+        if not isinstance(storage_bucket, str) or not storage_bucket.strip():
+            raise ValueError('storage_bucket must not be blank')
+        if not isinstance(storage_key, str) or not storage_key.strip():
+            raise ValueError('storage_key must not be blank')
+        if Path(storage_key).suffix.lower() not in {'.edf', '.bdf'}:
+            raise ValueError('Only EDF and BDF EEG objects are supported')
         with self._lock:
-            self._jobs[examination_id] = {
-                "examination_id": examination_id,
-                "status": "QUEUED",
-                "pipeline_version": self.settings.pipeline_version,
-                "created_at": self._now(),
-            }
-            self._storage_coordinates[examination_id] = (storage_bucket, storage_key)
+            lease = self._acquire(examination_id)
+            try:
+                self._save(dict(examination_id=examination_id, status='QUEUED',
+                    pipeline_version=self.settings.pipeline_version, created_at=self._now(),
+                    attempt_id=uuid.uuid4().hex, storage_bucket=storage_bucket, storage_key=storage_key))
+                self._leases[examination_id] = lease
+            except Exception:
+                lease.close()
+                raise
         return examination_id
 
     def get(self, examination_id: str) -> dict | None:
         with self._lock:
-            job = self._jobs.get(examination_id)
-            return dict(job) if job else None
+            path = self._state_path(examination_id)
+            if not path.is_file():
+                return None
+            job = json.loads(path.read_text(encoding='utf-8'))
+            if job['status'] in {'QUEUED', 'RUNNING'} and examination_id not in self._leases:
+                try:
+                    lease = self._acquire(examination_id)
+                except JobConflictError:
+                    return job
+                try:
+                    # Reread after locking: the preceding worker may just have finished.
+                    job = json.loads(path.read_text(encoding='utf-8'))
+                    if job['status'] in {'QUEUED', 'RUNNING'}:
+                        job.update(status='FAILED', finished_at=self._now(),
+                                   error='Preprocessing interrupted before completion; submit again')
+                        self._save(job)
+                finally:
+                    lease.close()
+            return job
 
-    def get_for_examination(self, examination_id: str) -> dict | None:
-        with self._lock:
-            job = self._jobs.get(examination_id)
-            return dict(job) if job else None
+    def get_for_examination(self, examination_id):
+        return self.get(examination_id)
 
-    def _get_storage_coordinates(self, examination_id: str) -> tuple[str | None, str | None]:
+    def _update(self, examination_id: str, **values):
         with self._lock:
-            return self._storage_coordinates.get(examination_id, (None, None))
-
-    def _update(self, examination_id: str, **values) -> None:
-        with self._lock:
-            self._jobs[examination_id].update(values)
+            job = self.get(examination_id)
+            job.update(values)
+            self._save(job)
 
     @staticmethod
-    def _now() -> str:
+    def _now():
         return datetime.now(timezone.utc).isoformat()
 
-    def run(self, examination_id: str) -> None:
-        job_root = self.settings.work_root / examination_id
-        input_recording = job_root / "input" / "study" / "subject" / "run"
-        output_root = job_root / "output"
-        self._update(examination_id, status="RUNNING", started_at=self._now())
+    def run(self, examination_id: str):
+        with self._lock:
+            job = self.get(examination_id)
+            if job is None or job['status'] != 'QUEUED' or examination_id not in self._leases:
+                return
+            self._update(examination_id, status='RUNNING', started_at=self._now())
+        job_root = self.settings.work_root / examination_id / job['attempt_id']
+        input_recording = job_root / 'input/study/subject/run'
+        output_root = job_root / 'output'
+        recording_output = output_root / 'study/subject/run'
+        report_path = recording_output / 'preprocessing_report.json'
+        report_key = f'preprocessing/{examination_id}/preprocessing_report.json'
+        bucket = job['storage_bucket']
         try:
-            if self.backend is None:
-                raise RuntimeError("NeuroTrace backend client is not configured")
-            storage_bucket, storage_key = self._get_storage_coordinates(examination_id)
-            self.storage.download_recording_inputs(
-                storage_bucket, storage_key, input_recording
-            )
-            output_bucket = storage_bucket
-            command = [
-                sys.executable,
-                "-m",
-                "eeg_pipeline.cli",
-                "--input",
-                str(job_root / "input"),
-                "--output",
-                str(output_root),
-                "--all",
-                "--log-level",
-                self.settings.pipeline_log_level,
-            ]
-            completed = subprocess.run(
-                command,
-                cwd=Path(__file__).resolve().parents[1],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+            self.storage.download_recording_inputs(bucket, job['storage_key'], input_recording)
+            # Validate transport input without changing the pipeline's scientific logic.
+            from eeg_pipeline.data_loader import _read_event_onsets
+            if not _read_event_onsets(input_recording):
+                raise ValueError('timestamps.json must contain at least one stimulus timestamp')
+            completed = subprocess.run([
+                sys.executable, '-m', 'eeg_pipeline.cli', '--input', str(job_root / 'input'),
+                '--output', str(output_root), '--all', '--log-level', self.settings.pipeline_log_level,
+            ], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=False,
+                timeout=self.settings.pipeline_timeout_seconds)
+            self._update(examination_id, pipeline_stdout=completed.stdout[-4000:])
+            if report_path.is_file():
+                self.storage.upload_result(report_path, bucket, report_key)
+                self._update(examination_id, output_report_key=report_key)
             if completed.returncode:
-                raise RuntimeError(
-                    f"Pipeline exited with code {completed.returncode}: "
-                    f"{completed.stderr[-4000:]}"
-                )
-            combined_features_path = (
-                output_root / "study" / "subject" / "run" / "combined_features.csv"
-            )
-            if not isinstance(output_bucket, str) or not output_bucket.strip():
-                raise ValueError("Examination response does not contain a storage bucket")
-            output_storage_key = (
-                f"preprocessing/{examination_id}/combined_features.csv"
-            )
-            self.storage.upload_result(
-                combined_features_path, output_bucket, output_storage_key
-            )
-            published_rows = publish_combined_features(
-                self.settings, combined_features_path, examination_id=examination_id
-            )
-            self._update(
-                examination_id,
-                status="COMPLETED",
-                finished_at=self._now(),
-                output_path=str(output_root),
-                output_bucket=output_bucket,
-                output_storage_key=output_storage_key,
-                pipeline_stdout=completed.stdout[-4000:],
-                published_rows=published_rows,
-                rabbitmq_queue=self.settings.rabbitmq_queue,
-            )
+                raise RuntimeError(f'Pipeline exited with code {completed.returncode}: {completed.stderr[-4000:]}')
+            if not report_path.is_file():
+                raise RuntimeError('Pipeline did not produce preprocessing_report.json')
+            report = json.loads(report_path.read_text(encoding='utf-8'))
+            if not isinstance(report, dict):
+                raise ValueError('Pipeline report must be a JSON object')
+            if report.get('preprocessing_status') != 'success':
+                raise RuntimeError('Pipeline failed: ' + '; '.join(map(str, report.get('errors', []))))
+            self._update(examination_id, data_quality_status=report.get('data_quality_status'),
+                         warnings=report.get('warnings', []))
+            csv_path = recording_output / 'combined_features.csv'
+            from service.rabbitmq import _read_rows, validate_rows
+            validate_rows(_read_rows(csv_path))
+            output_key = f'preprocessing/{examination_id}/combined_features.csv'
+            self.storage.upload_result(csv_path, bucket, output_key)
+            published = publish_combined_features(self.settings, csv_path, examination_id=examination_id)
+            self._update(examination_id, status='COMPLETED', finished_at=self._now(),
+                         output_path=str(output_root), output_bucket=bucket, output_storage_key=output_key,
+                         published_rows=published, rabbitmq_queue=self.settings.rabbitmq_queue)
         except Exception as exc:
-            message = str(exc)
-            self._update(examination_id, status="FAILED", finished_at=self._now(), error=message)
+            diagnostics = dict(preprocessing_status='failed', errors=[str(exc)],
+                               examination_id=examination_id, attempt_id=job['attempt_id'])
+            if report_path.is_file():
+                try:
+                    existing = json.loads(report_path.read_text(encoding='utf-8'))
+                    if isinstance(existing, dict):
+                        diagnostics = existing
+                except (ValueError, OSError):
+                    pass
+            diagnostics.update(service_status='FAILED', service_error=str(exc))
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(diagnostics), encoding='utf-8')
+            values = dict(status='FAILED', finished_at=self._now(), error=str(exc))
+            try:
+                self.storage.upload_result(report_path, bucket, report_key)
+                values['output_report_key'] = report_key
+            except Exception as upload_error:
+                values['report_upload_error'] = str(upload_error)
+            self._update(examination_id, **values)
+        finally:
+            with self._lock:
+                lease = self._leases.pop(examination_id, None)
+                if lease is not None:
+                    lease.close()

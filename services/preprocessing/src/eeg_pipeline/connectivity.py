@@ -5,7 +5,7 @@ from .config import BANDS
 def _analytic(x, sfreq, band):
     from scipy.signal import butter, sosfiltfilt, hilbert
     nyq=sfreq/2; lo, hi=band
-    if hi >= nyq: hi=nyq*.99
+    if hi >= nyq: raise ValueError("Connectivity band exceeds Nyquist")
     sos=butter(4, [lo/nyq, hi/nyq], btype="band", output="sos")
     return hilbert(sosfiltfilt(sos, x, axis=-1), axis=-1)
 
@@ -41,17 +41,19 @@ def dwpli(epoch, sfreq, band, min_observations=8, segment_seconds=0.5):
     """Compatibility wrapper returning only the pairwise dwPLI matrix."""
     return dwpli_with_metadata(epoch, sfreq, band, min_observations, segment_seconds)[0]
 
-def connectivity_by_band(epoch, sfreq, min_observations=8, segment_seconds=0.5, include_gamma=False):
-    bands = BANDS if include_gamma else {name: band for name, band in BANDS.items() if name != "gamma"}
+def connectivity_by_band(epoch, sfreq, min_observations=8, segment_seconds=0.5, include_gamma=False, bands=None):
+    bands = {name: band for name, band in (bands or BANDS).items()
+             if name in ("delta", "theta", "alpha", "beta") or (name == "gamma" and include_gamma)}
     return {name: dwpli(epoch, sfreq, band, min_observations, segment_seconds)
             for name, band in bands.items()}
 
 def connectivity_pair_rows(epoch, sfreq, event_id, event_timestamp, window_type,
-                           min_observations=8, segment_seconds=0.5, include_gamma=True):
+                           min_observations=8, segment_seconds=0.5, include_gamma=True, bands=None):
     rows = []
     channel_names = ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "T7", "C3", "Cz",
                      "C4", "T8", "P7", "P3", "Pz", "P4", "P8", "O1", "O2"]
-    bands = BANDS if include_gamma else {name: band for name, band in BANDS.items() if name != "gamma"}
+    bands = {name: band for name, band in (bands or BANDS).items()
+             if name in ("delta", "theta", "alpha", "beta") or (name == "gamma" and include_gamma)}
     for band_name, band in bands.items():
         matrix, n_obs, valid = dwpli_with_metadata(epoch, sfreq, band, min_observations, segment_seconds)
         for i in range(len(channel_names)):
@@ -60,6 +62,8 @@ def connectivity_pair_rows(epoch, sfreq, event_id, event_timestamp, window_type,
                              "window_type": window_type, "frequency_band": band_name,
                              "channel_1": channel_names[i], "channel_2": channel_names[j],
                              "dwpli": matrix[i, j], "n_valid_observations": n_obs,
+                             "dwpli_invalid_reason": (None if valid and np.isfinite(matrix[i, j]) else
+                                 'insufficient_observations' if not valid else 'undefined_estimator'),
                              "dwpli_valid": bool(valid and np.isfinite(matrix[i, j]))})
     return rows
 

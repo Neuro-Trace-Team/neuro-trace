@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid5
+from uuid import UUID
 
 import aio_pika
 from aio_pika import DeliveryMode, ExchangeType, Message
@@ -73,6 +74,17 @@ async def _publish_rows(settings: Settings, rows: list[dict[str, Any]]) -> int:
         await connection.close()
 
 
+def validate_rows(rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        raise ValueError("Pipeline produced no analysis events; nothing can be sent to ML")
+    timestamps = [row.get('event_time_s') for row in rows]
+    if any(isinstance(t, bool) or not isinstance(t, (int, float)) or not math.isfinite(t) or t < 0
+           for t in timestamps):
+        raise ValueError("Each analysis must have a finite, non-negative event_time_s")
+    if len(set(timestamps)) != len(timestamps):
+        raise ValueError("Analysis event_time_s values must be unique for ML")
+
+
 def publish_combined_features(settings: Settings, csv_path: str | Path, *, examination_id: str) -> int:
     """Publish rows with examination metadata; analysis IDs are owned by ML."""
     examination_uuid = UUID(examination_id)
@@ -80,6 +92,7 @@ def publish_combined_features(settings: Settings, csv_path: str | Path, *, exami
     if not path.is_file():
         raise FileNotFoundError(f"Combined features file not found: {path}")
     rows = _read_rows(path)
+    validate_rows(rows)
     messages = [
         {
             "examination_id": str(examination_uuid),

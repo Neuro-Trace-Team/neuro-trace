@@ -1,0 +1,3321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotrace.local/contracts/preprocessing-to-ml/combained_features.v2.schema.json",
+  "title": "NeuroTrace combined EEG features message v2",
+  "description": "One row of the current combined_features.csv with examination UUID and total row count. Analysis IDs are managed by ML and are not transmitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "examination_id",
+    "total_analyses_count",
+    "experiment_id",
+    "subject_id",
+    "recording_id",
+    "window_id",
+    "event_id",
+    "event_index",
+    "event_time_s",
+    "event_timestamp",
+    "cluster_id",
+    "cluster_event_time_s",
+    "cluster_size",
+    "overlap_flag",
+    "sampling_frequency_hz",
+    "baseline_start_s",
+    "baseline_end_s",
+    "baseline_out_of_bounds",
+    "baseline_overlaps_next_event",
+    "early_start_s",
+    "early_end_s",
+    "early_out_of_bounds",
+    "early_overlaps_next_event",
+    "sustained_start_s",
+    "sustained_end_s",
+    "sustained_out_of_bounds",
+    "sustained_overlaps_next_event",
+    "baseline_window_valid",
+    "baseline_sample_count",
+    "baseline_permutation_entropy",
+    "baseline_paf",
+    "baseline_paf_prominence",
+    "baseline_paf_valid",
+    "baseline_absolute_delta_power",
+    "baseline_delta_power_valid",
+    "baseline_absolute_theta_power",
+    "baseline_theta_power_valid",
+    "baseline_absolute_alpha_power",
+    "baseline_alpha_power_valid",
+    "baseline_absolute_beta_power",
+    "baseline_beta_power_valid",
+    "baseline_absolute_gamma_power",
+    "baseline_gamma_power_valid",
+    "baseline_gamma_power",
+    "baseline_absolute_spectral_power",
+    "baseline_relative_delta_power",
+    "baseline_relative_theta_power",
+    "baseline_relative_alpha_power",
+    "baseline_relative_beta_power",
+    "baseline_theta_alpha_ratio",
+    "early_window_valid",
+    "early_sample_count",
+    "early_permutation_entropy",
+    "early_paf",
+    "early_paf_prominence",
+    "early_paf_valid",
+    "early_absolute_delta_power",
+    "early_delta_power_valid",
+    "early_absolute_theta_power",
+    "early_theta_power_valid",
+    "early_absolute_alpha_power",
+    "early_alpha_power_valid",
+    "early_absolute_beta_power",
+    "early_beta_power_valid",
+    "early_absolute_gamma_power",
+    "early_gamma_power_valid",
+    "early_gamma_power",
+    "early_absolute_spectral_power",
+    "early_relative_delta_power",
+    "early_relative_theta_power",
+    "early_relative_alpha_power",
+    "early_relative_beta_power",
+    "early_theta_alpha_ratio",
+    "early_baseline_valid",
+    "early_delta_power_relative_change_mean_channels",
+    "early_delta_power_relative_change_global",
+    "early_delta_power_db_change_mean_channels",
+    "early_delta_power_db_change_global",
+    "relative_change_absolute_delta_power",
+    "db_change_absolute_delta_power",
+    "early_theta_power_relative_change_mean_channels",
+    "early_theta_power_relative_change_global",
+    "early_theta_power_db_change_mean_channels",
+    "early_theta_power_db_change_global",
+    "relative_change_absolute_theta_power",
+    "db_change_absolute_theta_power",
+    "early_alpha_power_relative_change_mean_channels",
+    "early_alpha_power_relative_change_global",
+    "early_alpha_power_db_change_mean_channels",
+    "early_alpha_power_db_change_global",
+    "relative_change_absolute_alpha_power",
+    "db_change_absolute_alpha_power",
+    "early_beta_power_relative_change_mean_channels",
+    "early_beta_power_relative_change_global",
+    "early_beta_power_db_change_mean_channels",
+    "early_beta_power_db_change_global",
+    "relative_change_absolute_beta_power",
+    "db_change_absolute_beta_power",
+    "early_gamma_power_relative_change_mean_channels",
+    "early_gamma_power_relative_change_global",
+    "early_gamma_power_db_change_mean_channels",
+    "early_gamma_power_db_change_global",
+    "relative_change_absolute_gamma_power",
+    "db_change_absolute_gamma_power",
+    "relative_change_gamma_power",
+    "db_change_gamma_power",
+    "early_spectral_power_relative_change_mean_channels",
+    "early_spectral_power_relative_change_global",
+    "early_spectral_power_db_change_mean_channels",
+    "early_spectral_power_db_change_global",
+    "relative_change_absolute_spectral_power",
+    "db_change_absolute_spectral_power",
+    "baseline_paf_hz",
+    "early_permutation_entropy_change",
+    "early_paf_change",
+    "sustained_window_valid",
+    "sustained_baseline_valid",
+    "segment_start_s",
+    "segment_end_s",
+    "baseline_available",
+    "permutation_entropy",
+    "paf_hz",
+    "paf_prominence",
+    "paf_quality",
+    "absolute_delta_power",
+    "delta_power_valid",
+    "absolute_theta_power",
+    "theta_power_valid",
+    "absolute_alpha_power",
+    "alpha_power_valid",
+    "absolute_beta_power",
+    "beta_power_valid",
+    "absolute_gamma_power",
+    "gamma_power_valid",
+    "gamma_power",
+    "absolute_spectral_power",
+    "relative_delta_power",
+    "relative_theta_power",
+    "relative_alpha_power",
+    "relative_beta_power",
+    "theta_alpha_ratio",
+    "sustained_sample_count",
+    "sustained_permutation_entropy",
+    "sustained_paf",
+    "sustained_paf_prominence",
+    "sustained_paf_valid",
+    "sustained_absolute_delta_power",
+    "sustained_delta_power_valid",
+    "sustained_absolute_theta_power",
+    "sustained_theta_power_valid",
+    "sustained_absolute_alpha_power",
+    "sustained_alpha_power_valid",
+    "sustained_absolute_beta_power",
+    "sustained_beta_power_valid",
+    "sustained_absolute_gamma_power",
+    "sustained_gamma_power_valid",
+    "sustained_gamma_power",
+    "sustained_absolute_spectral_power",
+    "sustained_relative_delta_power",
+    "sustained_relative_theta_power",
+    "sustained_relative_alpha_power",
+    "sustained_relative_beta_power",
+    "sustained_theta_alpha_ratio",
+    "sustained_delta_power_relative_change_mean_channels",
+    "sustained_delta_power_relative_change_global",
+    "sustained_delta_power_db_change_mean_channels",
+    "sustained_delta_power_db_change_global",
+    "sustained_theta_power_relative_change_mean_channels",
+    "sustained_theta_power_relative_change_global",
+    "sustained_theta_power_db_change_mean_channels",
+    "sustained_theta_power_db_change_global",
+    "sustained_alpha_power_relative_change_mean_channels",
+    "sustained_alpha_power_relative_change_global",
+    "sustained_alpha_power_db_change_mean_channels",
+    "sustained_alpha_power_db_change_global",
+    "sustained_beta_power_relative_change_mean_channels",
+    "sustained_beta_power_relative_change_global",
+    "sustained_beta_power_db_change_mean_channels",
+    "sustained_beta_power_db_change_global",
+    "sustained_gamma_power_relative_change_mean_channels",
+    "sustained_gamma_power_relative_change_global",
+    "sustained_gamma_power_db_change_mean_channels",
+    "sustained_gamma_power_db_change_global",
+    "sustained_spectral_power_relative_change_mean_channels",
+    "sustained_spectral_power_relative_change_global",
+    "sustained_spectral_power_db_change_mean_channels",
+    "sustained_spectral_power_db_change_global",
+    "sustained_permutation_entropy_change",
+    "sustained_paf_change",
+    "microstate_0_duration",
+    "microstate_0_coverage",
+    "microstate_0_occurrence",
+    "microstate_1_duration",
+    "microstate_1_coverage",
+    "microstate_1_occurrence",
+    "microstate_2_duration",
+    "microstate_2_coverage",
+    "microstate_2_occurrence",
+    "microstate_3_duration",
+    "microstate_3_coverage",
+    "microstate_3_occurrence",
+    "alpha_global_efficiency",
+    "beta_global_efficiency",
+    "delta_global_efficiency",
+    "theta_global_efficiency",
+    "alpha_local_efficiency",
+    "beta_local_efficiency",
+    "delta_local_efficiency",
+    "theta_local_efficiency",
+    "lep_method",
+    "lep_peak_method",
+    "lep_onset_policy",
+    "lep_onset_s",
+    "lep_source_event_index",
+    "lep_source_marker",
+    "lep_source_event_time_unit",
+    "lep_cluster_id",
+    "lep_marker_indices",
+    "lep_onset_verified",
+    "lep_sampling_interval_ms",
+    "lep_resolution_floor_ms",
+    "lep_stimulation_side",
+    "lep_stimulation_site",
+    "lep_n1_reference",
+    "lep_cz_reference",
+    "lep_baseline_policy",
+    "lep_baseline_start_s",
+    "lep_baseline_end_s",
+    "lep_epoch_start_s",
+    "lep_epoch_end_s",
+    "lep_baseline_previous_markers",
+    "lep_following_markers",
+    "lep_epoch_reason",
+    "lep_epoch_sample_start_s",
+    "lep_epoch_sample_stop_s",
+    "lep_n1_amplitude_uv",
+    "lep_n1_latency_ms",
+    "lep_n1_valid",
+    "lep_n1_reason",
+    "lep_n1_r2",
+    "lep_n1_rmse_uv",
+    "lep_n1_converged",
+    "lep_n1_boundary",
+    "lep_n1_optimizer_status",
+    "lep_n1_nfev",
+    "lep_peak_n1_amplitude_uv",
+    "lep_peak_n1_latency_ms",
+    "lep_peak_n1_valid",
+    "lep_peak_n1_reason",
+    "lep_peak_n1_r2",
+    "lep_peak_n1_rmse_uv",
+    "lep_peak_n1_converged",
+    "lep_peak_n1_boundary",
+    "lep_peak_n1_optimizer_status",
+    "lep_peak_n1_nfev",
+    "lep_n2_cz_amplitude_uv",
+    "lep_n2_cz_latency_ms",
+    "lep_n2_cz_valid",
+    "lep_n2_cz_reason",
+    "lep_n2_cz_r2",
+    "lep_n2_cz_rmse_uv",
+    "lep_n2_cz_converged",
+    "lep_n2_cz_boundary",
+    "lep_n2_cz_optimizer_status",
+    "lep_n2_cz_nfev",
+    "lep_peak_n2_cz_amplitude_uv",
+    "lep_peak_n2_cz_latency_ms",
+    "lep_peak_n2_cz_valid",
+    "lep_peak_n2_cz_reason",
+    "lep_peak_n2_cz_r2",
+    "lep_peak_n2_cz_rmse_uv",
+    "lep_peak_n2_cz_converged",
+    "lep_peak_n2_cz_boundary",
+    "lep_peak_n2_cz_optimizer_status",
+    "lep_peak_n2_cz_nfev",
+    "lep_p2_cz_amplitude_uv",
+    "lep_p2_cz_latency_ms",
+    "lep_p2_cz_valid",
+    "lep_p2_cz_reason",
+    "lep_p2_cz_r2",
+    "lep_p2_cz_rmse_uv",
+    "lep_p2_cz_converged",
+    "lep_p2_cz_boundary",
+    "lep_p2_cz_optimizer_status",
+    "lep_p2_cz_nfev",
+    "lep_peak_p2_cz_amplitude_uv",
+    "lep_peak_p2_cz_latency_ms",
+    "lep_peak_p2_cz_valid",
+    "lep_peak_p2_cz_reason",
+    "lep_peak_p2_cz_r2",
+    "lep_peak_p2_cz_rmse_uv",
+    "lep_peak_p2_cz_converged",
+    "lep_peak_p2_cz_boundary",
+    "lep_peak_p2_cz_optimizer_status",
+    "lep_peak_p2_cz_nfev",
+    "lep_n1_channel",
+    "lep_cz_interpolated",
+    "lep_n1_interpolated",
+    "lep_n2_p2_cz_valid",
+    "lep_n2_p2_cz_reason",
+    "lep_n2_p2_cz_amplitude_uv",
+    "lep_peak_n2_p2_cz_valid",
+    "lep_peak_n2_p2_cz_reason",
+    "lep_peak_n2_p2_cz_amplitude_uv",
+    "tfr_method",
+    "tfr_onset_s",
+    "tfr_source_event_index",
+    "tfr_cluster_id",
+    "tfr_onset_policy",
+    "tfr_stimulation_side",
+    "tfr_stimulation_site",
+    "tfr_high_gamma_150_350ms_c3_db",
+    "tfr_high_gamma_150_350ms_c3_valid",
+    "tfr_high_gamma_150_350ms_c3_reason",
+    "tfr_high_gamma_150_350ms_c3_interpolated",
+    "tfr_high_gamma_150_350ms_cz_db",
+    "tfr_high_gamma_150_350ms_cz_valid",
+    "tfr_high_gamma_150_350ms_cz_reason",
+    "tfr_high_gamma_150_350ms_cz_interpolated",
+    "tfr_high_gamma_150_350ms_c4_db",
+    "tfr_high_gamma_150_350ms_c4_valid",
+    "tfr_high_gamma_150_350ms_c4_reason",
+    "tfr_high_gamma_150_350ms_c4_interpolated",
+    "tfr_high_gamma_150_350ms_central_roi_db",
+    "tfr_high_gamma_150_350ms_central_roi_valid",
+    "tfr_high_gamma_150_350ms_central_roi_reason",
+    "tfr_high_gamma_150_350ms_central_roi_channels",
+    "tfr_high_gamma_150_350ms_central_roi_n_channels",
+    "tfr_alpha_300_1000ms_c3_db",
+    "tfr_alpha_300_1000ms_c3_valid",
+    "tfr_alpha_300_1000ms_c3_reason",
+    "tfr_alpha_300_1000ms_c3_interpolated",
+    "tfr_alpha_300_1000ms_cz_db",
+    "tfr_alpha_300_1000ms_cz_valid",
+    "tfr_alpha_300_1000ms_cz_reason",
+    "tfr_alpha_300_1000ms_cz_interpolated",
+    "tfr_alpha_300_1000ms_c4_db",
+    "tfr_alpha_300_1000ms_c4_valid",
+    "tfr_alpha_300_1000ms_c4_reason",
+    "tfr_alpha_300_1000ms_c4_interpolated",
+    "tfr_alpha_300_1000ms_central_roi_db",
+    "tfr_alpha_300_1000ms_central_roi_valid",
+    "tfr_alpha_300_1000ms_central_roi_reason",
+    "tfr_alpha_300_1000ms_central_roi_channels",
+    "tfr_alpha_300_1000ms_central_roi_n_channels",
+    "tfr_alpha_300_1000ms_contralateral_db",
+    "tfr_alpha_300_1000ms_contralateral_valid",
+    "tfr_alpha_300_1000ms_contralateral_reason",
+    "tfr_alpha_300_1000ms_ipsilateral_db",
+    "tfr_alpha_300_1000ms_ipsilateral_valid",
+    "tfr_alpha_300_1000ms_ipsilateral_reason",
+    "tfr_beta_300_1000ms_c3_db",
+    "tfr_beta_300_1000ms_c3_valid",
+    "tfr_beta_300_1000ms_c3_reason",
+    "tfr_beta_300_1000ms_c3_interpolated",
+    "tfr_beta_300_1000ms_cz_db",
+    "tfr_beta_300_1000ms_cz_valid",
+    "tfr_beta_300_1000ms_cz_reason",
+    "tfr_beta_300_1000ms_cz_interpolated",
+    "tfr_beta_300_1000ms_c4_db",
+    "tfr_beta_300_1000ms_c4_valid",
+    "tfr_beta_300_1000ms_c4_reason",
+    "tfr_beta_300_1000ms_c4_interpolated",
+    "tfr_beta_300_1000ms_central_roi_db",
+    "tfr_beta_300_1000ms_central_roi_valid",
+    "tfr_beta_300_1000ms_central_roi_reason",
+    "tfr_beta_300_1000ms_central_roi_channels",
+    "tfr_beta_300_1000ms_central_roi_n_channels",
+    "tfr_beta_300_1000ms_contralateral_db",
+    "tfr_beta_300_1000ms_contralateral_valid",
+    "tfr_beta_300_1000ms_contralateral_reason",
+    "tfr_beta_300_1000ms_ipsilateral_db",
+    "tfr_beta_300_1000ms_ipsilateral_valid",
+    "tfr_beta_300_1000ms_ipsilateral_reason",
+    "tfr_delta_100_800ms_c3_db",
+    "tfr_delta_100_800ms_c3_valid",
+    "tfr_delta_100_800ms_c3_reason",
+    "tfr_delta_100_800ms_c3_interpolated",
+    "tfr_delta_100_800ms_cz_db",
+    "tfr_delta_100_800ms_cz_valid",
+    "tfr_delta_100_800ms_cz_reason",
+    "tfr_delta_100_800ms_cz_interpolated",
+    "tfr_delta_100_800ms_c4_db",
+    "tfr_delta_100_800ms_c4_valid",
+    "tfr_delta_100_800ms_c4_reason",
+    "tfr_delta_100_800ms_c4_interpolated",
+    "tfr_delta_100_800ms_central_roi_db",
+    "tfr_delta_100_800ms_central_roi_valid",
+    "tfr_delta_100_800ms_central_roi_reason",
+    "tfr_delta_100_800ms_central_roi_channels",
+    "tfr_delta_100_800ms_central_roi_n_channels",
+    "tfr_theta_100_800ms_c3_db",
+    "tfr_theta_100_800ms_c3_valid",
+    "tfr_theta_100_800ms_c3_reason",
+    "tfr_theta_100_800ms_c3_interpolated",
+    "tfr_theta_100_800ms_cz_db",
+    "tfr_theta_100_800ms_cz_valid",
+    "tfr_theta_100_800ms_cz_reason",
+    "tfr_theta_100_800ms_cz_interpolated",
+    "tfr_theta_100_800ms_c4_db",
+    "tfr_theta_100_800ms_c4_valid",
+    "tfr_theta_100_800ms_c4_reason",
+    "tfr_theta_100_800ms_c4_interpolated",
+    "tfr_theta_100_800ms_central_roi_db",
+    "tfr_theta_100_800ms_central_roi_valid",
+    "tfr_theta_100_800ms_central_roi_reason",
+    "tfr_theta_100_800ms_central_roi_channels",
+    "tfr_theta_100_800ms_central_roi_n_channels",
+    "relative_power_normalization_low_hz",
+    "relative_power_normalization_high_hz",
+    "absolute_high_gamma_power",
+    "high_gamma_power_valid",
+    "early_high_gamma_power_db_change_mean_channels",
+    "early_high_gamma_power_db_change_global",
+    "sustained_high_gamma_power_db_change_mean_channels",
+    "sustained_high_gamma_power_db_change_global",
+    "db_change_absolute_high_gamma_power",
+    "legacy_window_valid",
+    "legacy_invalid_reason",
+    "legacy_max_peak_to_peak_uv",
+    "baseline_sample_start_s",
+    "baseline_sample_stop_s",
+    "baseline_invalid_reasons",
+    "baseline_invalid_reason",
+    "baseline_max_peak_to_peak_uv",
+    "early_sample_start_s",
+    "early_sample_stop_s",
+    "early_invalid_reasons",
+    "early_invalid_reason",
+    "early_max_peak_to_peak_uv",
+    "sustained_sample_start_s",
+    "sustained_sample_stop_s",
+    "sustained_invalid_reasons",
+    "sustained_invalid_reason",
+    "sustained_max_peak_to_peak_uv",
+    "baseline_original_start_s",
+    "baseline_original_end_s",
+    "baseline_trimmed",
+    "baseline_duration_seconds",
+    "baseline_original_quality",
+    "baseline_previous_response_contaminated",
+    "baseline_previous_response_overlaps",
+    "baseline_previous_event_indices",
+    "baseline_previous_cluster_ids",
+    "baseline_absolute_high_gamma_power",
+    "baseline_high_gamma_power_valid",
+    "baseline_high_gamma_power_db_change_mean_channels",
+    "baseline_high_gamma_power_db_change_global",
+    "early_absolute_high_gamma_power",
+    "early_high_gamma_power_valid",
+    "sustained_absolute_high_gamma_power",
+    "sustained_high_gamma_power_valid",
+    "lep_baseline_sample_count",
+    "lep_baseline_sample_start_s",
+    "lep_baseline_sample_stop_s",
+    "lep_n2_cz_baseline_mean_uv",
+    "lep_n2_cz_baseline_noise_uv",
+    "lep_p2_cz_baseline_mean_uv",
+    "lep_p2_cz_baseline_noise_uv"
+  ],
+  "properties": {
+    "examination_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the examination shared by all rows in this publication."
+    },
+    "total_analyses_count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of CSV rows published for this examination."
+    },
+    "experiment_id": {
+      "type": "string"
+    },
+    "subject_id": {
+      "type": "string"
+    },
+    "recording_id": {
+      "type": "string"
+    },
+    "window_id": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "event_id": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "event_index": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "event_time_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "event_timestamp": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cluster_id": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "cluster_event_time_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cluster_size": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "overlap_flag": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sampling_frequency_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_out_of_bounds": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_overlaps_next_event": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_out_of_bounds": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_overlaps_next_event": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_out_of_bounds": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_overlaps_next_event": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_sample_count": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_sample_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "early_permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_baseline_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_delta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_theta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_alpha_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_beta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_spectral_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_change_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_paf_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_permutation_entropy_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_paf_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_baseline_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "segment_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "segment_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_available": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "paf_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "paf_quality": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_sample_count": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_permutation_entropy": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf_prominence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_spectral_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_delta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_theta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_alpha_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_relative_beta_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_alpha_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_delta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_theta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_alpha_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_beta_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_relative_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_relative_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_db_change_mean_channels": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_spectral_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_permutation_entropy_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_paf_change": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_0_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_0_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_0_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_1_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_1_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_1_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_2_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_2_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_2_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_3_duration": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_3_coverage": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "microstate_3_occurrence": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "alpha_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "beta_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "delta_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_global_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "alpha_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "beta_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "delta_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "theta_local_efficiency": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_peak_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_onset_policy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_onset_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_source_event_index": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_source_marker": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_source_event_time_unit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_cluster_id": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_marker_indices": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_onset_verified": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_sampling_interval_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_resolution_floor_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_stimulation_side": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_stimulation_site": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_n1_reference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_cz_reference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_baseline_policy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_baseline_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_baseline_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_epoch_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_epoch_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_baseline_previous_markers": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_following_markers": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_epoch_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_epoch_sample_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_epoch_sample_stop_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_n1_r2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_rmse_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_converged": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_boundary": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_optimizer_status": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_nfev": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_peak_n1_r2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_rmse_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_converged": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_boundary": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_optimizer_status": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n1_nfev": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_n2_cz_r2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_rmse_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_converged": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_boundary": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_optimizer_status": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_nfev": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_r2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_rmse_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_converged": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_boundary": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_optimizer_status": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_cz_nfev": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_p2_cz_r2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_rmse_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_converged": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_boundary": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_optimizer_status": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_nfev": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_r2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_rmse_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_converged": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_boundary": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_optimizer_status": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_p2_cz_nfev": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_channel": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_cz_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n1_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_p2_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_p2_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_n2_p2_cz_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_p2_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_peak_n2_p2_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lep_peak_n2_p2_cz_amplitude_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_onset_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_source_event_index": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_cluster_id": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_onset_policy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_stimulation_side": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_stimulation_site": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c3_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c3_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c3_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c3_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_cz_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_cz_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c4_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c4_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c4_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_c4_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_central_roi_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_central_roi_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_central_roi_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_central_roi_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_high_gamma_150_350ms_central_roi_n_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c3_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c3_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c3_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c3_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_cz_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_cz_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c4_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c4_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c4_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_c4_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_central_roi_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_central_roi_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_central_roi_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_central_roi_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_central_roi_n_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_contralateral_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_contralateral_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_contralateral_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_ipsilateral_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_ipsilateral_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_alpha_300_1000ms_ipsilateral_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c3_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c3_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c3_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c3_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_cz_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_cz_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c4_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c4_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c4_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_c4_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_central_roi_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_central_roi_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_central_roi_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_central_roi_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_central_roi_n_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_contralateral_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_contralateral_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_contralateral_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_ipsilateral_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_ipsilateral_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_beta_300_1000ms_ipsilateral_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c3_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c3_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c3_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c3_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_cz_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_cz_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c4_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c4_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c4_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_c4_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_central_roi_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_central_roi_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_central_roi_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_central_roi_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_delta_100_800ms_central_roi_n_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c3_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c3_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c3_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c3_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_cz_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_cz_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_cz_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_cz_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c4_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c4_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c4_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_c4_interpolated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_central_roi_db": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_central_roi_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_central_roi_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_central_roi_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tfr_theta_100_800ms_central_roi_n_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "relative_power_normalization_low_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_power_normalization_high_hz": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "absolute_high_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "high_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "early_high_gamma_power_db_change_mean_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "early_high_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_high_gamma_power_db_change_mean_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sustained_high_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "db_change_absolute_high_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "legacy_window_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "legacy_invalid_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "legacy_max_peak_to_peak_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_sample_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_sample_stop_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_invalid_reasons": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_invalid_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "baseline_max_peak_to_peak_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_sample_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_sample_stop_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_invalid_reasons": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_invalid_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "early_max_peak_to_peak_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_sample_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_sample_stop_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_invalid_reasons": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_invalid_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sustained_max_peak_to_peak_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_original_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_original_end_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_trimmed": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_duration_seconds": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_original_quality": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_previous_response_contaminated": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_previous_response_overlaps": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_previous_event_indices": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_previous_cluster_ids": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_absolute_high_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_high_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "baseline_high_gamma_power_db_change_mean_channels": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "baseline_high_gamma_power_db_change_global": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_absolute_high_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "early_high_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "sustained_absolute_high_gamma_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sustained_high_gamma_power_valid": {
+      "type": [
+        "boolean",
+        "number",
+        "null"
+      ]
+    },
+    "lep_baseline_sample_count": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_baseline_sample_start_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_baseline_sample_stop_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_baseline_mean_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_n2_cz_baseline_noise_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_baseline_mean_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lep_p2_cz_baseline_noise_uv": {
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  }
+}

@@ -148,3 +148,46 @@ def test_missing_or_blank_coordinates_are_rejected_before_job_creation(
 
     assert raised.value.status_code == 422
     manager.create.assert_not_called()
+
+
+@pytest.mark.parametrize('endpoint', ['request_preprocessing', 'preprocess_examination'])
+def test_duplicate_active_requests_return_conflict(pipeline_job, monkeypatch, endpoint):
+    from fastapi import BackgroundTasks, HTTPException
+    from uuid import UUID
+    import main
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    monkeypatch.setattr(main, 'jobs', manager)
+    tasks = BackgroundTasks()
+    with pytest.raises(HTTPException) as raised:
+        getattr(main, endpoint)(UUID(eid), tasks, main.JobRequest(
+            examination_id=eid, storage_bucket='exam-bucket', storage_key='exam/recording.bdf'))
+    assert raised.value.status_code == 409
+    assert not tasks.tasks
+
+
+@pytest.mark.parametrize('filename', ['recording.set', 'recording.fif', 'recording.vhdr', 'recording.eeg'])
+def test_unsupported_formats_rejected_before_scheduling(backend_client, monkeypatch, filename):
+    from fastapi import BackgroundTasks, HTTPException
+    import main
+    monkeypatch.setattr(main, 'jobs', main.JobManager(backend_client.settings, Mock()))
+    eid = uuid4()
+    tasks = BackgroundTasks()
+    with pytest.raises(HTTPException) as raised:
+        main.request_preprocessing(eid, tasks, main.JobRequest(
+            examination_id=eid, storage_bucket='exam-bucket', storage_key=filename))
+    assert raised.value.status_code == 422
+    assert not tasks.tasks
+
+
+def test_status_exposes_diagnostics_and_artifact_keys_without_input_coordinates(pipeline_job, monkeypatch):
+    from uuid import UUID
+    import main
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    manager.run(eid)
+    monkeypatch.setattr(main, 'jobs', manager)
+    status = main.get_examination_preprocessing_status(UUID(eid))
+    assert status['status'] == 'COMPLETED'
+    assert status['output_report_key'].endswith('preprocessing_report.json')
+    assert status['warnings'] == ['QC warning']
+    assert 'storage_key' not in status
+    assert 'attempt_id' not in status

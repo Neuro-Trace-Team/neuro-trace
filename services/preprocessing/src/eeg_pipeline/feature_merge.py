@@ -32,7 +32,7 @@ def _expected_microstate_columns() -> list[str]:
 
 
 def _expected_network_columns() -> list[str]:
-    return [f"{band}_{metric}" for band in ("delta", "theta", "alpha", "beta") for metric in NETWORK_PRIORITY]
+    return [f"{band}_{metric}" for band in ("delta", "theta", "alpha", "beta", "gamma") for metric in (*NETWORK_PRIORITY, "graph_valid", "graph_reason")]
 
 
 def _epoch_keys(*frames: pd.DataFrame) -> list[str]:
@@ -108,11 +108,19 @@ def _pivot_network_metrics(network: pd.DataFrame, keys: list[str]) -> pd.DataFra
             if numeric.notna().any():
                 metric_columns.append(column)
     # Arrays such as node degree and node strength are intentionally excluded.
-    if not metric_columns:
-        return pd.DataFrame(columns=keys)
+    metric_columns = list(dict.fromkeys([*NETWORK_PRIORITY, "graph_valid", "graph_reason", *metric_columns]))
+    network = network.copy()
+    for column in metric_columns:
+        if column not in network:
+            network[column] = float('nan')
     pivoted = network.pivot(index=keys, columns="band", values=metric_columns)
     pivoted.columns = [f"{str(band).lower()}_{metric}" for metric, band in pivoted.columns]
-    return pivoted.reset_index()
+    pivoted = pivoted.reset_index()
+    expected = _expected_network_columns()
+    for column in expected:
+        if column not in pivoted:
+            pivoted[column] = float('nan')
+    return pivoted[keys + expected + sorted(set(pivoted.columns)-set(keys)-set(expected))]
 
 
 def combine_feature_tables(
@@ -120,7 +128,12 @@ def combine_feature_tables(
     microstates: pd.DataFrame,
     network_metrics: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Left-join pivoted derived features onto the original features table."""
+    """Left-join derived features; this is an export table, not a model matrix.
+
+    Keep normalization identifiers and validity flags for provenance. Consumers
+    must explicitly select predictors; quality flags are not predictors.
+    High-gamma review diagnostics remain in the report/channel table.
+    """
     # In event mode every requested event can legitimately be rejected (for
     # example when it falls outside the recording). In that case
     # ``pd.DataFrame([])`` has no columns, so there are no identifiers to
