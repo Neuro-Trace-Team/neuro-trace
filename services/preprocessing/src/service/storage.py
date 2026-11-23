@@ -31,7 +31,7 @@ class RustFSStorage:
         destination.mkdir(parents=True, exist_ok=True)
         client = self._client()
         source_bucket = bucket or self.settings.rustfs_bucket
-        for filename in ("events.json", "eeg_data.bdf"):
+        for filename in ("timestamps.json", "eeg_data.bdf"):
             # The public contract is bucket/{study_id}/{filename}.
             client.download_file(
                 source_bucket,
@@ -56,7 +56,7 @@ class RustFSStorage:
     def download_recording_inputs(
         self, bucket: str, storage_key: str, destination: Path
     ) -> tuple[Path, Path]:
-        """Download EEG and sibling timestamps.json, saved locally as events.json."""
+        """Download the EEG file and sibling timestamps.json for the pipeline."""
         if not isinstance(bucket, str) or not bucket.strip():
             raise ValueError("storage_bucket must not be blank")
         if not isinstance(storage_key, str) or not storage_key.strip():
@@ -68,14 +68,16 @@ class RustFSStorage:
         event_key = join(dirname(storage_key), "timestamps.json")
         if filename in {"timestamps.json", "events.json"}:
             raise ValueError("storage_key must identify the EEG object, not a timestamps file")
+        if filename in {'.', '..'} or Path(filename).suffix.lower() not in {'.edf', '.bdf'}:
+            raise ValueError("Only EDF and BDF EEG objects are supported")
 
         destination.mkdir(parents=True, exist_ok=True)
         eeg_path = destination / filename
-        events_path = destination / "events.json"
+        timestamps_path = destination / "timestamps.json"
         client = self._client()
         client.download_file(bucket, storage_key, str(eeg_path))
-        client.download_file(bucket, event_key, str(events_path))
-        return eeg_path, events_path
+        client.download_file(bucket, event_key, str(timestamps_path))
+        return eeg_path, timestamps_path
 
     def upload_result(self, csv_path: Path, bucket: str, storage_key: str) -> None:
         """Upload the pipeline output unchanged to backend-provided storage."""
@@ -86,19 +88,10 @@ class RustFSStorage:
         self._client().upload_file(str(csv_path), bucket, storage_key)
 
     def download_examination(self, examination: dict, destination: Path) -> None:
-        """Download the recording described by the backend examination DTO.
-
-        The backend DTO currently carries the RustFS prefix as ``study_id``.
-        The additional aliases keep this adapter tolerant of the equivalent
-        names used by older backend deployments; the EEG pipeline sees exactly
-        the same local files as before.
-        """
+        """Download the exact EEG object in the legacy DTO and sibling timestamps."""
         source_file = examination.get("source_file")
         storage_key = source_file.get("storage_key") if isinstance(source_file, dict) else None
         bucket = source_file.get("bucket") if isinstance(source_file, dict) else None
         if not isinstance(storage_key, str) or not storage_key:
             raise ValueError("Examination response does not contain a storage prefix")
-        study_id = storage_key.rsplit("/", 1)[0] if "/" in storage_key else ""
-        if not study_id:
-            raise ValueError("Examination response does not contain a storage prefix")
-        self.download_study(study_id, destination, bucket=bucket)
+        self.download_recording_inputs(bucket or self.settings.rustfs_bucket, storage_key, destination)

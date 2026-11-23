@@ -6,6 +6,13 @@ def graph_metrics(matrix, density=0.2):
     finite=a[np.isfinite(a) & (a>0)]; threshold=np.quantile(finite, 1-density) if len(finite) else np.inf
     adj=np.where(a>=threshold, a, 0); degree=(adj>0).sum(axis=1); strength=np.nansum(adj, axis=1)
     out={"node_degree": degree, "node_strength": strength, "clustering_coefficient": np.full(n, np.nan), "betweenness_centrality": np.full(n, np.nan), "characteristic_path_length": np.nan, "global_efficiency": np.nan, "local_efficiency": np.nan}
+    valid = n >= 2 and np.isfinite(a[~np.eye(n, dtype=bool)]).all()
+    out['graph_valid'] = bool(valid)
+    out['graph_reason'] = None if valid else 'invalid_connectivity'
+    if not valid:
+        return {key: (np.full(n, np.nan) if isinstance(value, np.ndarray) else
+                      value if key in ('graph_valid', 'graph_reason') else np.nan)
+                for key, value in out.items()}
     try:
         import networkx as nx
         g=nx.Graph(); g.add_nodes_from(range(n))

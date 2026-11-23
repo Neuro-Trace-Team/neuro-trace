@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from service.config import Settings
 from service.health import ConnectionsResponse, check_connections
-from service.jobs import JobManager
+from service.jobs import JobManager, JobConflictError
 from service.jobs import NeuroTraceClient
 from service.storage import RustFSStorage
 
@@ -44,6 +44,8 @@ def _start_job(
         local_examination_id = jobs.create(
             str(examination_id), storage_bucket=storage_bucket, storage_key=storage_key
         )
+    except JobConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     background_tasks.add_task(jobs.run, local_examination_id)
@@ -87,8 +89,6 @@ def request_preprocessing(
         raise HTTPException(status_code=422, detail="Request examination_id does not match URL")
     if not request.storage_bucket.strip() or not request.storage_key.strip():
         raise HTTPException(status_code=422, detail="storage_bucket and storage_key must not be blank")
-    if not request.storage_bucket.strip() or not request.storage_key.strip():
-        raise HTTPException(status_code=422, detail="storage_bucket and storage_key must not be blank")
     return _start_job(examination_id, background_tasks, request.storage_bucket, request.storage_key)
 
 
@@ -111,9 +111,13 @@ def preprocess_examination(
 
 
 @app.get("/api/v1/examinations/{examination_id}/preprocessing-status")
-def get_examination_preprocessing_status(examination_id: UUID) -> dict[str, str]:
+def get_examination_preprocessing_status(examination_id: UUID) -> dict:
     """Return the latest local job state in the format expected by the backend."""
     job = jobs.get_for_examination(str(examination_id))
     if job is None:
         raise HTTPException(status_code=404, detail="Preprocessing status not found")
-    return {"examination_id": str(examination_id), "status": job["status"]}
+    return {key: job[key] for key in (
+        "examination_id", "status", "pipeline_version", "created_at", "started_at", "finished_at",
+        "error", "output_bucket", "output_storage_key", "output_report_key", "report_upload_error",
+        "published_rows", "data_quality_status", "warnings",
+    ) if key in job}

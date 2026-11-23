@@ -1,113 +1,139 @@
-from pathlib import Path
+import json
+import subprocess
 from unittest.mock import Mock
-from uuid import uuid4
 
 import pytest
 
-from service.jobs import JobManager
-from service.storage import RustFSStorage
+from service.jobs import JobConflictError, JobManager
 
+REAL_SUBPROCESS_RUN = subprocess.run
 
-@pytest.mark.parametrize("failure", [None, "pipeline", "missing_csv", "upload", "rabbitmq"])
-def test_upload_lifecycle(backend_client, monkeypatch, failure):
-    backend = Mock()
-    storage = RustFSStorage(backend_client.settings)
-    client = Mock()
-    monkeypatch.setattr(storage, "_client", lambda: client)
-    monkeypatch.setattr(storage, "download_recording_inputs", Mock())
-    manager = JobManager(backend_client.settings, storage, backend)
-    examination_id = str(uuid4())
-    bucket = "backend-bucket"
-    source_key = f"examinations/{examination_id}/recording.bdf"
-    manager.create(examination_id, storage_bucket=bucket, storage_key=source_key)
-    output = backend_client.settings.work_root / examination_id / "output/study/subject/run/combined_features.csv"
-    key = f"preprocessing/{examination_id}/combined_features.csv"
-    events = []
-
-    def pipeline(*args, **kwargs):
-        if failure != "missing_csv":
-            output.parent.mkdir(parents=True)
-            output.write_bytes(b"feature\n1\n")
-        return Mock(returncode=int(failure == "pipeline"), stdout="", stderr="failed")
-
-    def upload(path, bucket, storage_key):
-        assert (path, bucket, storage_key) == (str(output), "backend-bucket", key)
-        assert Path(path).read_bytes() == b"feature\n1\n"
-        events.append("upload")
-        if failure == "upload":
-            raise RuntimeError("upload failed")
-
-    def publish(*args, **kwargs):
-        assert events == ["upload"]
-        events.append("publish")
-        if failure == "rabbitmq":
-            raise RuntimeError("broker failed")
-        return 1
-
-    monkeypatch.setattr("service.jobs.subprocess.run", pipeline)
-    publisher = Mock(side_effect=publish)
-    monkeypatch.setattr("service.jobs.publish_combined_features", publisher)
-    client.upload_file.side_effect = upload
-
-    manager.run(examination_id)
-
-    result = manager.get(examination_id)
-    assert result["status"] == ("FAILED" if failure else "COMPLETED")
-    assert "job_id" not in result
-    backend.get_examination.assert_not_called()
-    if failure in {"pipeline", "missing_csv"}:
-        client.upload_file.assert_not_called()
-    if failure in {"pipeline", "missing_csv", "upload"}:
-        publisher.assert_not_called()
-    if failure:
-        assert "error" in result
-    else:
-        assert result["output_storage_key"] == key
-        assert events == ["upload", "publish"]
-
-
-def test_worker_downloads_from_post_coordinates_without_backend_examination_lookup(
-    backend_client, monkeypatch
-):
-    backend = Mock()
-    storage = Mock()
-    manager = JobManager(backend_client.settings, storage, backend)
-    examination_id = str(uuid4())
-    bucket = "backend-bucket"
-    storage_key = f"examinations/patient/{examination_id}/recording.bdf"
-    manager.create(examination_id, storage_bucket=bucket, storage_key=storage_key)
-    output = backend_client.settings.work_root / examination_id / "output/study/subject/run/combined_features.csv"
-
-    def pipeline(*args, **kwargs):
-        output.parent.mkdir(parents=True)
-        output.write_bytes(b"feature\n1\n")
-        return Mock(returncode=0, stdout="", stderr="")
-
-    monkeypatch.setattr("service.jobs.subprocess.run", pipeline)
-    monkeypatch.setattr("service.jobs.publish_combined_features", Mock(return_value=1))
-
-    manager.run(examination_id)
-
+def test_worker_downloads_from_post_coordinates_without_backend_examination_lookup(pipeline_job):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    manager.run(eid)
+    job = manager.get(eid)
+    assert job['status'] == 'COMPLETED'
+    assert job['warnings'] == ['QC warning']
+    assert job['data_quality_status'] == 'partial'
     storage.download_recording_inputs.assert_called_once_with(
-        bucket,
-        storage_key,
-        backend_client.settings.work_root / examination_id / "input/study/subject/run",
-    )
-    backend.get_examination.assert_not_called()
-    storage.upload_result.assert_called_once_with(
-        output, bucket, f"preprocessing/{examination_id}/combined_features.csv"
-    )
+        'exam-bucket', 'exam/recording.bdf', root / 'input/study/subject/run')
+    assert storage.upload_result.call_args_list[0].args == (
+        output / 'preprocessing_report.json', 'exam-bucket', f'preprocessing/{eid}/preprocessing_report.json')
+    assert storage.upload_result.call_args_list[1].args == (
+        output / 'combined_features.csv', 'exam-bucket', f'preprocessing/{eid}/combined_features.csv')
+    assert publish.call_args.kwargs == {'examination_id': eid}
+    assert process.call_args.kwargs['timeout'] == manager.settings.pipeline_timeout_seconds
 
 
-@pytest.mark.parametrize(
-    ("storage_bucket", "storage_key", "message"),
-    [(None, "source.bdf", "provided together"), ("bucket", None, "provided together")],
-)
-def test_manager_rejects_missing_storage_coordinate(
-    backend_client, storage_bucket, storage_key, message
-):
-    manager = JobManager(backend_client.settings, Mock(), Mock())
-    with pytest.raises(ValueError, match=message):
-        manager.create(
-            str(uuid4()), storage_bucket=storage_bucket, storage_key=storage_key
-        )
+@pytest.mark.parametrize('failure', ['exit', 'failed_report', 'missing_report', 'missing_csv',
+                                     'empty_csv', 'invalid_time', 'timeout', 'upload', 'rabbitmq'])
+def test_worker_failure_never_reports_completion(pipeline_job, failure):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    execute = process.side_effect
+    def fail(command, **kwargs):
+        result = execute(command, **kwargs)
+        if failure == 'exit': result.returncode = 1
+        if failure == 'failed_report':
+            (output / 'preprocessing_report.json').write_text(json.dumps({
+                'preprocessing_status': 'failed', 'errors': ['bad BDF']}))
+        if failure == 'missing_report': (output / 'preprocessing_report.json').unlink()
+        if failure == 'missing_csv': (output / 'combined_features.csv').unlink()
+        if failure == 'empty_csv': (output / 'combined_features.csv').write_text('event_time_s\n')
+        if failure == 'invalid_time': (output / 'combined_features.csv').write_text('event_time_s\n-1\n')
+        return result
+    process.side_effect = fail
+    if failure == 'timeout': process.side_effect = subprocess.TimeoutExpired('pipeline', 1)
+    if failure == 'upload': storage.upload_result.side_effect = RuntimeError('S3 unavailable')
+    if failure == 'rabbitmq': publish.side_effect = RuntimeError('broker unavailable')
+    manager.run(eid)
+    job = manager.get(eid)
+    assert job['status'] == 'FAILED'
+    assert job['error']
+    if failure != 'rabbitmq': publish.assert_not_called()
+    if failure not in {'upload', 'rabbitmq'}:
+        assert all(call.args[0].name != 'combined_features.csv' for call in storage.upload_result.call_args_list)
+    if failure != 'upload': assert job['output_report_key'].endswith('preprocessing_report.json')
+    else: assert job['report_upload_error'] == 'S3 unavailable'
+
+
+def test_empty_timestamps_are_rejected_before_running_pipeline(pipeline_job):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    def download(bucket, key, destination):
+        destination.mkdir(parents=True)
+        (destination / 'timestamps.json').write_text('{"timestamps": []}')
+    storage.download_recording_inputs.side_effect = download
+    manager.run(eid)
+    assert manager.get(eid)['status'] == 'FAILED'
+    process.assert_not_called()
+    publish.assert_not_called()
+
+
+def test_active_jobs_conflict_across_managers_and_status_survives_restart(pipeline_job):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    other = JobManager(manager.settings, storage)
+    assert other.get(eid)['status'] == 'QUEUED'
+    with pytest.raises(JobConflictError):
+        other.create(eid, storage_bucket='bucket', storage_key='new.edf')
+    manager.run(eid)
+    assert other.get(eid)['status'] == 'COMPLETED'
+    assert other.get(eid)['output_report_key'] == manager.get(eid)['output_report_key']
+
+
+def test_interrupted_job_is_recovered_as_failed(pipeline_job):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    manager._leases.pop(eid).close()  # Simulate OS releasing the lock on process exit.
+    restarted = JobManager(manager.settings, storage)
+    assert restarted.get(eid)['status'] == 'FAILED'
+    assert 'interrupted' in restarted.get(eid)['error']
+
+
+def test_retry_cannot_publish_previous_attempt_csv(pipeline_job):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    manager.run(eid)
+    old_attempt = manager.get(eid)['attempt_id']
+    manager.create(eid, storage_bucket='exam-bucket', storage_key='new.edf')
+    assert manager.get(eid)['attempt_id'] != old_attempt
+    process.side_effect = None
+    process.return_value = Mock(returncode=0, stdout='', stderr='')
+    publish.reset_mock()
+    manager.run(eid)
+    assert manager.get(eid)['status'] == 'FAILED'
+    assert 'did not produce' in manager.get(eid)['error']
+    publish.assert_not_called()
+    assert (output / 'combined_features.csv').exists()
+
+
+@pytest.mark.parametrize(('bucket', 'key'), [(None, 'source.bdf'), ('bucket', None)])
+def test_manager_rejects_missing_storage_coordinate(backend_client, bucket, key):
+    manager = JobManager(backend_client.settings, Mock())
+    from uuid import uuid4
+    with pytest.raises(ValueError, match='provided together'):
+        manager.create(str(uuid4()), storage_bucket=bucket, storage_key=key)
+
+
+@pytest.mark.parametrize('report', ['{bad json', '[]', 'null'])
+def test_malformed_pipeline_report_fails_with_persisted_diagnostics(pipeline_job, report):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    execute = process.side_effect
+    def malformed(command, **kwargs):
+        result = execute(command, **kwargs)
+        (output / 'preprocessing_report.json').write_text(report)
+        return result
+    process.side_effect = malformed
+    manager.run(eid)
+    assert manager.get(eid)['status'] == 'FAILED'
+    assert json.loads((output / 'preprocessing_report.json').read_text())['service_status'] == 'FAILED'
+    publish.assert_not_called()
+
+
+def test_real_cli_failure_with_stale_csv_is_not_published(pipeline_job):
+    manager, eid, storage, process, publish, root, output = pipeline_job
+    process.side_effect = REAL_SUBPROCESS_RUN
+    output.mkdir(parents=True)
+    (output / 'combined_features.csv').write_text('event_time_s\n10\n')
+    # Fixture downloads a deliberately invalid BDF; the real CLI returns 0 with a failed report.
+    manager.run(eid)
+    assert manager.get(eid)['status'] == 'FAILED'
+    assert 'Pipeline failed' in manager.get(eid)['error']
+    publish.assert_not_called()
+    assert all(call.args[0].suffix == '.json' for call in storage.upload_result.call_args_list)

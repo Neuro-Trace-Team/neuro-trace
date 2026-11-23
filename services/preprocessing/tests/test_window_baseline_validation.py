@@ -7,7 +7,7 @@ from eeg_pipeline.preprocessing import cluster_events
 
 
 def test_configured_windows_and_cluster_identity():
-    assert EPOCH_WINDOWS == {"baseline": (-5.5, -0.5), "early_response": (0.0, 1.0), "sustained_response": (0.5, 5.5)}
+    assert EPOCH_WINDOWS == {"baseline": (-5.5, -0.5), "early_response": (0.0, 1.0), "sustained_response": (1.0, 3.0)}
     records = cluster_events([10.0, 10.2, 20.0])
     assert [r["cluster_id"] for r in records] == [0, 0, 1]
 

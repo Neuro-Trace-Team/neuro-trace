@@ -43,18 +43,18 @@ def test_rabbitmq_publishes_one_json_message_per_csv_row(monkeypatch, tmp_path: 
 
     csv_path = tmp_path / "combined_features.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["event_index", "alpha_power"])
+        writer = csv.DictWriter(handle, fieldnames=["event_index", "event_time_s", "alpha_power"])
         writer.writeheader()
         writer.writerows([
-            {"event_index": 1, "alpha_power": 0.42},
-            {"event_index": 2, "alpha_power": "nan"},
+            {"event_index": 1, "event_time_s": 10, "alpha_power": 0.42},
+            {"event_index": 2, "event_time_s": 20, "alpha_power": "nan"},
         ])
 
     if metadata_columns:
         csv_path.write_text(
-            "event_index,examination_id,analysis_id,alpha_power,total_analyses_count\n"
-            "1,untrusted-examination,untrusted-analysis,0.42,999\n"
-            "2,untrusted-examination,untrusted-analysis,nan,999\n"
+            "event_index,event_time_s,examination_id,analysis_id,alpha_power,total_analyses_count\n"
+            "1,10,untrusted-examination,untrusted-analysis,0.42,999\n"
+            "2,20,untrusted-examination,untrusted-analysis,nan,999\n"
         )
 
     settings = Settings(
