@@ -108,7 +108,7 @@ function AdminSystemStatusPage() {
         </div>
         {error && <p role="alert" className="mb-4 rounded-lg border border-[#e6a5aa] bg-[#fff1f1] px-4 py-3 text-sm text-[#8d1d29]">System status is unavailable. Try refreshing.</p>}
         {!error && systemStatus && <p className="mb-4 text-sm text-[#52677b]" role="status">Overall status: <strong>{systemStatus.status === "ok" ? "Operational" : "Degraded"}</strong></p>}
-        <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/35">
+        <div className="hidden overflow-x-auto rounded-xl border border-white/80 bg-white/35 sm:block">
           <svg className="block h-auto min-w-[850px] w-full" viewBox="0 0 980 550" role="img" aria-labelledby="system-diagram-title system-diagram-description">
             <title id="system-diagram-title">System connections diagram</title>
             <desc id="system-diagram-description">Connection statuses reported by system diagnostics. Connections without a dedicated check are unknown.</desc>
@@ -132,6 +132,17 @@ function AdminSystemStatusPage() {
             ))}
           </svg>
         </div>
+        <ul aria-label="System connections" className="space-y-2 sm:hidden">
+          {connections.map((connection) => (
+            <li className="rounded-lg border border-white/80 bg-white/45 p-3 text-sm text-[#173456]" key={`${connection.from}-${connection.to}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <strong>{connection.from} ? {connection.to}</strong>
+                <span className={connection.status === "disconnected" ? "font-bold text-[#a51d2b]" : "font-semibold"}>{connection.status}</span>
+              </div>
+              <p className="mt-1 text-xs text-[#52677b]">{connection.label}</p>
+            </li>
+          ))}
+        </ul>
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-[#52677b]">
           <span className="flex items-center gap-2"><span className="h-0.5 w-6 rounded-full bg-[#47a984]" /> Connected</span>
           <span className="flex items-center gap-2 font-bold text-[#a51d2b]"><span className="w-6 border-t-4 border-dashed border-[#b42332]" /> Disconnected</span>

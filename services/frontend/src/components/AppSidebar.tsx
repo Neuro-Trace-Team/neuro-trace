@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+﻿import { useId, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import type { UserRole } from "../types/user.types";
 import { useAuth } from "../context/useAuth";
@@ -38,9 +38,9 @@ export default function AppSidebar({ role }: { role: UserRole }) {
   };
 
   return (
-    <aside className="sticky top-0 z-20 h-screen w-full shrink-0 md:min-h-svh md:w-[200px]">
+    <aside className="sticky top-0 z-20 w-full shrink-0 md:h-screen md:min-h-svh md:w-[200px]">
       <GlassPane className="
-      h-full flex flex-col gap-4 rounded-t-none rounded-b-[14px] 
+      flex max-h-[85svh] flex-col gap-4 overflow-y-auto md:h-full md:max-h-none md:overflow-visible rounded-t-none rounded-b-[14px]
       px-4 py-3 md:min-h-svh 
       md:gap-8 md:rounded-none md:border-y-0 md:border-l-0 md:border-r 
       md:px-[18px] md:pb-6 md:pt-10">

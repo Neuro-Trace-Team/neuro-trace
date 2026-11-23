@@ -95,8 +95,8 @@ function SettingsPage() {
           <SectionTitle>Account Details</SectionTitle>
           <div className="max-w-[600px] divide-y divide-white overflow-hidden rounded-xl border border-white/80 bg-white/45 px-4">
             {accountFields.map(({ key, label }) => (
-              <div className="grid grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] items-center gap-3 py-3 text-[13px]" key={key}>
-                <span className="font-medium text-[#52677b]">{label}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_36px] items-center gap-x-3 gap-y-1 py-3 text-[13px] sm:grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] sm:gap-3" key={key}>
+                <span className="col-span-2 font-medium text-[#52677b] sm:col-span-1">{label}</span>
                 {editing === key ? (
                   <InputSection
                     autoFocus
@@ -123,8 +123,8 @@ function SettingsPage() {
                 />
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] items-center gap-3 py-3 text-[13px]">
-              <span className="font-medium text-[#52677b]">Role</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_36px] items-center gap-x-3 gap-y-1 py-3 text-[13px] sm:grid-cols-[minmax(95px,0.4fr)_minmax(0,1fr)_36px] sm:gap-3">
+              <span className="col-span-2 font-medium text-[#52677b] sm:col-span-1">Role</span>
               <strong className="text-[#102d58]">{user?.role === "admin" ? "Admin" : "Doctor"}</strong>
               <ButtonSecondary
                   aria-label={"Edit role"}

@@ -80,7 +80,7 @@ export default function Modal({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
-        className={`max-h-[min(90svh,760px)] w-[60%] overflow-y-auto rounded-xl border border-white/80 bg-[#f4f6f6] shadow-[0_16px_48px_rgba(0,20,40,0.32)] ${className}`}
+        className={`max-h-[min(90svh,760px)] w-full sm:w-[60%] overflow-y-auto rounded-xl border border-white/80 bg-[#f4f6f6] shadow-[0_16px_48px_rgba(0,20,40,0.32)] ${className}`}
         role="dialog"
       >
         <header className="sticky top-0 z-10 flex items-center justify-between bg-gradient-to-r from-[#00b9c5] to-[#0071b4] px-5 py-4 text-white">
@@ -100,7 +100,7 @@ export default function Modal({
         </header>
         <div className="p-5">
           {children}
-          {footer && <div className="mt-4 flex justify-end gap-2 border-t border-[#dce5e9] pt-4">{footer}</div>}
+          {footer && <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#dce5e9] pt-4">{footer}</div>}
         </div>
       </section>
     </div>,

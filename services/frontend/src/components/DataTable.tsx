@@ -190,7 +190,7 @@ export default function DataTable({
       </div>}
 
       <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/45 shadow-[0_6px_18px_rgba(8,38,76,0.06)]">
-        <table className="w-full min-w-[680px] border-separate border-spacing-0 text-left text-[13px] leading-5 text-[#334b63]">
+        <table className="w-full sm:min-w-[680px] border-separate border-spacing-0 text-left text-[13px] leading-5 text-[#334b63]">
           <thead className="bg-white/60 text-[11px] font-bold uppercase tracking-[0.07em] text-[#52677b]">
             <tr>
               {selectable && (
@@ -201,7 +201,7 @@ export default function DataTable({
               {columns.map((column, columnIndex) => {
                 if (!sortable || (serverPagination && !sortableColumns?.[column])) {
                   return (
-                    <th className="whitespace-nowrap border-b border-white/90 px-4 py-3.5 font-bold" key={column}>
+                    <th className="border-b border-white/90 px-2 py-3.5 font-bold sm:whitespace-nowrap sm:px-4" key={column}>
                       {column}
                     </th>
                   );
@@ -213,7 +213,7 @@ export default function DataTable({
                 return (
                   <th
                     aria-sort={activeOrder ? (activeOrder === "asc" ? "ascending" : "descending") : "none"}
-                    className="whitespace-nowrap border-b border-white/90 px-4 py-3.5 font-bold"
+                    className="border-b border-white/90 px-2 py-3.5 font-bold sm:whitespace-nowrap sm:px-4"
                     key={column}
                   >
                     <button
@@ -266,7 +266,7 @@ export default function DataTable({
                   )}
                   {row.map((cell, index) => (
                     <td
-                      className={`max-w-[420px] truncate border-b border-white/90 px-4 py-3.5 group-last:border-0 ${
+                      className={`max-w-[180px] break-words border-b border-white/90 px-2 py-3.5 group-last:border-0 sm:max-w-[420px] sm:truncate sm:px-4 ${
                         index === 0 ? "font-semibold text-[#102d58]" : ""
                       }`}
                       key={`${columns[index]}-${index}`}

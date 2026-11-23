@@ -115,7 +115,7 @@ function DoctorNewExaminationPage() {
               }} type="button" />
               <div className="space-y-1.5">
                 {artifactIds.map((artifactId, index) => (
-                  <div className="flex items-center gap-1 text-[13px]" key={artifactId}>
+                  <div className="flex flex-wrap items-center gap-1 text-[13px] sm:flex-nowrap" key={artifactId}>
                     {Array.from({ length: 9 }, (_, digitIndex) => {
                       const unit = digitIndex < 2 ? "H" : digitIndex < 4 ? "M" : digitIndex < 6 ? "S" : "MS";
 
@@ -124,10 +124,10 @@ function DoctorNewExaminationPage() {
                       const showColonAfter = digitIndex === 1 || digitIndex === 3 || digitIndex === 5;
 
                       return (
-                        <div key={digitIndex} className="flex items-center gap-1">
+                        <div key={digitIndex} className="flex items-center gap-0 sm:gap-1">
                           <InputSection
                             aria-label={`Artifact ${index + 1} ${unit} digit ${digitIndex + 1}`}
-                            className="w-12"
+                            className="w-6 sm:w-12"
                             inputClassName="h-9 px-1 text-center"
                             inputMode="numeric"
                             maxLength={1}
