@@ -441,8 +441,8 @@ async def test_out_of_range_confidence_is_dropped_but_result_kept(handler, predi
 	
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mutate, expected_reason", [
-    (lambda p: p.update(feature_1=None), "invalid_feature_values: feature_1"),
-    (lambda p: p.update(feature_1=float("nan")), "invalid_feature_values: feature_1"),
+    (lambda p: p.update(feature_1=None), "null_features: feature_1"),
+    (lambda p: p.update(feature_1=float("nan")), "null_features: feature_1"),
     (lambda p: p.pop("feature_2"), "missing_features: feature_2"),
 ])
 async def test_real_predictor_turns_null_or_missing_features_into_invalid_analysis(

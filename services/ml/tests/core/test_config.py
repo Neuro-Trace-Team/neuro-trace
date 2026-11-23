@@ -8,7 +8,7 @@ ENV_KEYS = [
     "QUEUE_URL", "RABBITMQ_URL",
     "PENDING_ANALYSIS_QUEUE_NAME", "RABBITMQ_PENDING_ANALYSIS_QUEUE",
     "COMPLETED_ANALYSIS_QUEUE_NAME", "RABBITMQ_COMPLETED_ANALYSIS_QUEUE", 
-    "CQR_BASE_PATH", "MODEL_PATH",
+    "CQR_BASE_PATH", "MODEL_PATH", "MAX_MISSING_FEATURE_FRACTION",
 ]
 
 
@@ -103,3 +103,13 @@ def test_blank_cqr_base_path_means_disabled(make_settings):
 
 def test_cqr_base_path_is_read_from_env(make_settings):
     assert make_settings(CQR_BASE_PATH="/app/models/cqr_x").cqr_base_path == "/app/models/cqr_x"
+
+
+def test_max_missing_fraction_defaults_to_one(make_settings):
+    assert make_settings().max_missing_feature_fraction == 1.0
+
+
+@pytest.mark.parametrize("value", ["-0.1", "1.5"])
+def test_max_missing_fraction_must_be_a_fraction(make_settings, value):
+    with pytest.raises(ValidationError):
+        make_settings(MAX_MISSING_FEATURE_FRACTION=value)

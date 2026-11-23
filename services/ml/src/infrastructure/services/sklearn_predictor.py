@@ -24,7 +24,8 @@ class SklearnPredictor(IPredictor):
                  model_path: str | None = None, 
                  feature_names: Sequence[str] | None = None, 
                  require_feature_names: bool = False, 
-                 cqr_base_path = None
+                 cqr_base_path = None,
+                 max_missing_fraction: float = 0.0
         ):
         self.model_path = model_path
         self.feature_names = list(feature_names) if feature_names else None
@@ -34,6 +35,10 @@ class SklearnPredictor(IPredictor):
         self.require_feature_names = require_feature_names
         self.cqr_base_path = cqr_base_path
         self.confidence_estimator: IConfidenceEstimator | None = None
+
+        if not 0.0 <= max_missing_fraction <= 1.0:
+            raise ValueError("max_missing_fraction must be between 0 and 1")
+        self.max_missing_fraction = max_missing_fraction
 
     def load_model(self) -> None:
         """Loads a pre-trained scikit-learn model from the disk."""
@@ -55,6 +60,7 @@ class SklearnPredictor(IPredictor):
         logger.info("Loading scikit-learn model from %s...", self.model_path)
         self.model = joblib.load(self.model_path)
         self._check_model()
+        self._check_missing_value_support()
         logger.info("Scikit-learn model successfully loaded into memory.")
 
         logger.info("Reading model metadata...")
@@ -87,6 +93,8 @@ class SklearnPredictor(IPredictor):
                     "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
                 )
 
+        imputed = int(np.isnan(np.asarray(X, dtype=float)).sum())
+
         prediction = self.model.predict(X)
         probabilities = self.model.predict_proba(X) if hasattr(self.model, "predict_proba") else None
         confidence = self._estimate_confidence(X, prediction, probabilities)
@@ -96,6 +104,7 @@ class SklearnPredictor(IPredictor):
             "confidence": None if confidence is None else confidence.values,
             "confidence_kind": None if confidence is None else confidence.kind,
             "interval": None if confidence is None else confidence.interval,
+            "imputed_features": imputed,
         }
 
     def _estimate_confidence(self, X, prediction, probabilities) -> Confidence | None:
@@ -141,31 +150,55 @@ class SklearnPredictor(IPredictor):
             )
         logger.info("Model loaded with %d expected features.", len(self.feature_names or []))
 
+    def _check_missing_value_support(self) -> None:
+        """Fail at startup, not on the first message, if nulls are allowed but the model can't take them."""
+        if self.max_missing_fraction <= 0 or not self.feature_names:
+            return
+        probe = pd.DataFrame([[np.nan] * len(self.feature_names)], columns=self.feature_names)
+        try:
+            self.model.predict(probe)
+        except Exception as e:
+            raise RuntimeError(
+                "MAX_MISSING_FEATURE_FRACTION > 0, but the model cannot predict with missing values "
+                "(add an imputer to the pipeline or set the fraction to 0)"
+            ) from e
+
     def _build_frame(self, features: Dict[str, Any]) -> pd.DataFrame:
         names = self.feature_names
-        missing = [n for n in names if n not in features]
-        if missing:
-            raise FeatureValidationError(f"Missing {len(missing)} features: {missing}", missing=missing)
+        absent = [n for n in names if n not in features]
+        if absent:
+            raise FeatureValidationError(f"Missing {len(absent)} features: {absent}", missing=absent)
 
         extra = set(features) - set(names)
         if extra:
             logger.debug("Ignoring unexpected keys: %s", sorted(extra))
 
-        row = {n: features[n] for n in names}
-
-        bad = []
-        for k, v in row.items():
+        row: dict[str, float] = {}
+        null, bad = [], []
+        for n in names:
+            v = features[n]
+            if v is None:
+                row[n] = math.nan
+                null.append(n)
+                continue
             try:
                 f = float(v)
             except (TypeError, ValueError):
-                bad.append(k)
+                bad.append(n)
                 continue
-            if math.isnan(f) or math.isinf(f):
-                bad.append(k)
-            row[k] = f
-        if bad:
-            raise FeatureValidationError(f"Non-numeric/NaN/inf values for: {bad}", invalid=bad)
+            if math.isinf(f):
+                bad.append(n)
+            elif math.isnan(f):
+                null.append(n)
+            row[n] = f
 
+        too_many_null = len(null) > self.max_missing_fraction * len(names)
+        if bad or too_many_null:
+            raise FeatureValidationError(
+                f"{len(bad)} non-numeric/inf and {len(null)} null of {len(names)} features "
+                f"(allowed nulls: {self.max_missing_fraction * len(names):.1f})",
+                invalid=bad, null=null if too_many_null else (),
+            )
         return pd.DataFrame([row], columns=names)
 
     def _read_digest(self) -> str:
@@ -205,4 +238,5 @@ class SklearnPredictor(IPredictor):
             "metadata": {k: v for k, v in self._metadata.items() if k in INFO_METADATA_KEYS},
             "feature_names_sha256": hashlib.sha256("\n".join(self.feature_names or []).encode()).hexdigest(),
             "confidence": self.confidence_estimator.info() if self.confidence_estimator else None,
+            "max_missing_fraction": self.max_missing_fraction,
         }

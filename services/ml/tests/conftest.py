@@ -70,3 +70,26 @@ def test_shipped_confidence_is_a_unit_score(shipped_predictor):
         pytest.skip("no CQR artifacts shipped")
     r = shipped_predictor.predict({n: 0.0 for n in shipped_predictor.feature_names})
     assert 0.0 <= r["confidence"][0] <= 1.0
+
+
+def test_max_missing_fraction_defaults_to_zero(make_settings):
+    assert make_settings().max_missing_feature_fraction == 0.0
+
+
+@pytest.mark.parametrize("value", ["-0.1", "1.5"])
+def test_max_missing_fraction_must_be_a_fraction(make_settings, value):
+    with pytest.raises(ValidationError):
+        make_settings(MAX_MISSING_FEATURE_FRACTION=value)
+
+
+def test_shipped_model_and_confidence_handle_a_missing_value(shipped_predictor, monkeypatch):
+    monkeypatch.setattr(shipped_predictor, "max_missing_fraction", 0.5)
+    names = shipped_predictor.feature_names
+    row = {n: 0.0 for n in names}
+    row[names[0]] = None
+
+    r = shipped_predictor.predict(row)
+
+    assert r["imputed_features"] == 1 and len(r["prediction"]) == 1
+    if shipped_predictor.confidence_estimator is not None:
+        assert r["confidence"] is not None

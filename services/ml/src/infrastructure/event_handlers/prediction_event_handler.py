@@ -132,6 +132,10 @@ class PredictionEventHandler(IEventHandler):
             logger.exception("Prediction failed")
             return Evaluation(invalid_reason="prediction_failed")
 
+        imputed = prediction.get("imputed_features", 0)
+        if imputed:
+            logger.info("Predicting with %d imputed feature(s)", imputed)
+
         try:
             result = self._extract_result(prediction)
             confidence = self._extract_confidence(prediction)
@@ -157,6 +161,8 @@ class PredictionEventHandler(IEventHandler):
             parts.append(f"missing_features: {preview(error.missing)}")
         if error.invalid:
             parts.append(f"invalid_feature_values: {preview(error.invalid)}")
+        if error.null:
+            parts.append(f"null_features: {preview(error.null)}")
         return "; ".join(parts) or "feature_validation_failed"
 
     @staticmethod
