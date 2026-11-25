@@ -215,4 +215,4 @@ async def test_examination_with_an_invalid_event_still_completes(pipeline):
 
     rows = await pipeline.rows(exam)
     assert [(r.is_valid, r.result) for r in rows] == [(False, None), (True, 1.0)]
-    assert rows[0].invalid_reason.startswith("invalid_feature_values")
+    assert rows[0].invalid_reason.startswith("null_features")

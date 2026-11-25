@@ -15,22 +15,28 @@ from sklearn.linear_model import Ridge
 from tests.conftest import MODEL_PATH, TEST_FEATURES
 
 
-NO_CONFIDENCE = {"confidence": None, "confidence_kind": None, "interval": None}
+def no_confidence(rows: int = 1) -> dict:
+    return {
+        "confidence": None,
+        "confidence_kind": None,
+        "interval": None,
+        "imputed_features": [0] * rows,
+    }
 
 from tests.conftest import MODEL_PATH, TEST_FEATURES
 
 
 class DummyModelWithProba:
     def predict(self, X):
-        return np.array([1])
+        return np.ones(len(X), dtype=int)
 
     def predict_proba(self, X):
-        return np.array([[0.2, 0.8]])
+        return np.tile([0.2, 0.8], (len(X), 1))
 
 
 class DummyModelNoProba:
     def predict(self, X):
-        return np.array([0])
+        return np.zeros(len(X), dtype=int)
 
 
 def test_init():
@@ -84,11 +90,11 @@ def test_predict_with_dict_features():
 
     result = predictor.predict({"feature1": 1.5, "feature2": 2.5})
 
-    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]], **NO_CONFIDENCE}
+    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]], **no_confidence()}
     assert result == {
         "prediction": [1],
         "probabilities": [[0.2, 0.8]], 
-        **NO_CONFIDENCE
+        **no_confidence()
     }
 
 def test_predict_with_list_1d_features():
@@ -101,7 +107,7 @@ def test_predict_with_list_1d_features():
     assert result == {
         "prediction": [1],
         "probabilities": [[0.2, 0.8]], 
-        **NO_CONFIDENCE
+        **no_confidence()
     }
 
 def test_predict_with_list_2d_features():
@@ -112,9 +118,9 @@ def test_predict_with_list_2d_features():
     result = predictor.predict(features)
 
     assert result == {
-        "prediction": [1],
-        "probabilities": [[0.2, 0.8]], 
-        **NO_CONFIDENCE
+        "prediction": [1, 1],
+        "probabilities": [[0.2, 0.8], [0.2, 0.8]], 
+        **no_confidence(rows=2)
     }
 
 def test_predict_without_predict_proba():
@@ -127,8 +133,24 @@ def test_predict_without_predict_proba():
     assert result == {
         "prediction": [0],
         "probabilities": None, 
-        **NO_CONFIDENCE
+        **no_confidence()
     }
+
+@pytest.mark.parametrize("features, rows", [
+    ([1.0, 2.0], 1),
+    ([[1.0, 2.0]], 1),
+    ([[1.0, 2.0], [3.0, 4.0]], 2),
+    ([[1.0, 2.0]] * 5, 5),
+])
+def test_output_has_one_entry_per_input_row(features, rows):
+    predictor = SklearnPredictor()
+    predictor.model = DummyModelWithProba()
+
+    result = predictor.predict(features)
+
+    assert len(result["prediction"]) == rows
+    assert len(result["probabilities"]) == rows
+    assert len(result["imputed_features"]) == rows
 
 class RecordingModel:
     """Captures the DataFrame it receives."""
@@ -343,3 +365,74 @@ def test_cqr_version_mismatch_with_point_sidecar_fails_at_load(load_with, model_
     model_file.with_suffix(".json").write_text(json.dumps({"preproc_version": "OTHER"}))
     with pytest.raises(RuntimeError, match="preproc_version"):
         load_with(NamedModel(names=["a", "b"]), cqr_base_path=str(cqr_files()))
+
+
+def predictor_with(fraction, names=("a", "b", "c", "d")):
+    p = SklearnPredictor(feature_names=list(names), max_missing_fraction=fraction)
+    p.model = RecordingModel()
+    return p
+
+
+def test_nulls_are_rejected_by_default_and_reported_as_null():
+    p = predictor_with(0.0)
+    with pytest.raises(FeatureValidationError) as e:
+        p.predict({"a": 1, "b": None, "c": 3, "d": 4})
+    assert e.value.null == ["b"] and e.value.invalid == []
+
+
+@pytest.mark.parametrize("null_value", [None, float("nan"), "nan"])
+def test_nulls_within_the_limit_reach_the_model_as_nan(null_value):
+    p = predictor_with(0.25)                               # 1 of 4 allowed
+    r = p.predict({"a": 1, "b": null_value, "c": 3, "d": 4})
+    assert np.isnan(p.model.X.iloc[0]["b"])
+    assert r["imputed_features"] == [1]
+
+
+def test_complete_rows_report_zero_imputed_features():
+    assert predictor_with(0.25).predict({"a": 1, "b": 2, "c": 3, "d": 4})["imputed_features"] == [0]
+
+
+def test_more_nulls_than_the_limit_are_rejected():
+    with pytest.raises(FeatureValidationError) as e:
+        predictor_with(0.25).predict({"a": None, "b": None, "c": 3, "d": 4})
+    assert e.value.null == ["a", "b"]
+
+
+@pytest.mark.parametrize("bad", [float("inf"), float("-inf"), "abc"])
+def test_garbage_and_infinity_are_invalid_whatever_the_limit(bad):
+    with pytest.raises(FeatureValidationError) as e:
+        predictor_with(1.0).predict({"a": 1, "b": bad, "c": 3, "d": 4})
+    assert e.value.invalid == ["b"]
+
+
+def test_absent_key_is_rejected_whatever_the_limit():
+    with pytest.raises(FeatureValidationError) as e:
+        predictor_with(1.0).predict({"a": 1, "b": 2, "c": 3})
+    assert e.value.missing == ["d"]
+
+
+@pytest.mark.parametrize("fraction", [-0.1, 1.5])
+def test_max_missing_fraction_must_be_a_fraction(fraction):
+    with pytest.raises(ValueError):
+        SklearnPredictor(max_missing_fraction=fraction)
+
+
+class NanIntolerant(NamedModel):                           # module level, so joblib can pickle it
+    def predict(self, X):
+        if np.isnan(np.asarray(X, dtype=float)).any():
+            raise ValueError("Input contains NaN")
+        return super().predict(X)
+
+
+def test_load_rejects_a_model_that_cannot_take_nulls_when_tolerance_is_on(load_with):
+    with pytest.raises(RuntimeError, match="missing values"):
+        load_with(NanIntolerant(names=["a", "b"]), max_missing_fraction=0.5)
+
+
+def test_model_that_cannot_take_nulls_loads_when_tolerance_is_off(load_with):
+    load_with(NanIntolerant(names=["a", "b"]))
+
+
+def test_describe_reports_nulls_separately_from_garbage():
+    err = FeatureValidationError("x", invalid=["b"], null=["a"])
+    assert PredictionEventHandler._describe(err) == "invalid_feature_values: b; null_features: a"

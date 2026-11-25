@@ -34,6 +34,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
+    max_missing_feature_fraction: float = Field(
+        default=1.0, ge=0.0, le=1.0, validation_alias="MAX_MISSING_FEATURE_FRACTION",
+    )
+
     @property
     def queue_url(self) -> str:
         if self.queue_url_override:

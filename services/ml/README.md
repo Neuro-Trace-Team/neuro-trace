@@ -6,15 +6,35 @@ It consumes one message per detected event from RabbitMQ, runs a scikit-learn-co
 
 ```mermaid
 flowchart LR
-    P[Preprocessing] -- "one message per event" --> Q1[(pending queue)]
-    Q1 --> C[Consumer]
-    C --> H[Prediction handler]
-    H -- predict --> M[Model]
-    H -- "insert + count (locked)" --> DB[(model-db)]
-    H -- "all events stored" --> Q2[(completed queue)]
-    Q2 --> B[Backend]
-    B -- "GET /examinations/{id}/analyses" --> A[HTTP API]
-    A --> DB
+    PRE["Preprocessing service"]
+    BE["Backend service"]
+
+    subgraph MQ["RabbitMQ"]
+        Q1[("combined_features queue")]
+        Q2[("completed_analyses queue")]
+    end
+
+    subgraph ML["ML microservice (this repo)"]
+        C["Consumer"]
+        H["Prediction handler"]
+        M["Model"]
+        API["HTTP API"]
+        DB[("model-db (PostgreSQL)")]
+    end
+
+    PRE -- "one message per event" --> Q1
+    Q1 -- "consume" --> C
+    C --> H
+    H -- "predict" --> M
+    H -- "write: insert + count (locked)" --> DB
+    H -- "publish when all events are stored" --> Q2
+    Q2 -- "examination_completed" --> BE
+    BE -- "GET /examinations/{id}/analyses" --> API
+    API -- "read: analyses" --> DB
+
+    classDef external stroke-dasharray: 5 5
+    class PRE,BE external
+    style MQ stroke-dasharray: 5 5
 ```
 
 ## Contents
@@ -53,7 +73,8 @@ The rule is that **every event that reaches the model step ends up as a stored r
 |---|---|
 | Malformed JSON, non-object JSON, unknown `event_type` | Message rejected, not requeued |
 | Missing or unparseable `examination_id`, `event_time_s` or `total_analyses_count`; negative or non-finite timestamp; total < 1 | Message rejected, not requeued |
-| A model feature is missing, null, NaN, infinite or non-numeric | Stored as invalid (`missing_features: ...` or `invalid_feature_values: ...`) |
+| A model feature is infinite or non-numeric / a feature key is absent | Stored as invalid (`missing_features: ...` or `invalid_feature_values: ...`) |
+| Model features are NaN or null | Stored as invalid (`null_features: ...`) unless the row's null share is within `MAX_MISSING_FEATURE_FRACTION`. |
 | The model raises | Stored as invalid (`prediction_failed`) |
 | The model output is unusable | Stored as invalid (`unusable_model_output`) |
 | Result is outside `[0, 10]` or NaN | Stored as invalid (`result_out_of_range: <value>`) |
@@ -136,6 +157,8 @@ Confidence is optional everywhere: a missing value is `NULL`, never an error. Th
 
 The regressor scores are **relative rankings, not probabilities**. The interval also never changes the prediction: the model's output is stored unchanged, even if it falls outside its interval. If the confidence step fails at runtime, the analysis is stored without confidence, and the failure is logged.
 
+When features had to be imputed, the score is multiplied by the share of features that were observed (1 minus imputed / total). The interval and the prediction are unchanged.
+
 ### CQR (conformalized quantile regression)
 
 Set `CQR_BASE_PATH` to the shared prefix of a CQR export, without the suffix:
@@ -168,6 +191,7 @@ Settings come from environment variables or a `.env` file (`core/config.py`).
 | `COMPLETED_ANALYSIS_QUEUE_NAME` or `RABBITMQ_COMPLETED_ANALYSIS_QUEUE` | `ml_microservice_completed_queue` | Queue to publish to. Must not be empty or equal the pending queue |
 | `MODEL_PATH` | none | The point model |
 | `CQR_BASE_PATH` | none | Optional; blank means disabled |
+| `MAX_MISSING_FEATURE_FRACTION` | 1.0 | Fraction between 0.0 and 1.0. Represents the highest percentage of features received that are allowed to be null for that can be accepted for prediction. |
 
 When both names of a queue variable are set, the first one listed wins.
 

@@ -2,9 +2,9 @@ from typing import Any, Dict, List, Protocol, Union
 
 
 class FeatureValidationError(ValueError):
-    def __init__(self, message: str, *, missing=(), invalid=()):
+    def __init__(self, message: str, *, missing=(), invalid=(), null=()):
         super().__init__(message)
-        self.missing, self.invalid = list(missing), list(invalid)
+        self.missing, self.invalid, self.null = list(missing), list(invalid), list(null)
         
 
 class IPredictor(Protocol):

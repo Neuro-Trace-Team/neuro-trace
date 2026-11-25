@@ -1,4 +1,4 @@
-from infrastructure.services.confidence_services import CqrConfidence, ProbabilityConfidence, build_confidence_estimator
+from infrastructure.services.confidence_services import CqrConfidence, ProbabilityConfidence, apply_missing_penalty, build_confidence_estimator
 from infrastructure.services.sklearn_predictor import SklearnPredictor
 import numpy as np
 import pytest
@@ -181,3 +181,68 @@ def test_estimator_failure_degrades_to_no_confidence(caplog):
 def test_model_info_reports_the_estimator():
     assert make_predictor(cqr(4.0, 6.0)).model_info()["confidence"]["method"] == "cqr"
     assert make_predictor().model_info()["confidence"] is None
+
+
+ROW = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+
+
+def predictor_with(estimator, max_missing=0.5):
+    p = SklearnPredictor(feature_names=list(ROW), max_missing_fraction=max_missing)
+    p.model = Const(5.0)
+    p.confidence_estimator = estimator
+    return p
+
+
+def test_confidence_is_unchanged_when_nothing_is_imputed():
+    r = predictor_with(cqr(4.0, 6.0)).predict(ROW)
+    assert r["confidence"] == pytest.approx([0.8])
+    assert r["imputed_features"] == [0]
+
+
+@pytest.mark.parametrize("nulls, factor", [(1, 0.75), (2, 0.5)])
+def test_confidence_is_scaled_by_the_share_of_observed_features(nulls, factor):
+    row = {**ROW, **{k: None for k in list(ROW)[:nulls]}}
+    r = predictor_with(cqr(4.0, 6.0)).predict(row)
+    assert r["confidence"] == pytest.approx([0.8 * factor])
+    assert r["imputed_features"] == [nulls]
+
+
+def test_prediction_and_interval_are_not_affected_by_the_penalty():
+    clean = predictor_with(cqr(4.0, 6.0)).predict(ROW)
+    gappy = predictor_with(cqr(4.0, 6.0)).predict({**ROW, "a": None})
+    assert gappy["prediction"] == clean["prediction"]
+    assert gappy["interval"] == clean["interval"]
+
+
+def test_probability_confidence_is_penalised_too():
+    p = predictor_with(ProbabilityConfidence())
+    p.model = Classifier(5.0)
+    r = p.predict({**ROW, "a": None})
+    assert r["confidence"] == pytest.approx([0.7 * 0.75])
+
+
+def test_penalty_is_applied_per_row_for_batch_input():
+    r = predictor_with(cqr(4.0, 6.0)).predict(
+        [[1.0, 2.0, 3.0, 4.0], [1.0, float("nan"), 3.0, 4.0]]
+    )
+    assert r["imputed_features"] == [0, 1]
+    assert r["confidence"] == pytest.approx([0.8, 0.6])
+
+
+def test_no_estimator_means_no_confidence_to_penalise():
+    assert predictor_with(None).predict({**ROW, "a": None})["confidence"] is None
+
+
+@pytest.mark.parametrize("scores, fractions, expected", [
+    ([0.8], [0.0], [0.8]),
+    ([0.8], [0.25], [0.6]),
+    ([1.0], [1.0], [0.0]),
+    ([0.5, 1.0], [0.0, 0.5], [0.5, 0.5]),
+])
+def test_apply_missing_penalty(scores, fractions, expected):
+    assert apply_missing_penalty(scores, fractions) == pytest.approx(expected)
+
+
+def test_apply_missing_penalty_rejects_mismatched_lengths():
+    with pytest.raises(ValueError):
+        apply_missing_penalty([0.5, 0.5], [0.1])
