@@ -6,15 +6,35 @@ It consumes one message per detected event from RabbitMQ, runs a scikit-learn-co
 
 ```mermaid
 flowchart LR
-    P[Preprocessing] -- "one message per event" --> Q1[(pending queue)]
-    Q1 --> C[Consumer]
-    C --> H[Prediction handler]
-    H -- predict --> M[Model]
-    H -- "insert + count (locked)" --> DB[(model-db)]
-    H -- "all events stored" --> Q2[(completed queue)]
-    Q2 --> B[Backend]
-    B -- "GET /examinations/{id}/analyses" --> A[HTTP API]
-    A --> DB
+    PRE["Preprocessing service"]
+    BE["Backend service"]
+
+    subgraph MQ["RabbitMQ"]
+        Q1[("combined_features queue")]
+        Q2[("completed_analyses queue")]
+    end
+
+    subgraph ML["ML microservice (this repo)"]
+        C["Consumer"]
+        H["Prediction handler"]
+        M["Model"]
+        API["HTTP API"]
+        DB[("model-db (PostgreSQL)")]
+    end
+
+    PRE -- "one message per event" --> Q1
+    Q1 -- "consume" --> C
+    C --> H
+    H -- "predict" --> M
+    H -- "write: insert + count (locked)" --> DB
+    H -- "publish when all events are stored" --> Q2
+    Q2 -- "examination_completed" --> BE
+    BE -- "GET /examinations/{id}/analyses" --> API
+    API -- "read: analyses" --> DB
+
+    classDef external stroke-dasharray: 5 5
+    class PRE,BE external
+    style MQ stroke-dasharray: 5 5
 ```
 
 ## Contents
