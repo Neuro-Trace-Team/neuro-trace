@@ -132,9 +132,9 @@ class PredictionEventHandler(IEventHandler):
             logger.exception("Prediction failed")
             return Evaluation(invalid_reason="prediction_failed")
 
-        imputed = prediction.get("imputed_features", 0)
-        if imputed:
-            logger.info("Predicting with %d imputed feature(s)", imputed)
+        imputed = prediction.get("imputed_features") or [0]
+        if imputed[0]:
+            logger.info("Predicting with %d imputed feature(s)", imputed[0])
 
         try:
             result = self._extract_result(prediction)

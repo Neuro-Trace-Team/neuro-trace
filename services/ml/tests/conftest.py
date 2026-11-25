@@ -90,6 +90,6 @@ def test_shipped_model_and_confidence_handle_a_missing_value(shipped_predictor, 
 
     r = shipped_predictor.predict(row)
 
-    assert r["imputed_features"] == 1 and len(r["prediction"]) == 1
+    assert r["imputed_features"] == [1] and len(r["prediction"]) == 1
     if shipped_predictor.confidence_estimator is not None:
         assert r["confidence"] is not None

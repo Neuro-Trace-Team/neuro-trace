@@ -15,22 +15,28 @@ from sklearn.linear_model import Ridge
 from tests.conftest import MODEL_PATH, TEST_FEATURES
 
 
-NO_CONFIDENCE = {"confidence": None, "confidence_kind": None, "interval": None, "imputed_features": 0}
+def no_confidence(rows: int = 1) -> dict:
+    return {
+        "confidence": None,
+        "confidence_kind": None,
+        "interval": None,
+        "imputed_features": [0] * rows,
+    }
 
 from tests.conftest import MODEL_PATH, TEST_FEATURES
 
 
 class DummyModelWithProba:
     def predict(self, X):
-        return np.array([1])
+        return np.ones(len(X), dtype=int)
 
     def predict_proba(self, X):
-        return np.array([[0.2, 0.8]])
+        return np.tile([0.2, 0.8], (len(X), 1))
 
 
 class DummyModelNoProba:
     def predict(self, X):
-        return np.array([0])
+        return np.zeros(len(X), dtype=int)
 
 
 def test_init():
@@ -84,11 +90,11 @@ def test_predict_with_dict_features():
 
     result = predictor.predict({"feature1": 1.5, "feature2": 2.5})
 
-    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]], **NO_CONFIDENCE}
+    assert result == {"prediction": [1], "probabilities": [[0.2, 0.8]], **no_confidence()}
     assert result == {
         "prediction": [1],
         "probabilities": [[0.2, 0.8]], 
-        **NO_CONFIDENCE
+        **no_confidence()
     }
 
 def test_predict_with_list_1d_features():
@@ -101,7 +107,7 @@ def test_predict_with_list_1d_features():
     assert result == {
         "prediction": [1],
         "probabilities": [[0.2, 0.8]], 
-        **NO_CONFIDENCE
+        **no_confidence()
     }
 
 def test_predict_with_list_2d_features():
@@ -112,9 +118,9 @@ def test_predict_with_list_2d_features():
     result = predictor.predict(features)
 
     assert result == {
-        "prediction": [1],
-        "probabilities": [[0.2, 0.8]], 
-        **NO_CONFIDENCE
+        "prediction": [1, 1],
+        "probabilities": [[0.2, 0.8], [0.2, 0.8]], 
+        **no_confidence(rows=2)
     }
 
 def test_predict_without_predict_proba():
@@ -127,8 +133,24 @@ def test_predict_without_predict_proba():
     assert result == {
         "prediction": [0],
         "probabilities": None, 
-        **NO_CONFIDENCE
+        **no_confidence()
     }
+
+@pytest.mark.parametrize("features, rows", [
+    ([1.0, 2.0], 1),
+    ([[1.0, 2.0]], 1),
+    ([[1.0, 2.0], [3.0, 4.0]], 2),
+    ([[1.0, 2.0]] * 5, 5),
+])
+def test_output_has_one_entry_per_input_row(features, rows):
+    predictor = SklearnPredictor()
+    predictor.model = DummyModelWithProba()
+
+    result = predictor.predict(features)
+
+    assert len(result["prediction"]) == rows
+    assert len(result["probabilities"]) == rows
+    assert len(result["imputed_features"]) == rows
 
 class RecordingModel:
     """Captures the DataFrame it receives."""
@@ -363,11 +385,11 @@ def test_nulls_within_the_limit_reach_the_model_as_nan(null_value):
     p = predictor_with(0.25)                               # 1 of 4 allowed
     r = p.predict({"a": 1, "b": null_value, "c": 3, "d": 4})
     assert np.isnan(p.model.X.iloc[0]["b"])
-    assert r["imputed_features"] == 1
+    assert r["imputed_features"] == [1]
 
 
 def test_complete_rows_report_zero_imputed_features():
-    assert predictor_with(0.25).predict({"a": 1, "b": 2, "c": 3, "d": 4})["imputed_features"] == 0
+    assert predictor_with(0.25).predict({"a": 1, "b": 2, "c": 3, "d": 4})["imputed_features"] == [0]
 
 
 def test_more_nulls_than_the_limit_are_rejected():

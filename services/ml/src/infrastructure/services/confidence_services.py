@@ -130,3 +130,8 @@ def build_confidence_estimator(model, *, feature_names, cqr_base_path, point_met
     if hasattr(model, "predict_proba"):
         return ProbabilityConfidence()
     return None
+
+
+def apply_missing_penalty(values: Sequence[float], missing_fractions: Sequence[float]) -> list[float]:
+    """Scale each score by the share of features that were actually observed (one fraction per row)."""
+    return [float(v) * (1.0 - float(f)) for v, f in zip(values, missing_fractions, strict=True)]

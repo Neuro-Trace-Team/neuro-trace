@@ -1,3 +1,4 @@
+from dataclasses import replace
 import hashlib
 import json
 import logging
@@ -7,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 from domain.services.iconfidence_estimator import Confidence, IConfidenceEstimator
-from infrastructure.services.confidence_services import build_confidence_estimator
+from infrastructure.services.confidence_services import apply_missing_penalty, build_confidence_estimator
 import joblib
 import numpy as np
 import pandas as pd
@@ -93,25 +94,27 @@ class SklearnPredictor(IPredictor):
                     "Expected %d features, got %d" % (len(self.feature_names), X.shape[1])
                 )
 
-        imputed = int(np.isnan(np.asarray(X, dtype=float)).sum())
+        arr = np.asarray(X, dtype=float)
+        imputed = np.isnan(arr).sum(axis=1) 
 
         prediction = self.model.predict(X)
         probabilities = self.model.predict_proba(X) if hasattr(self.model, "predict_proba") else None
-        confidence = self._estimate_confidence(X, prediction, probabilities)
+        confidence = self._estimate_confidence(X, prediction, probabilities, imputed / arr.shape[1])
         return {
             "prediction": prediction.tolist(),
             "probabilities": None if probabilities is None else probabilities.tolist(),
             "confidence": None if confidence is None else confidence.values,
             "confidence_kind": None if confidence is None else confidence.kind,
             "interval": None if confidence is None else confidence.interval,
-            "imputed_features": imputed,
+            "imputed_features": imputed.tolist(),
         }
 
-    def _estimate_confidence(self, X, prediction, probabilities) -> Confidence | None:
+    def _estimate_confidence(self, X, prediction, probabilities, missing_fractions) -> Confidence | None:
         if self.confidence_estimator is None:
             return None
         try:
-            return self.confidence_estimator.estimate(X, prediction, probabilities)
+            c = self.confidence_estimator.estimate(X, prediction, probabilities)
+            return replace(c, values=apply_missing_penalty(c.values, missing_fractions))
         except Exception:
             logger.exception("Confidence estimation failed; returning the prediction without confidence")
             return None
@@ -237,6 +240,9 @@ class SklearnPredictor(IPredictor):
             "artifact_sha256": self._artifact_sha256,
             "metadata": {k: v for k, v in self._metadata.items() if k in INFO_METADATA_KEYS},
             "feature_names_sha256": hashlib.sha256("\n".join(self.feature_names or []).encode()).hexdigest(),
-            "confidence": self.confidence_estimator.info() if self.confidence_estimator else None,
+            "confidence": None if self.confidence_estimator is None else {
+                **self.confidence_estimator.info(), 
+                "missing_value_penalty": "1 - missing_fraction",
+            },
             "max_missing_fraction": self.max_missing_fraction,
         }
