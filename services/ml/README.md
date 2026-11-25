@@ -53,7 +53,8 @@ The rule is that **every event that reaches the model step ends up as a stored r
 |---|---|
 | Malformed JSON, non-object JSON, unknown `event_type` | Message rejected, not requeued |
 | Missing or unparseable `examination_id`, `event_time_s` or `total_analyses_count`; negative or non-finite timestamp; total < 1 | Message rejected, not requeued |
-| A model feature is missing, null, NaN, infinite or non-numeric | Stored as invalid (`missing_features: ...` or `invalid_feature_values: ...`) |
+| A model feature is infinite or non-numeric / a feature key is absent | Stored as invalid (`missing_features: ...` or `invalid_feature_values: ...`) |
+| Model features are NaN or null | Stored as invalid (`null_features: ...`) unless the row's null share is within `MAX_MISSING_FEATURE_FRACTION`. |
 | The model raises | Stored as invalid (`prediction_failed`) |
 | The model output is unusable | Stored as invalid (`unusable_model_output`) |
 | Result is outside `[0, 10]` or NaN | Stored as invalid (`result_out_of_range: <value>`) |
@@ -136,6 +137,8 @@ Confidence is optional everywhere: a missing value is `NULL`, never an error. Th
 
 The regressor scores are **relative rankings, not probabilities**. The interval also never changes the prediction: the model's output is stored unchanged, even if it falls outside its interval. If the confidence step fails at runtime, the analysis is stored without confidence, and the failure is logged.
 
+When features had to be imputed, the score is multiplied by the share of features that were observed (1 minus imputed / total). The interval and the prediction are unchanged.
+
 ### CQR (conformalized quantile regression)
 
 Set `CQR_BASE_PATH` to the shared prefix of a CQR export, without the suffix:
@@ -168,6 +171,7 @@ Settings come from environment variables or a `.env` file (`core/config.py`).
 | `COMPLETED_ANALYSIS_QUEUE_NAME` or `RABBITMQ_COMPLETED_ANALYSIS_QUEUE` | `ml_microservice_completed_queue` | Queue to publish to. Must not be empty or equal the pending queue |
 | `MODEL_PATH` | none | The point model |
 | `CQR_BASE_PATH` | none | Optional; blank means disabled |
+| `MAX_MISSING_FEATURE_FRACTION` | 1.0 | Fraction between 0.0 and 1.0. Represents the highest percentage of features received that are allowed to be null for that can be accepted for prediction. |
 
 When both names of a queue variable are set, the first one listed wins.
 
